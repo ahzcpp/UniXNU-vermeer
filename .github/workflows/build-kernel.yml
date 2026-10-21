@@ -31,8 +31,12 @@ on:
 
 jobs:
   kernel:
-    runs-on: macos-14
-    timeout-minutes: 180
+    # xnu-10063.141.1 expects the Xcode 16 tools: mig gained -mach_msg2 there, and the
+    # DriverKit iig output of the 15.x toolchain does not compile against 141.1's headers
+    # (OSObject.iig.cpp used IORPCMessageFromMach without a declaration). macos-15 ships
+    # Xcode 16.x; macos-14 defaults to 15.4.
+    runs-on: macos-15
+    timeout-minutes: 240
 
     steps:
       - name: Checkout device repository (UniXNU-vermeer)
@@ -52,6 +56,9 @@ jobs:
       - name: Show toolchain
         run: |
           xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --find mig
+          mig -help 2>&1 | grep -c mach_msg2 || true
           clang --version
           python3 --version
           ls /opt/homebrew/opt/llvm/bin/clang /opt/homebrew/opt/lld/bin/ld.lld
@@ -118,7 +125,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential nasm uuid-dev gettext python3 python3-pip \
-            clang lld llvm gcc-aarch64-linux-gnu git curl
+            clang lld llvm gcc-aarch64-linux-gnu device-tree-compiler git curl
           python3 -m pip install --break-system-packages -r uefi/pip-requirements.txt
 
       - name: Show toolchain
@@ -136,6 +143,10 @@ jobs:
           # EDK II CLANGPDB expects the aarch64 binutils under this prefix.
           CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The board preflight (scripts/check-vermeer.py) cross-checks MemoryMapLib against
+          # the stock uefiplat.cfg and needs the Mu-Silicium checkout; it reads UNIXNU_UEFI
+          # because the driver runs preflight without --uefi.
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi
         run: |
           python3 unixnu/unixnu build package firmware \
             -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" \
