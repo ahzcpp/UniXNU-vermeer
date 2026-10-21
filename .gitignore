@@ -43,3 +43,8 @@ __pycache__/
 *.key
 .env
 local.toml
+
+# The device tree is a compiled artifact, but this one is a qualification input of the
+# board (scripts/check-vermeer.py checks MemoryMapLib against its reservations, and the
+# boot image appends it), so it belongs in the repository.
+!scripts/data/*.dtb
