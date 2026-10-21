@@ -15,7 +15,7 @@ CASES = [
     ('nvt-protocol', ['drivers/NativeNovatekTouch/Test/nvt-protocol.c', 'drivers/NativeNovatekTouch/NvtProtocol.c'],
      [str(FW)] if FW.is_file() else []),
     ('touch-core', ['drivers/NativeNovatekTouch/Test/touch-core.c', 'drivers/NativeNovatekTouch/NvtTouchCore.c'], []),
-    ('touch-board', ['kits/sheng/TouchBoardTests.c'], []),
+    ('touch-board', ['kits/vermeer/TouchBoardTests.c'], []),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:

@@ -167,7 +167,7 @@ def code(data,info):
     sec=next(s for g in info['segments'] for s in g['sections'] if s['name']=='__text');return data[sec['fileoff']:sec['fileoff']+sec['size']]
 require(code(raw,image)==code(late.read_bytes(),macho(late.read_bytes())),'Only owned initializer section registration changes')
 r=json.loads((ROOT/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json').read_text().strip().rstrip(','))
-cmd=[];args=r['arguments'];i=0;source=ROOT/'kits/sheng/LegacyDisplayProbe.cpp'
+cmd=[];args=r['arguments'];i=0;source=ROOT/'kits/vermeer/LegacyDisplayProbe.cpp'
 while i<len(args):
     value=args[i]
     if value==r['file']:cmd.append(str(source))
@@ -178,15 +178,15 @@ while i<len(args):
 cmd+=['-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unnecessary-virtual-specifier','-Wno-c99-designator','-Wno-reorder-init-list',
       '-Wno-deprecated-enum-enum-conversion','-I',str(ROOT/'.cache/xnu-work/osfmk')]
 run(cmd,cwd=r['directory'])
-hid_source=ROOT/'kits/sheng/HidInputProbe.cpp'
+hid_source=ROOT/'kits/vermeer/HidInputProbe.cpp'
 hid_obj=OUT/'HidInputProbe.o'
 hid_cmd=[str(hid_source) if str(arg)==str(source) else str(hid_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]
 run(hid_cmd,cwd=r['directory'])
-keystore_source=ROOT/'kits/sheng/KeyStoreProbe.cpp'
+keystore_source=ROOT/'kits/vermeer/KeyStoreProbe.cpp'
 keystore_obj=OUT/'KeyStoreProbe.o'
 keystore_cmd=[str(keystore_source) if str(arg)==str(source) else str(keystore_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]
 run(keystore_cmd,cwd=r['directory'])
-process_source=ROOT/'kits/sheng/BootProcessProbe.c'
+process_source=ROOT/'kits/vermeer/BootProcessProbe.c'
 process_obj=OUT/'BootProcessProbe.o'
 pr=json.loads((ROOT/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json').read_text().strip().rstrip(','))
 process_cmd=[];pa=pr['arguments'];j=0
@@ -201,24 +201,24 @@ while j<len(pa):
     j+=1
 process_cmd+=['-Wall','-Wextra','-Werror','-mgeneral-regs-only','-I',str(ROOT/'.cache/xnu-work/osfmk')]
 run(process_cmd,cwd=pr['directory'])
-trace_source=ROOT/'kits/sheng/BootUiTraceProbe.c'
+trace_source=ROOT/'kits/vermeer/BootUiTraceProbe.c'
 trace_obj=OUT/'BootUiTraceProbe.o'
 trace_cmd=[str(trace_source) if arg==str(process_source) else str(trace_obj) if arg==str(process_obj) else arg for arg in process_cmd]
 run(trace_cmd,cwd=pr['directory'])
 # UFS diagnostic log writer (sheng-log=1) and the guarded fastboot reset (sheng-autoreset=<seconds>).
-log_source=ROOT/'kits/sheng/BootLog.c'
+log_source=ROOT/'kits/vermeer/BootLog.c'
 log_obj=OUT/'BootLog.o'
-run([str(log_source) if arg==str(process_source) else str(log_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/sheng')],cwd=pr['directory'])
-reset_source=ROOT/'kits/sheng/BootReset.c'
+run([str(log_source) if arg==str(process_source) else str(log_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/vermeer')],cwd=pr['directory'])
+reset_source=ROOT/'kits/vermeer/BootReset.c'
 reset_obj=OUT/'BootReset.o'
-run([str(reset_source) if arg==str(process_source) else str(reset_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/sheng')],cwd=pr['directory'])
+run([str(reset_source) if arg==str(process_source) else str(reset_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/vermeer')],cwd=pr['directory'])
 # Default-off touch bring-up: C++ board probe plus the generic GENI SPI and Novatek protocol/touch libraries, compiled with the
 # kernel C flags, and the firmware object generated from the copy kept outside Git.
-cmd+=['-I',str(ROOT/'kits/sheng'),'-I',str(ROOT/'drivers/NativeGeniSpi'),'-I',str(ROOT/'drivers/NativeNovatekTouch')]
+cmd+=['-I',str(ROOT/'kits/vermeer'),'-I',str(ROOT/'drivers/NativeGeniSpi'),'-I',str(ROOT/'drivers/NativeNovatekTouch')]
 touch_dir=OUT/'touch';touch_dir.mkdir(exist_ok=True)
-touch_cpp=ROOT/'kits/sheng/TouchProbe.cpp';touch_cpp_obj=touch_dir/'TouchProbe.o'
-cpufreq_cpp=ROOT/'kits/sheng/CpuFreqProbe.cpp';cpufreq_obj=touch_dir/'CpuFreqProbe.o'
-gpupower_cpp=ROOT/'kits/sheng/GpuPowerProbe.cpp';gpupower_obj=touch_dir/'GpuPowerProbe.o'
+touch_cpp=ROOT/'kits/vermeer/TouchProbe.cpp';touch_cpp_obj=touch_dir/'TouchProbe.o'
+cpufreq_cpp=ROOT/'kits/vermeer/CpuFreqProbe.cpp';cpufreq_obj=touch_dir/'CpuFreqProbe.o'
+gpupower_cpp=ROOT/'kits/vermeer/GpuPowerProbe.cpp';gpupower_obj=touch_dir/'GpuPowerProbe.o'
 run([str(touch_cpp) if str(arg)==str(source) else str(touch_cpp_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
 run([str(gpupower_cpp) if str(arg)==str(source) else str(gpupower_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]+['-I',str(ROOT/'drivers/NativeAdreno'),'-I',str(ROOT/'kits/ArmSmmu4K'),'-I',str(ROOT/'kits/AdrenoFirmware'),'-I',str(ROOT/'kits/AdrenoPM4')],cwd=r['directory'])
 run([str(cpufreq_cpp) if str(arg)==str(source) else str(cpufreq_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
@@ -243,9 +243,9 @@ require(code((keyevents/'NativeKeyStoreEvents.o').read_bytes(),macho((keyevents/
 run(['xcrun','ar','rcs',archive,late,OUT/'original-bindings.o',OUT/'LegacyDisplayProbe.o',hid_obj,keystore_obj,process_obj,trace_obj,log_obj,reset_obj,
      hid_dir/'NativeHidInput.late.o',hid_dir/'hid-original-bindings.o',keyevents_late,touch_cpp_obj,cpufreq_obj,gpupower_obj,*touch_objs])
 sources=[ROOT/'drivers/NativeMobileDisplay/NativeLegacyDisplay.cpp',
-         ROOT/'drivers/NativeMobileDisplay/NativeLegacyRequest.h',source,hid_source,keystore_source,process_source,trace_source,log_source,reset_source,ROOT/'kits/sheng/BootResetCore.h',ROOT/'kits/sheng/BootUiTraceCore.h',ROOT/'kits/sheng/BootUiTraceDetails.h',
+         ROOT/'drivers/NativeMobileDisplay/NativeLegacyRequest.h',source,hid_source,keystore_source,process_source,trace_source,log_source,reset_source,ROOT/'kits/vermeer/BootResetCore.h',ROOT/'kits/vermeer/BootUiTraceCore.h',ROOT/'kits/vermeer/BootUiTraceDetails.h',
          ROOT/'drivers/NativeHidInput/NativeHidInput.cpp',ROOT/'scripts/build-native-hid-input.py',
-         ROOT/'drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp',touch_cpp,cpufreq_cpp,ROOT/'kits/sheng/TouchBoard.h',
+         ROOT/'drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp',touch_cpp,cpufreq_cpp,ROOT/'kits/vermeer/TouchBoard.h',
          ROOT/'drivers/NativeGeniSpi/GeniSpi.c',ROOT/'drivers/NativeGeniSpi/GeniSpi.h',ROOT/'drivers/NativeNovatekTouch/NvtProtocol.c',
          ROOT/'drivers/NativeNovatekTouch/NvtProtocol.h',ROOT/'drivers/NativeNovatekTouch/NvtTouchCore.c',ROOT/'drivers/NativeNovatekTouch/NvtTouchCore.h']
 print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeGOPPresenter'],text=True),end='')

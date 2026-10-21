@@ -39,7 +39,7 @@ volatile uint32_t native_touch_count;
 volatile int native_touch_xs[NVT_SLOTS], native_touch_ys[NVT_SLOTS], native_touch_ids[NVT_SLOTS];
 // Finished strokes as published (int-150, for edge gestures that did nothing in int-148/149): a ring of {start ms, duration ms, first x, first y,
 // last x, last y, frames} in published units (0.1 px, y already mirrored), and the extent every published contact reached {min x, max x,
-// min y, max y}. Read by kits/sheng BootLog.c.
+// min y, max y}. Read by kits/vermeer BootLog.c.
 volatile int32_t native_touch_strokes[16][7];
 volatile uint32_t native_touch_stroke_count;
 volatile int32_t native_touch_extent[4] = {0x7fffffff, -1, 0x7fffffff, -1};
