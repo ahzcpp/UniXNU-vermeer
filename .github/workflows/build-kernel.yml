@@ -58,11 +58,11 @@ jobs:
 
       - name: Configure (defconfig vermeer)
         run: |
-          python3 unixnu/unixnu -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" defconfig vermeer
+          python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
       - name: Build kernel (XNU + prelink, kernelcache from the IPSW)
         run: |
-          python3 unixnu/unixnu -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" build kernel
+          python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
       - name: Upload prelinked kernel
         uses: actions/upload-artifact@v4
