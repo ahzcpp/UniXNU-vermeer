@@ -729,8 +729,19 @@ PY_BINDINGS
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $ROOT/build/boot-progress/libBootProgress.a"
   fi
   KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES ${XNU_EXTRA_LD_ARCHIVES:-}"
-  EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$KERNEL_EXTRA_ARCHIVES")
-  EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$KERNEL_ARCHIVE_DEPENDENCIES")
+  if [ "$BOOTSTRAP_RECORDS" = 0 ]; then
+    EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$KERNEL_EXTRA_ARCHIVES")
+    EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$KERNEL_ARCHIVE_DEPENDENCIES")
+  else
+    # patches/xnu/external-archive-dependencies.patch makes the external archives a
+    # prerequisite of the kernel link. A prerequisite that cannot be made stops make
+    # before the link recipe runs, so the recipe never writes link.filelist - the file
+    # the archive builders read their symbol names from. The bootstrap pass therefore
+    # links against nothing: the recipe writes link.filelist on its first line and then
+    # ld reports the kernel symbols that only the archives provide, which is the
+    # expected outcome of this pass.
+    EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=" "XNU_EXTERNAL_KERNEL_ARCHIVES=")
+  fi
 fi
 if [ "$BOOTSTRAP_RECORDS" = 0 ]; then
 python3 - "${XNU_NATIVE_AES:-0}" "${XNU_NATIVE_AES_ARCHIVE:-$ROOT/build/native-aes/libNativeAES.a}" \
