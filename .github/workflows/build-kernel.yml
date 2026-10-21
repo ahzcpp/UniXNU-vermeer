@@ -1,0 +1,82 @@
+name: build-kernel
+
+# Build the XNU kernel (kernel.macho) for Redmi K70 (vermeer) on a GitHub macOS runner.
+#
+# Why macOS: the kernel step needs xcodebuild (iphoneos SDK) plus the Homebrew LLVM/LLD
+# toolchain (scripts/unixnu/kernel.py puts /opt/homebrew/opt/llvm/bin first on PATH).
+#
+# Layout on the runner:
+#   $GITHUB_WORKSPACE          this device repository (UniXNU-vermeer, passed via -D)
+#   $GITHUB_WORKSPACE/unixnu   UniXNU build system checkout (submodules: recursive)
+#   $GITHUB_WORKSPACE/out      build output (--out; out/vermeer/kernel/kernel.macho)
+#
+# The IPSW is NOT downloaded in full: ipsw.py range-reads the kernelcache and the other
+# components listed in board.toml [ipsw] fetch straight from the Apple CDN; out/ipsw is
+# cached between runs.
+#
+# Later, once uefi-vermeer is pushed, extend this file with a firmware job:
+#   checkout uefi-vermeer -> unixnu ... --uefi <uefi-checkout> build package firmware
+#   -> bootimg (needs --unique-chip-id and the DTB of the device).
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  kernel:
+    runs-on: macos-14
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout device repository (UniXNU-vermeer)
+        uses: actions/checkout@v4
+
+      - name: Checkout UniXNU build system (with submodules)
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          submodules: recursive
+          path: unixnu
+
+      - name: Install build dependencies
+        run: |
+          brew install git make cmake ninja unifdef llvm lld
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          clang --version
+          python3 --version
+          ls /opt/homebrew/opt/llvm/bin/clang /opt/homebrew/opt/lld/bin/ld.lld
+
+      - name: Cache IPSW components
+        uses: actions/cache@v4
+        with:
+          path: out/ipsw
+          key: ipsw-${{ runner.os }}-${{ hashFiles('board.toml') }}
+
+      - name: Configure (defconfig vermeer)
+        run: |
+          python3 unixnu/unixnu -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" defconfig vermeer
+
+      - name: Build kernel (XNU + prelink, kernelcache from the IPSW)
+        run: |
+          python3 unixnu/unixnu -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" build kernel
+
+      - name: Upload prelinked kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-kernel
+          path: |
+            out/vermeer/kernel/kernel.macho
+            out/vermeer/kernel/kernel.macho.json
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-kernel-logs
+          path: out/vermeer/logs/
+          if-no-files-found: warn
