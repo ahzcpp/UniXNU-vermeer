@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import subprocess
+import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +29,8 @@ DESTINATION = Path('.cache/xnu-work/iokit/DriverKit')
 TRUST_DESTINATION = Path('.cache/xnu-work/EXTERNAL_HEADERS/TrustCache')
 REPOSITORY = 'https://github.com/apple-oss-distributions/xnu.git'
 SOURCES = Path('.cache/sources')
+# The three restores run concurrently; only one of them may set up the reference checkout.
+_CHECKOUT_LOCK = threading.Lock()
 
 
 def blob_hash(data):
@@ -35,20 +38,30 @@ def blob_hash(data):
 
 
 def reference_checkout(tag):
-    """A shallow clone that carries `tag`; the same checkout is reused for every tag."""
+    """A shallow clone that carries `tag`; the same checkout is reused for every tag.
+
+    The three restores run in a thread pool, so two of them can enter here at the
+    same time. `git init` refuses a directory that already exists and then fails
+    with "could not lock config file ... File exists", which pushed the whole run
+    onto the rate-limited API. Serialise the setup with a lock and make every step
+    idempotent.
+    """
     directory = SOURCES / 'xnu-reference'
-    if not (directory / '.git').is_dir():
+    with _CHECKOUT_LOCK:
         directory.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(['git', 'init', '-q', str(directory)], check=True)
-        subprocess.run(['git', '-C', str(directory), 'remote', 'add', 'origin', REPOSITORY], check=True)
-    have = subprocess.run(['git', '-C', str(directory), 'rev-parse', '--verify', '--quiet', f'refs/tags/{tag}^{{commit}}'],
-                          capture_output=True, text=True)
-    if have.returncode:
-        # A shallow tag fetch of apple-oss-distributions/xnu is a few hundred KiB of trees and blobs.
-        result = subprocess.run(['git', '-C', str(directory), 'fetch', '-q', '--depth', '1', 'origin', f'tag', tag],
-                                capture_output=True, text=True)
-        if result.returncode:
-            raise RuntimeError(result.stderr.strip() or f'git fetch {tag} failed')
+        if not (directory / '.git').is_dir():
+            subprocess.run(['git', 'init', '-q', str(directory)], check=True)
+        remotes = subprocess.run(['git', '-C', str(directory), 'remote'], capture_output=True, text=True, check=True).stdout
+        if 'origin' not in remotes.split():
+            subprocess.run(['git', '-C', str(directory), 'remote', 'add', 'origin', REPOSITORY], check=True)
+        have = subprocess.run(['git', '-C', str(directory), 'rev-parse', '--verify', '--quiet', f'refs/tags/{tag}^{{commit}}'],
+                              capture_output=True, text=True)
+        if have.returncode:
+            # A shallow tag fetch of apple-oss-distributions/xnu is a few hundred KiB of trees and blobs.
+            result = subprocess.run(['git', '-C', str(directory), 'fetch', '-q', '--depth', '1', 'origin', f'tag', tag],
+                                    capture_output=True, text=True)
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or f'git fetch {tag} failed')
     return directory
 
 
@@ -102,7 +115,10 @@ def api_restore(tag, path, destination, relative_to=None):
     for entry in entries:
         if entry['type'] != 'file' or not entry['name'].endswith('.h'):
             continue
-        relative = entry['name']
+        # The API lists a subdirectory by file name only; keep the crypto/ prefix that the
+        # DriverKit headers include as <DriverKit/crypto/sha2.h>.
+        subdirectory = Path(path).name if relative_to else ''
+        relative = f'{subdirectory}/{entry["name"]}' if subdirectory else entry['name']
         target = destination / relative
         if target.exists():
             continue
