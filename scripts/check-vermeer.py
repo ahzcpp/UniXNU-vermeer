@@ -61,7 +61,9 @@ if __name__ == '__main__':
     if not rows or len(rows) > 128:
         errors.append('Empty map or descriptor capacity exceeded')
     for name, base, size in reservations:
-        if not any(a == base and s == size and re.search(r'\bReserv\b', attrs)
+        # A descriptor may be page-rounded past the DT extent (dump_display_region is 0x800), so
+        # containment counts as covered; the covering descriptor must still be a reservation.
+        if not any(a <= base and base + size <= a + s and re.search(r'\bReserv\b', attrs)
                    for _, a, s, attrs in rows):
             errors.append(f'Missing reservation: {name}')
     for index, (name, base, size, _) in enumerate(rows):

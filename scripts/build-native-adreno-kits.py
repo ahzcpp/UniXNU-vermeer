@@ -39,7 +39,7 @@ for source in sources:
         i += 1
     command += ['-I', str(ROOT / 'kits/vermeer'), '-I', str(ROOT / 'kits/AdrenoFirmware'),
                 '-I', str(ROOT / 'build/sheng-gmu'), '-I', str(ROOT / 'kits/AdrenoPM4'), '-I', str(ROOT / 'kits/ArmSmmu4K'), '-I', str(ROOT / '.cache/xnu-work/osfmk'),
-                '-I', str(ROOT / 'drivers/NativeAdreno'), '-Wall', '-Wextra', '-Werror',
+                '-I', str(ROOT / 'drivers/NativeAdreno'), '-Wall', '-Wextra', '-Werror', '-Wno-unknown-warning-option',
                 '-Wno-unused-parameter', '-Wno-incompatible-sysroot', '-Wno-c99-designator',
                 '-Wno-reorder-init-list', '-Wno-deprecated-enum-enum-conversion',
                 '-Wno-unnecessary-virtual-specifier']
