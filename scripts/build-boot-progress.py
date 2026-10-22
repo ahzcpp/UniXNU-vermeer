@@ -29,9 +29,11 @@ while i < len(args):
     elif not arg.startswith(('-W', '-DXNU_BOOT_PROGRESS=')):
         command.append(arg)
     i += 1
+# The diagnostic's 5x12 glyph table is a verbatim copy of the Mu-Silicium FrameBufferSerialPortLib Font.h kept in
+# kits/vermeer (the kernel job has no UEFI checkout, so the font cannot be read from a sibling uefi tree).
 command += ['-DXNU_BOOT_PROGRESS=1', '-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror',
             '-I', str(ROOT / '.cache/xnu-work/osfmk'),
-            '-I', str(ROOT / 'uefi-sheng/Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib')]
+            '-I', str(ROOT / 'kits/vermeer')]
 subprocess.run(command, cwd=record['directory'], check=True, timeout=90)
 (OUT / 'compile-command.json').write_text(json.dumps(command,indent=2)+'\n')
 fault_source = ROOT / 'kits/vermeer/BootFaultProbe.c'
