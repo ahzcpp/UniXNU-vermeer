@@ -98,6 +98,84 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
           if-no-files-found: warn
 
+  # The documented Linux kernel path (unixnu.com/zh/building): scripts/linux/setup-toolchain.py
+  # supplies patched clang, cctools-port (ld64/nm/lipo), mig, iig-port and lzfse in place of the
+  # Apple tools, so the kernel stops depending on macOS arm64 runner capacity -- three runs in a
+  # row were killed in the queue with "The job was not acquired by Runner of type hosted even
+  # after multiple attempts". The toolchain is built from source once and cached; a cache hit
+  # leaves setup-toolchain.py only its /usr/bin shims to install.
+  #
+  # This job is additive: it uploads its own artifact and the macos-15 "kernel" job above is
+  # untouched, so neither route can break the other.
+  kernel-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      UNIXNU_TOOLCHAIN: /home/runner/unixnu-linux
+
+    steps:
+      - name: Checkout device repository (UniXNU-vermeer)
+        uses: actions/checkout@v4
+
+      - name: Checkout UniXNU build system (with submodules)
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          submodules: recursive
+          path: unixnu
+
+      - name: Cache the Linux kernel toolchain
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UNIXNU_TOOLCHAIN }}
+          key: unixnu-linux-toolchain-${{ hashFiles('unixnu/scripts/linux/setup-toolchain.py') }}
+
+      - name: Install the Linux toolchain
+        run: |
+          sudo python3 unixnu/scripts/linux/setup-toolchain.py "$UNIXNU_TOOLCHAIN"
+
+      - name: Show toolchain
+        run: |
+          "$UNIXNU_TOOLCHAIN/llvm/bin/clang" --version | head -n 1
+          ls -l "$UNIXNU_TOOLCHAIN/CommandLineTools/usr/bin/ld" \
+                "$UNIXNU_TOOLCHAIN/CommandLineTools/usr/libexec/migcom" \
+                "$UNIXNU_TOOLCHAIN/XcodeDefault.xctoolchain/usr/bin/iig" \
+                "$UNIXNU_TOOLCHAIN/bin/lzfse" /usr/bin/xcrun
+          dtc --version | head -n 1
+
+      - name: Cache IPSW components
+        uses: actions/cache@v4
+        with:
+          path: out/ipsw
+          key: ipsw-linux-${{ hashFiles('board.toml') }}
+
+      - name: Configure (defconfig vermeer)
+        run: |
+          python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
+
+      - name: Build kernel (XNU + prelink, kernelcache from the IPSW)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
+
+      - name: Upload prelinked kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-kernel-linux
+          path: |
+            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho
+            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-kernel-linux-logs
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
+          if-no-files-found: warn
+
   firmware:
     runs-on: ubuntu-24.04
     timeout-minutes: 120

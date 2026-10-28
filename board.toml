@@ -106,6 +106,14 @@ roots = [
   "com.apple.iokit.IOHIDEventDriver",
 ]
 
+# Format 2 compiles this board DTS and hands the result to the shared ADT generator
+# (unixnu/payload.py -> devicetree.compile_hardware). All SoC resources come from the
+# pinned sm8550 DTSI; this file carries only the board values. The memory size must
+# equal [payload] dram_size - devicetree.generate() refuses a mismatch.
+[device_tree]
+source = "device:dts/vermeer.dts"
+include_dirs = ["soc:dts"]
+
 [components]
 include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "VerifiedRoot",
            "Adreno740", "XnuPrelink", "DarwinBoot"]
@@ -197,13 +205,10 @@ kernel_args = [
 ]
 
 [payload.adt]
-tool = "scripts/make-vermeer-adt.py"
 chip_id = "207"
 owned_memory_size = "0x130000000"
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
-cpu_regs = "0,0x100,0x200,0x300,0x400,0x500,0x600,0x700"
 packed_data_ramdisk = true
-ipad_identity = true
 unique_chip_id = "required"          # the platform seed is not stored in any repository
 
 # Image parameters come from the Mu-Silicium device config; [bootimg.image] would override them.
