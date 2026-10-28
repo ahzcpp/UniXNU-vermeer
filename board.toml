@@ -105,7 +105,7 @@ roots = [
 ]
 
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "NativeAES", "NativeUfs", "NativeAdreno", "XnuPrelink", "DarwinBoot", "GopFramebuffer", "QcomGeniSpi", "AppleKeyStoreState", "ShengPreflight", "NativeNovatekTouch"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "Adreno740", "AdrenoPM4", "AdrenoFirmware", "ArmSmmu4K", "GopFramebuffer", "QcomGeniSpi", "AppleKeyStoreState", "XnuPrelink", "DarwinBoot"]
 
 [firmware]
 config = "vermeer"                 # Resources/Configs/vermeer.toml in the Mu-Silicium checkout (--uefi)
