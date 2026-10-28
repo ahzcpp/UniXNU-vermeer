@@ -1,3 +1,5 @@
+"schema_version" = 2
+
 # Board description of the Redmi K70 (vermeer, SM8550), read by the unixnu build driver.
 # Ported from the proven sheng (Xiaomi Pad 6S Pro) board: same SM8550 SoC, same stock UEFI
 # memory windows (uefiplat.cfg of the K70 OS1.0.x firmware confirms: UEFI FD 0xA7000000,
@@ -8,6 +10,8 @@ name = "vermeer"
 soc = "SM8550"
 description = "Redmi K70"
 kit = "vermeer"                    # the package/ of this repository appears as kits/vermeer in the build tree
+soc_source = "sm8550"
+os_profile = "ipados-17.7.11-21H461"
 
 # The target OS image: the unchanged iPad7,1 iPadOS 17.7.11 restore image, identical to sheng
 # (the whole qualified chain - prelink roots, trust caches, kernel args - targets this build).
@@ -38,6 +42,8 @@ windows = [
 
 [kernel]
 defconfig = "vermeer_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8550.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
 # Archive builders of the kernel step, in order (SoC-level components, as sheng).
 # The VirtIO block/ram-block builders and their storage-binding post-processing are absent:
 # build-native-virtio-bindings.py reads build/storage-abi/interface-audit.json, which is
@@ -51,7 +57,6 @@ archives = [
   "build-native-aes-bindings.py",
   "build-arm-driver.py NativeUfs",
   "build-mockfs-fixture.py",
-  "build-sheng-platform-power.py",
   "build-libpthread-kernel.py",
   "build-arm-driver.py NativeAdreno",
   "build-native-adreno-kits.py",
@@ -98,6 +103,9 @@ roots = [
   "com.apple.iokit.IOHIDFamily",
   "com.apple.iokit.IOHIDEventDriver",
 ]
+
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "NativeAES", "NativeUfs", "NativeAdreno", "XnuPrelink", "DarwinBoot", "GopFramebuffer", "QcomGeniSpi", "AppleKeyStoreState", "ShengPreflight", "NativeNovatekTouch"]
 
 [firmware]
 config = "vermeer"                 # Resources/Configs/vermeer.toml in the Mu-Silicium checkout (--uefi)
