@@ -105,6 +105,9 @@ roots = [
   "com.apple.iokit.IOHIDEventDriver",
 ]
 
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "RamBlock", "Adreno740", "AdrenoMetal", "GopFramebuffer", "ShengHidInput", "ShengNovatekTouch", "QcomGeniSpi", "AppleKeyStoreState", "XnuPrelink", "DarwinBoot"]
+
 [firmware]
 config = "vermeer"                 # Resources/Configs/vermeer.toml in the Mu-Silicium checkout (--uefi)
 dsc = "Platforms/Xiaomi/vermeerPkg/vermeer.dsc"
