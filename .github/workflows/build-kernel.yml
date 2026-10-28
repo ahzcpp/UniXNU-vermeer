@@ -249,6 +249,86 @@ jobs:
             uefi/Build/vermeerPkg/*/AARCH64/*.txt
           if-no-files-found: warn
 
+  # Stages 1 and 2 of the bring-up order (unixnu.com/zh/porting/bring-up): get the firmware into
+  # UEFI and the UniXNU menu onto the panel. Those stages need the firmware volume and a compiled
+  # device tree -- no kernel, no payload and no platform seed -- so this job depends on firmware
+  # alone and packs the empty-ramdisk image the bring-up doc asks for:
+  #   ./unixnu bootimg --uefi <Mu-Silicium> --dtb board.dtb --ramdisk none
+  # The existing bootimg job below needs [kernel, firmware], so while the macos-15 kernel job keeps
+  # being cancelled in the queue it is skipped and no image is produced at all.
+  bootimg-menu:
+    runs-on: ubuntu-24.04
+    needs: [firmware]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout device repository (UniXNU-vermeer)
+        uses: actions/checkout@v4
+
+      - name: Checkout UniXNU build system (with submodules)
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          submodules: recursive
+          path: unixnu
+
+      - name: Checkout Mu-Silicium device firmware (uefi-vermeer)
+        uses: actions/checkout@v4
+        with:
+          repository: yyx2025/uefi-vermeer
+          ref: vermeer
+          submodules: recursive
+          path: uefi
+
+      - name: Download the firmware volume
+        uses: actions/download-artifact@v4
+        with:
+          name: vermeer-firmware
+          path: firmware-artifact
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build device-tree-compiler mtools \
+            python3 python3-pip clang lld llvm git curl
+          python3 -m pip install --break-system-packages -r uefi/pip-requirements.txt
+
+      - name: Place the firmware volume where the driver expects it
+        run: |
+          mkdir -p "uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV"
+          cp firmware-artifact/uefi/Build/vermeerPkg/*/FV/SILICIUM_UEFI.fd \
+             "uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd"
+          ls -l "uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd"
+
+      - name: Configure (defconfig vermeer)
+        run: |
+          python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
+
+      - name: Pack the menu-only boot image (BootShim + FD + DTB, empty ramdisk)
+        run: |
+          python3 unixnu/unixnu bootimg \
+            -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" \
+            --uefi "$GITHUB_WORKSPACE/uefi" \
+            --dtb "$GITHUB_WORKSPACE/scripts/data/vermeer.dtb" \
+            --ramdisk none
+
+      - name: Upload the menu-only boot image
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-boot-menu
+          path: |
+            out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.img
+            out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.json
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-bootimg-menu-logs
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
+          if-no-files-found: warn
+
   bootimg:
     runs-on: ubuntu-24.04
     needs: [kernel, firmware]
