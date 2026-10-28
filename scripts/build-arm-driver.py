@@ -8,7 +8,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('component', choices=['ArmVirtPlatform', 'ArmDTPlatform', 'ArmCpu', 'NativeAES', 'NativeVirtioBlock', 'NativeRamBlock', 'NativeMobileDisplay', 'NativeVirtioConsole', 'NativeLegacyDisplay', 'NativeGOPPresenter', 'NativeOfflineGPU', 'NativeOfflineAccelerator', 'NativeIOGPUProviderProbe', 'NativeUfs', 'NativeHidInput', 'NativeKeyStoreEvents', 'NativeAdreno', 'SoftwareAES', 'ShengUfs', 'Adreno740', 'ShengHidInput'])
+parser.add_argument('component', choices=['ArmVirtPlatform', 'ArmDTPlatform', 'ArmCpu', 'NativeAES', 'NativeVirtioBlock', 'NativeRamBlock', 'NativeMobileDisplay', 'NativeVirtioConsole', 'NativeLegacyDisplay', 'NativeGOPPresenter', 'NativeOfflineGPU', 'NativeOfflineAccelerator', 'NativeIOGPUProviderProbe', 'NativeUfs', 'NativeHidInput', 'NativeKeyStoreEvents', 'NativeAdreno', 'SoftwareAES', 'ShengUfs', 'Adreno740', 'ShengHidInput', 'VirtioMmioBlock', 'RamBlock', 'VirtioMmioConsole'])
 parser.add_argument('--negative-aes-kat', action='store_true', help='Isolated own-source wrong-answer refusal control; never changes original inputs')
 parser.add_argument('--verified-root', action='store_true', help='Authenticate all actual disk reads against an independently signed immutable policy')
 parser.add_argument('--verified-root-bundle', action='store_true', help='Select exactly one capacity-matching policy per device, then independently authenticate it')
@@ -17,7 +17,9 @@ args = parser.parse_args()
 # Format-2 boards select catalog component ids; this device builder keeps the
 # historical per-driver names, so map the catalog aliases onto them.
 ALIASES = {'SoftwareAES': 'NativeAES', 'ShengUfs': 'NativeUfs',
-           'Adreno740': 'NativeAdreno', 'ShengHidInput': 'NativeHidInput'}
+           'Adreno740': 'NativeAdreno', 'ShengHidInput': 'NativeHidInput',
+           'VirtioMmioBlock': 'NativeVirtioBlock', 'RamBlock': 'NativeRamBlock',
+           'VirtioMmioConsole': 'NativeVirtioConsole'}
 args.component = ALIASES.get(args.component, args.component)
 if args.verified_root_bundle and not args.verified_root:
     parser.error('A policy bundle requires verified block mode')
