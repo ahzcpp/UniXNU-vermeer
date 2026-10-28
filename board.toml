@@ -144,6 +144,7 @@ DEVICE_MODEL = "vermeer"
 MEMORY_PROTECTION = "TRUE"
 SHIP_MODE = "FALSE"
 BUILDID_STRING = "vermeer-research"
+VERMEER_VENDOR_HW = "1"
 
 [payload]
 volume = "VERMEERESP"
