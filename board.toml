@@ -57,6 +57,7 @@ archives = [
   "build-native-aes-bindings.py",
   "build-arm-driver.py NativeUfs",
   "build-mockfs-fixture.py",
+  "build-sheng-platform-power.py",
   "build-libpthread-kernel.py",
   "build-arm-driver.py NativeAdreno",
   "build-native-adreno-kits.py",
@@ -103,9 +104,6 @@ roots = [
   "com.apple.iokit.IOHIDFamily",
   "com.apple.iokit.IOHIDEventDriver",
 ]
-
-[components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "Adreno740", "AdrenoPM4", "AdrenoFirmware", "ArmSmmu4K", "GopFramebuffer", "QcomGeniSpi", "AppleKeyStoreState", "XnuPrelink", "DarwinBoot"]
 
 [firmware]
 config = "vermeer"                 # Resources/Configs/vermeer.toml in the Mu-Silicium checkout (--uefi)
