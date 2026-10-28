@@ -2,11 +2,11 @@ name: build-kernel
 
 # Build the flashable artifacts for Redmi K70 (vermeer) on GitHub runners.
 #
-# kernel (macos-14)   XNU + prelink -> out/vermeer/kernel/kernel.macho
+# kernel (macos-15)   XNU + prelink -> out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho
 #                     (needs xcodebuild's iphoneos SDK and the Homebrew LLVM/LLD toolchain)
 # firmware (ubuntu)   Mu-Silicium vermeerPkg -> Build/vermeerPkg/<target>_CLANGPDB/FV/SILICIUM_UEFI.fd
 #                     (EDK II CLANGPDB; aarch64-linux-gnu- supplies the binutils EDK II expects)
-# bootimg (ubuntu)    package + payload + bootimg -> out/vermeer/boot/boot.img
+# bootimg (ubuntu)    package + payload + bootimg -> out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.img
 #                     (BootShim + FD, gzip, the device DTB with the splash node, payload ramdisk)
 #
 # Layout on the runner:
@@ -86,8 +86,8 @@ jobs:
         with:
           name: vermeer-kernel
           path: |
-            out/vermeer/kernel/kernel.macho
-            out/vermeer/kernel/kernel.macho.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho
+            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
           if-no-files-found: error
 
       - name: Upload build logs
@@ -95,7 +95,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vermeer-kernel-logs
-          path: out/vermeer/logs/
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
           if-no-files-found: warn
 
   firmware:
@@ -158,7 +158,7 @@ jobs:
           name: vermeer-firmware
           path: |
             uefi/Build/vermeerPkg/*/FV/SILICIUM_UEFI.fd
-            out/vermeer/package/Build/Out/
+            out/vermeer/ipados-17.7.11-21H461/vermeer/package/Build/Out/
           if-no-files-found: error
 
       - name: Upload build logs
@@ -167,7 +167,7 @@ jobs:
         with:
           name: vermeer-firmware-logs
           path: |
-            out/vermeer/logs/
+            out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
             uefi/Build/vermeerPkg/*/AARCH64/*.txt
           if-no-files-found: warn
 
@@ -199,7 +199,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vermeer-kernel
-          path: out/vermeer/kernel
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/kernel
 
       - name: Download the firmware volume
         uses: actions/download-artifact@v4
@@ -268,12 +268,12 @@ jobs:
           python3 unixnu/unixnu build payload \
             -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" \
             --uefi "$GITHUB_WORKSPACE/uefi" \
-            --kernel "$GITHUB_WORKSPACE/out/vermeer/kernel/kernel.macho" \
+            --kernel "$GITHUB_WORKSPACE/out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho" \
             --unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID"
 
       - name: Pack the boot image (BootShim + FD + DTB + payload)
         run: |
-          if [ ! -f out/vermeer/payload/payload.img ]; then
+          if [ ! -f out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img ]; then
             echo "::warning::No payload volume; skipping bootimg"
             exit 0
           fi
@@ -287,10 +287,10 @@ jobs:
         with:
           name: vermeer-boot
           path: |
-            out/vermeer/boot/boot.img
-            out/vermeer/boot/boot.json
-            out/vermeer/payload/payload.img
-            out/vermeer/payload/payload.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.img
+            out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img
+            out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.json
           if-no-files-found: warn
 
       - name: Upload build logs
@@ -298,5 +298,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vermeer-bootimg-logs
-          path: out/vermeer/logs/
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
           if-no-files-found: warn

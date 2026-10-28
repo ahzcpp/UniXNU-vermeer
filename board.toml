@@ -51,15 +51,16 @@ patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches
 archives = [
   "build-corecrypto-14.py",
   "build-corecrypto-14.py --namespace",
-  "build-arm-driver.py ArmDTPlatform",
-  "build-arm-driver.py ArmCpu",
-  "build-arm-driver.py NativeAES",
-  "build-native-aes-bindings.py",
-  "build-arm-driver.py NativeUfs",
+  "component:ArmDTPlatform",
+  "component:ArmCpu",
+  "component:SoftwareAES",
+  "build-software-aes-bindings.py",
+  "component:VirtioMmioBlock",
+  "component:ShengUfs",
   "build-mockfs-fixture.py",
   "build-sheng-platform-power.py",
   "build-libpthread-kernel.py",
-  "build-arm-driver.py NativeAdreno",
+  "component:Adreno740",
   "build-native-adreno-kits.py",
   "build-native-adreno-accelerator.py",
   "build-native-legacy-display.py",
@@ -106,7 +107,8 @@ roots = [
 ]
 
 [components]
-include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "Adreno740", "XnuPrelink", "DarwinBoot"]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "ShengUfs", "VirtioMmioBlock", "VerifiedRoot",
+           "Adreno740", "XnuPrelink", "DarwinBoot"]
 
 [firmware]
 config = "vermeer"                 # Resources/Configs/vermeer.toml in the Mu-Silicium checkout (--uefi)
