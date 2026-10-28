@@ -331,7 +331,9 @@ jobs:
 
   bootimg:
     runs-on: ubuntu-24.04
-    needs: [kernel, firmware]
+    # kernel-linux, not the macos-15 kernel job: that one keeps being cancelled in the queue
+    # ("not acquired by Runner of type hosted"), which skipped bootimg with it every time.
+    needs: [kernel-linux, firmware]
     timeout-minutes: 60
 
     steps:
@@ -356,7 +358,7 @@ jobs:
       - name: Download the prelinked kernel
         uses: actions/download-artifact@v4
         with:
-          name: vermeer-kernel
+          name: vermeer-kernel-linux
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/kernel
 
       - name: Download the firmware volume

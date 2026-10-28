@@ -17,12 +17,12 @@ CONFIG_XNU_NATIVE_AES=y
 CONFIG_XNU_TRUST_CACHE_RUNTIME=y
 CONFIG_XNU_SOURCE_MOCKFS=y
 CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
-CONFIG_XNU_SHENG_PMGR=y
+# CONFIG_XNU_SHENG_PMGR is not set
 CONFIG_XNU_DT_PANIC_REGION=y
 CONFIG_XNU_ZONE_PGZ_ALIGNMENT_PROBE=y
 CONFIG_XNU_NATIVE_ARCH_TIMER=y
 CONFIG_XNU_NATIVE_PAN=y
-CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
+# CONFIG_XNU_NATIVE_LEGACY_DISPLAY is not set
 CONFIG_XNU_NATIVE_ADRENO=y
 
 # Off until the live storage metadata observation is recorded on this device.
@@ -43,3 +43,8 @@ CONFIG_XNU_OWNER_DATA_VOLUME_UUID="18AB5557-DC2D-469B-8758-855E60F5B0DF"
 CONFIG_XNU_EXTRA_LD_ARCHIVES=""
 CONFIG_XNU_NATIVE_MOBILE_DISPLAY=n
 CONFIG_XNU_ARMVIRT_PLATFORM=n
+
+# First boot to console: build-sheng-platform-power.py and build-native-legacy-display.py
+# both require a hardware-confirmed prelink reference candidate (build/*-prelink/native-owner-*-candidate.macho),
+# which migration.md step 7 lists as a user-supplied build input and a clean checkout cannot produce.
+# Turning these two off drops exactly those archives; everything else this board selects builds without one.

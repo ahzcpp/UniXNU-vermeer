@@ -58,12 +58,10 @@ archives = [
   "component:VirtioMmioBlock",
   "component:ShengUfs",
   "build-mockfs-fixture.py",
-  "build-sheng-platform-power.py",
   "build-libpthread-kernel.py",
   "component:Adreno740",
   "build-native-adreno-kits.py",
   "build-native-adreno-accelerator.py",
-  "build-native-legacy-display.py",
 ]
 
 [kernel.prelink]
@@ -180,8 +178,6 @@ kernel_args = [
   "boot-progress=2",
   "-apfs_shared_datavolume",
   "offline-key-events=1",
-  "native-ufs-root=1",
-  "sheng-pmgr=2",
   "armcpu-diagnostics=1",
   "sheng-disable-watchdogd=1",
   "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
