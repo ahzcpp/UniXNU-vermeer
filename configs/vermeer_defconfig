@@ -6,13 +6,18 @@
 # recorded from build/darwinboot-storage-native-metadata/gdb-stop.json), and its verified bundles
 # need volume policies outside the repositories, so a clean CI checkout cannot reproduce them.
 # BootProgress links native_virtio_*/native_owner_root_* directly, so it stays off with them.
+# CONFIG_XNU_NATIVE_UFS belongs to that same chain and is off for the same reason: ShengUfs
+# references IOBlockStorageDevice, which build-virtio-mmio-bindings.py binds to the original
+# kernelcache only after build/storage-abi/interface-audit.json qualifies it, and
+# _verified_root_* from build-verified-root-probe.py, which needs the volume policies above.
+# Turning it on without those does not fail in configuration; it fails at the kernel link.
 
 CONFIG_XNU_BUILD_ARCHIVES=y
 CONFIG_XNU_SOURCE_CORECRYPTO14=y
 CONFIG_XNU_SOURCE_PTHREAD=y
 CONFIG_XNU_ARM_DT_PLATFORM=y
 CONFIG_XNU_ARMCPU=y
-CONFIG_XNU_NATIVE_UFS=y
+CONFIG_XNU_NATIVE_UFS=n
 CONFIG_XNU_NATIVE_AES=y
 CONFIG_XNU_TRUST_CACHE_RUNTIME=y
 CONFIG_XNU_SOURCE_MOCKFS=y
