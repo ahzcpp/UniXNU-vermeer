@@ -4,7 +4,10 @@
 [`docs/bring-up.md`](bring-up.md)，硬件实测值在
 [`docs/hardware-facts.md`](hardware-facts.md)。
 
-**标注约定**（三份文档一致）：
+从 `ios-vermeer-lab` 取用任何东西之前，先读
+[`docs/lab-crossref.md`](lab-crossref.md)：那套栈不是 UniXNU，代码和补丁不能照抄。
+
+**标注约定**（四份文档一致）：
 - **【已验证】** 作者直接读过对应源码/配置确认，带 `文件:行号`，可当事实用
 - **【未验证】** 来自他人记录/README/检索，未在本仓库或上游源码复核，**先自己确认再用**
 - **【已排除】** 曾怀疑、已确认不是问题，**不要重复排查**

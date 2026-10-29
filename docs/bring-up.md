@@ -15,6 +15,9 @@
 可直接照做的操作清单在 [`docs/playbook.md`](playbook.md)：阶段位置、重建范围、
 实测步骤、判读对照表、日志通道排序、已排除清单。
 
+本文多处引用 `xyyyds0106/ios-vermeer-lab`（同一台 K70，走得最远）。它**不是 UniXNU**，
+哪些能用、哪些只能借鉴、哪些完全不能碰，见 [`docs/lab-crossref.md`](lab-crossref.md)。
+
 ---
 
 ## 1. 当前位置
