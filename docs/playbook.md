@@ -4,6 +4,9 @@
 [`docs/bring-up.md`](bring-up.md)，硬件实测值在
 [`docs/hardware-facts.md`](hardware-facts.md)。
 
+环境准备、每条构建命令、刷机步骤与一页速查在
+[`docs/build-and-flash.md`](build-and-flash.md)。
+
 从 `ios-vermeer-lab` 取用任何东西之前，先读
 [`docs/lab-crossref.md`](lab-crossref.md)：那套栈不是 UniXNU，代码和补丁不能照抄。
 
