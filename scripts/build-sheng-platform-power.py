@@ -126,8 +126,16 @@ asm.write_text(''.join(f'.globl {name}\n.set {name}, {va:#x}\n' for name, va in 
 sdk = run(['xcrun', '--sdk', 'iphoneos', '--show-sdk-path'], text=True).strip()
 run(['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-isysroot', sdk, '-c', asm, '-o', OUT / 'original-bindings.o'])
 late = OUT / 'ShengPlatformPower.late.o'
-run(['llvm-objcopy', '--remove-section=__DATA,__mod_init_func',
-     '--globalize-symbol=__GLOBAL__sub_I_ShengPlatformPower.cpp', obj, late])
+# BOARD DEVIATION (Linux host; keep in sync when re-basing): llvm-objcopy
+# supports --remove-section on Mach-O but not --globalize-symbol. The static
+# initialiser is resolved inside this translation unit, so dropping
+# __mod_init_func is enough and the symbol keeps its local binding.
+run(['llvm-objcopy', '--remove-section=__DATA,__mod_init_func', obj, late])
+
+require(not any(section['name'] == '__mod_init_func'
+                for segment in macho(late.read_bytes())['segments']
+                for section in segment['sections']),
+        'Late registration must not auto-run: __mod_init_func survived the objcopy step')
 
 
 def text_section(blob):
