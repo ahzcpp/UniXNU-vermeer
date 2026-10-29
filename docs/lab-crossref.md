@@ -54,7 +54,7 @@
 | 虚拟定时器 INTID | 27 | **【已验证】** 上游 `ArmCpu.cpp` 本来就硬编码 27（`kSgiPpiEnable = 0xffffU \| (1U << 27)`） | **已自动满足**，无需动作 |
 | 启动 CPU 型号 | `arm,cortex-a510` | **【已验证】** 原厂 DTB 的 `/cpus/cpu@0` 与 SoC dtsi 的 `compatible = "arm,cortex-a510"` 一致 | **采用**（已在用） |
 | 高位 DRAM 银行 | `0x8c0000000..0x940000000`（2 GiB），32768 个稀疏采样照片确认 | **【已验证】** 本仓库三份静态来源**都看不到它**（原厂 UEFI 图最高 `Conv` 段仅 210 MiB、原厂 DTB `/memory` 是 `0+0`、reserved-memory 全在 4 GiB 以下，见 `scripts/read-stock-layout.py`） | **需自测确认**，见 `docs/playbook.md` 第 2 节 |
-| UFS LUN0 末尾 LBA | `0x3afa3ff` | 未独立验证 | 阶段 6 用 `fastboot oem get-partition-info userdata` 实测 |
+| UFS LUN0 末尾 LBA | `0x3afa3ff`（61842431） | **【已验证】** 本机 `fastboot getvar partition-size:userdata` = `0x3886BBB000` → 59272123 块，userdata 末块为 61842426，与之相差 5 块，正是 4K 块下备份 GPT（1 块头 + 4 块分区项数组）的大小，两者互证 | **采用**，已写入 `board.toml` 的 `[userdata]` |
 | 触控器 | Goodix GT9916S，SE4 | 未独立验证（原厂 DTB 可查） | 阶段 7 再处理 |
 
 ### B 类：只能借鉴思路——**机制与现象**

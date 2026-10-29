@@ -636,7 +636,7 @@ python3 scripts/read-stock-layout.py          # 原厂内存图 + 原厂 DTB 的
 
 | 项目 | 何时处理 |
 | --- | --- |
-| **【已验证】** `[userdata]` 的 `first_lba`/`last_lba` 仍是 sheng 占位值（`last_lba = 0x3d0abfa` 超出实测本机 LUN0 末尾 `0x3afa3ff`） | 阶段 6，用 `fastboot oem get-partition-info userdata` 实测替换 |
+| **【已验证】** `[userdata]` 已换成本机实测值：`first_lba = 0x273840`、`last_lba = 0x3afa3fa`、`lba_bytes = 4096`（容量 226.11 GiB） | 已完成。来源 `fastboot getvar partition-size:userdata` = `0x3886BBB000`（÷4096 = 59272123 块）；本机不支持 `oem get-partition-info`。`first_lba` 单一来源、未交叉验证 |
 | **【已验证】** `proprietary-files.txt` 整个是 sheng 的（`@fetch` 指向 `ianchb/sheng-firmware`，条目是 Novatek 平板触摸固件） | 阶段 7。**不要凭空改**：`extract-files.py` 按 SHA-256 校验，条目必须从真机 dump 实测得出 |
 | **【已验证】** SoC dtsi 的 GMU 是 sheng 的 `0x3d6a000`，原厂 DTB 是 `qcom,gmu@3d69000` | GPU 阶段。SoC dtsi 是共享仓库，覆盖要在 `dts/vermeer.dts` 做 |
 | **【已验证】** 显示后端需要预链接候选 `build/*-prelink/*candidate.macho`（官方 migration 第 7 步列为用户自备输入） | 阶段 7 |

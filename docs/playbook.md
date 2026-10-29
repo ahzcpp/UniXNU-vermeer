@@ -360,7 +360,7 @@ generic video console"，修法是把帧缓冲那一项算**两份**。
 
 | 项目 | 状态 | 依据 |
 | --- | --- | --- |
-| `[userdata]` 的 `first_lba`/`last_lba` 仍是 sheng 占位值（`last_lba = 0x3d0abfa` 超出实测本机 LUN0 末尾 `0x3afa3ff`） | 阶段 6 必须换成 `fastboot oem get-partition-info userdata` 的实测值 | **【已验证】** `board.toml` |
+| `[userdata]` 已换成本机实测值：`first_lba = 0x273840`、`last_lba = 0x3afa3fa`、`lba_bytes = 4096`（容量 242,778,615,808 B = 226.11 GiB） | 已完成。`fastboot getvar partition-size:userdata` = `0x3886BBB000`，÷4096 = `0x3886BBB` = 59272123 块，与内核 GPT 打印的 `blocks=59272123` 一致；`last_lba` 比 LUN0 末尾 `0x3afa3ff` 小 5 块 = 4K 下备份 GPT（1 块头 + 4 块分区项）。本机不支持 `fastboot oem get-partition-info`（返回 `unknown command`），用 `getvar`。`first_lba` 单一来源、未交叉验证（容量校验对它循环） | **【已验证】** `board.toml` + 本机 fastboot 实测 |
 | `proprietary-files.txt` **整个是 sheng 的**：文件头自述 "Xiaomi Pad 6S Pro (sheng)"，`@fetch` 指向 `ianchb/sheng-firmware`，唯一条目是 Novatek NT36532/N81A/CSOT 触摸固件（平板的触控器） | 触摸阶段处理。**不要凭空改**：`scripts/extract-files.py` 按 SHA-256 校验并拒绝其他内容，正确条目必须从真机 dump 或可信镜像实测得出 | **【已验证】** 该文件全文 |
 | SoC dtsi 的 GMU 基址是 sheng 的 `0x3d6a000`，原厂 DTB 是 **`qcom,gmu@3d69000`** | GPU 阶段。注意 SoC dtsi 是共享仓库，设备侧覆盖要在 `dts/vermeer.dts` 做 | **【已验证】** `scripts/read-stock-layout.py` 输出 |
 | `dts/vermeer.dts` 把 `gpu`/`gmu`/`gpu_smmu` 设成 `okay`，但 SoC dtsi 里这三个**没有 `unixnu,adt-name`**，所以根本进不了 ADT | 现阶段无害（驱动匹配不上而已），**别去修** | **【已验证】** `devicetree.py:367` 只收带 `unixnu,adt-name` 的节点 |

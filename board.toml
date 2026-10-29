@@ -32,8 +32,8 @@ fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustC
 # The raw image for the userdata partition. TODO: replace with the GPT entry "userdata" of
 # LUN 0 read from this K70 (fastboot: `fastboot oem get-partition-info userdata` or a GPT dump).
 [userdata]
-first_lba = 0x2f3840
-last_lba = 0x3d0abfa
+first_lba = 0x273840
+last_lba = 0x3afa3fa
 lba_bytes = 4096
 windows = [
   { name = "OS", component = "OS" },

@@ -272,9 +272,19 @@ va_l1_end = (va_l1_end + 0x7FFFFF) & ~0x7FFFFFULL;   /* 向上取整到 8 MiB */
 
 ## 7. 后续阶段的已知待办
 
-- **【已验证】** `board.toml` 的 `[userdata]` `first_lba`/`last_lba` 仍是 sheng 的占位值
-  （`last_lba = 0x3d0abfa` 超出实测的本机 LUN0 末尾 `0x3afa3ff`）。到存储阶段必须换成
-  `fastboot oem get-partition-info userdata` 的实测值。
+- **【已验证】** `board.toml` 的 `[userdata]` 已换成本机实测值：`first_lba = 0x273840`（2570304）、
+  `last_lba = 0x3afa3fa`（61842426）、`lba_bytes = 4096`，分区容量 242,778,615,808 B（226.11 GiB）。
+  来源：`fastboot getvar partition-size:userdata` 返回 `0x3886BBB000`，除以 4096 恰为
+  `0x3886BBB` = 59272123 块，与本机内核 GPT 校验打印的 `blocks=59272123` 逐字节一致。
+  `last_lba` 比 LUN0 末尾 `0x3afa3ff`（61842431）小 5 块，正是 4K 块下备份 GPT 的大小
+  （1 块头 + 4 块分区项数组），两组数字互相印证。
+  注意本机 `fastboot oem get-partition-info` 返回 `unknown command`（不支持），要用 `getvar` 那条。
+- **【自测未交叉验证】** 上面的 `first_lba = 2570304` 只有单一来源：本机内核打印的
+  `VERMEER BLOCK: GPT CRC/bounds verified; userdata first=2570304 blocks=59272123`。
+  容量校验对它是**循环的**——`last` 由 `first + blocks - 1` 推出，故 `last - first + 1`
+  恒等于 `blocks`，capacity 与 `first` 填什么无关，验不到它。目前无影响：
+  `scripts/unixnu/userdata.py:87` 是 `first_lba`/`last_lba` 的唯一消费者，且只把 capacity
+  当上限用一次（`if total > capacity: raise Error`）。若将来有代码拿 `first_lba` 当写入偏移，需另行实测。
 - **【未验证】** `yyx2025/UniXNU-vermeer` 的 README 记录了 K70 与 sheng 的真实差异：触摸是
   Goodix `gt9916S`（SE4，GPIO 44–47，IRQ 25，reset 24），**不是** sheng 的 Novatek；
   K70 的 GMU 窗口是 `0x3d68000`，而 SoC dtsi 里是 sheng 的 `0x3d6a000`。到 GPU/触摸阶段需自行复核。
