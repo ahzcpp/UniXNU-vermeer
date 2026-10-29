@@ -12,6 +12,9 @@
 硬件实测值（原厂 UEFI 内存图、原厂 DTB、外设基址、GPU 观测）单独放在
 [`docs/hardware-facts.md`](hardware-facts.md)，并附可重跑的 `scripts/read-stock-layout.py`。
 
+可直接照做的操作清单在 [`docs/playbook.md`](playbook.md)：阶段位置、重建范围、
+实测步骤、判读对照表、日志通道排序、已排除清单。
+
 ---
 
 ## 1. 当前位置
