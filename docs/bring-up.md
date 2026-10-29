@@ -9,6 +9,9 @@
 
 许多 UniXNU 设备仓库自述为 AI 辅助，其文档会超前于代码。凡标【未验证】的，先自己复核再动手。
 
+硬件实测值（原厂 UEFI 内存图、原厂 DTB、外设基址、GPU 观测）单独放在
+[`docs/hardware-facts.md`](hardware-facts.md)，并附可重跑的 `scripts/read-stock-layout.py`。
+
 ---
 
 ## 1. 当前位置
@@ -285,3 +288,67 @@ va_l1_end = (va_l1_end + 0x7FFFFF) & ~0x7FFFFFULL;   /* 向上取整到 8 MiB */
 视频控制台建立成功的信号；和"仍是静态品红"要区分开。
 
 每一步只改一项，记录色条出现情况、是否自动复位、复位间隔秒数，以及屏幕上的任何文字。
+
+---
+
+## 9. 苹果图标和进度条是谁画的
+
+这是本项目最常被误解的一点，先把它说清楚，免得往错的方向使劲。
+
+**【已验证】** 本仓库的 `package/BootProgressDisplay.h` 只有 61 行，它画的是**等宽字形的文字行**：
+
+```c
+unsigned bound, width, height, stride, scale;
+...
+if (!d->bound || row >= 48 || (row+1)*14*d->scale >= d->height) return;
+unsigned cols = d->width / (6*d->scale);
+```
+
+列数 = `宽度 / (6×scale)`，行高 `14×scale`，最多 48 行。**它是一个屏幕文字日志面板，
+不画进度条，也不画苹果图标。**
+
+**【已验证】** 官方 `docs/zh/porting/bring-up.md` 把阶段分得很清楚：
+
+- **阶段 5 内核入口**：目标是"XNU 启动并到达平台专家"
+- **阶段 6 存储与根卷**：目标是"块驱动发布 userdata 分区，卷出现，XNU 挂载根卷"、
+  "内核挂载根卷并启动 `launchd`"
+- **阶段 7 用户态**：目标是"`launchd` 运行，首个用户进程到达可见状态"，检查项包含
+  "**显示服务或控制台有输出**"
+
+**所以苹果图标属于阶段 7，由用户态的显示服务画，不是内核引导期的任何东西画的。**
+
+**【未验证】** 旁证（来自 ios-vermeer-lab 的记录，不同的内核栈，但同一台 K70）：它的苹果图标
+出现在 "first presentation: backboardd alternates two 1125x2436 BGRA surfaces on the guarded
+1440x3200 panel" 的时候——也就是 `backboardd` 开始提交显示表面之后。
+
+### 9.1 这意味着什么
+
+要看到苹果图标，必须依次走完：
+
+1. 阶段 5 内核跑过平台专家（**我们现在卡在这里**）
+2. 阶段 6 存储：UFS 驱动发布 userdata、根卷 UUID 匹配、挂上根卷、起 `launchd`
+3. 阶段 7 用户态：显示服务发布并提交第一帧
+
+**【已验证】** 而阶段 7 的显示后端（官方 `docs/zh/porting/display.md`）需要 `GopFramebuffer`
+组件加 `CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y`，并由 `scripts/build-gop-legacy-display.py`
+"使用预链接候选内核验证 ABI 方法"再生成后期显示归档。而那个预链接候选
+（`build/*-prelink/*candidate.macho`）在官方 `migration.md` 第 7 步被列为**用户自备的构建输入**，
+干净检出造不出来——这也是本仓库 `configs/vermeer_defconfig` 当初关掉
+`CONFIG_XNU_NATIVE_LEGACY_DISPLAY` 的原因（见该文件顶部注释）。
+
+**结论：苹果图标不是下一步，它在好几面墙之后。不要把它当作近期目标去调。**
+
+### 9.2 近期能看到的"可见进展"是什么
+
+按真实可达性排序：
+
+| 里程碑 | 需要什么 | 距离 |
+| --- | --- | --- |
+| 屏幕出现**文字日志面板**（检查点逐条刷出来） | 第 5 节第 1 步的 (a)+(b) | **下一步** |
+| 屏幕被**清成黑**（视频控制台建立） | 同上，或当前这面墙被解开 | 下一步的副产品 |
+| 可读的 **panic 文字**（含寄存器） | 同上 | 下一步的副产品 |
+| 根卷挂上、`launchd` 起来 | 阶段 6，需要实测 GPT 与 UUID | 之后 |
+| **苹果图标 + 进度条** | 阶段 7，需要预链接候选等自备输入 | 更后面 |
+
+**把"文字日志面板"当成下一个目标。** 它一旦出来，后面每一面墙都会直接把原因打在屏幕上，
+不用再靠重启计时反推——这才是真正把速度提上来的那一步。
