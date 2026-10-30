@@ -179,49 +179,73 @@ trust_cache_sha256 = [
   "8900d6a93d7a59ce1a872a5c081e559f4240a218f97e12d44d22dda46644d68f",
 ]
 kernel_args = [
+  # The set that has booted this device to a userspace exit status. Every entry
+  # here is live: -v, debug, kt_fixed_zones, cpus and -no_slto_panic are XNU's
+  # own, sheng-pmgr is read by package/ShengPlatformPower.cpp (archive 11), and
+  # rd=md0 selects the mockfs root. boot-progress is inert while
+  # CONFIG_XNU_BOOT_PROGRESS is n and is kept so it works when that flips.
   "-v",
-  "serial=3",
   "debug=0x14e",
   "kt_fixed_zones=120",
-  "offline-legacy-register=1",
-  "offline-legacy-gop=1",
-  "offline-legacy-unit-scale=2",
-  "offline-legacy-pm=1",
-  "offline-legacy-validate=1",
-  "offline-legacy-transfer=1",
-  "offline-legacy-cpu-present=1",
-  "offline-hid-home=1",
-  "offline-hid-input=1",
-  "offline-legacy-phase=4",
-  "offline-mobile-graphics-client=1",
-  "offline-mobile-graphics-load=1",
-  "offline-apfs-load=1",
+  "cpus=1",
   "boot-progress=2",
-  "-apfs_shared_datavolume",
-  "offline-key-events=1",
-  "armcpu-diagnostics=1",
   "sheng-pmgr=2",
-  "sheng-disable-watchdogd=1",
-  "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
-  "boot-ui-focus3=Preferences",
-  "boot-ui-focus4=SpringBoard",
-  "sheng-smp=1",
-  "sheng-cpufreq=3",
-  "sheng-touch=4",
-  "sheng-aks=1",
-  "sheng-gpu-power=9",
-  "sheng-gpu-metal=1",
-  "sheng-fb-gpu=1",
-  "sheng-banner=0",
-  "sheng-gpu-perf=8",
-  "sheng-gpu-addon=1",
-  "armcpu-spi-ipi=1",
   "-no_slto_panic",
-  "ml-timeout-lock-panic-scale=40",
-  "sheng-touch-hid=1",
-  "sheng-data-persist=2",
   "rd=md0",
 ]
+
+# Parked. These were carried over from the sheng-family boards and none of them
+# has been measured on this device. Two reasons they are out:
+#
+#   * most have no consumer in this kernel at all. Their PE_parse_boot_argn
+#     lives in a package/ source whose builder is not in [kernel] archives --
+#     LegacyDisplayProbe.cpp, HidInputProbe.cpp, KeyStoreProbe.cpp,
+#     CpuFreqProbe.cpp, TouchProbe.cpp, GpuPowerProbe.cpp, BootProgress.c,
+#     BootProcessProbe.c, BootWatchdogPolicy.c -- so they are read by nothing;
+#   * sheng-smp, armcpu-spi-ipi and armcpu-diagnostics are the exception: they
+#     are live, parsed by ArmCpu.cpp (lines 33, 159, 188, 190, 368), which
+#     component:ArmCpu does build. sheng-smp brings the secondary cores up, and
+#     the full 42-entry set gave a green bar with no kernel entry twice before
+#     the eight above went through first time. Those three are the ones worth a
+#     round of their own, one at a time, against cpus=1 above.
+#
+# Return each one when its archive is built and the round that adds it is the
+# only thing that changed.
+#   "serial=3",
+#   "offline-legacy-register=1",
+#   "offline-legacy-gop=1",
+#   "offline-legacy-unit-scale=2",
+#   "offline-legacy-pm=1",
+#   "offline-legacy-validate=1",
+#   "offline-legacy-transfer=1",
+#   "offline-legacy-cpu-present=1",
+#   "offline-hid-home=1",
+#   "offline-hid-input=1",
+#   "offline-legacy-phase=4",
+#   "offline-mobile-graphics-client=1",
+#   "offline-mobile-graphics-load=1",
+#   "offline-apfs-load=1",
+#   "-apfs_shared_datavolume",
+#   "offline-key-events=1",
+#   "armcpu-diagnostics=1",
+#   "sheng-disable-watchdogd=1",
+#   "sheng-disable-jobs=com.apple.identityservicesd,com.apple.locationd,com.apple.CommCenter,com.apple.bluetoothd",
+#   "boot-ui-focus3=Preferences",
+#   "boot-ui-focus4=SpringBoard",
+#   "sheng-smp=1",
+#   "sheng-cpufreq=3",
+#   "sheng-touch=4",
+#   "sheng-aks=1",
+#   "sheng-gpu-power=9",
+#   "sheng-gpu-metal=1",
+#   "sheng-fb-gpu=1",
+#   "sheng-banner=0",
+#   "sheng-gpu-perf=8",
+#   "sheng-gpu-addon=1",
+#   "armcpu-spi-ipi=1",
+#   "ml-timeout-lock-panic-scale=40",
+#   "sheng-touch-hid=1",
+#   "sheng-data-persist=2",
 
 [payload.adt]
 chip_id = "207"
