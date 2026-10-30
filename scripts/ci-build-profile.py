@@ -11,6 +11,18 @@ Two separate reasons, two separate switches. Undo either with
               candidate available". The candidate carries Apple kext bytes and is never
               committed, so CI mints it: pass 1 without the archive, then the real build.
 
+--baseline-boot  For the boot image job, which packs the payload.
+              The device repository is configured for a ramdisk-root round: kernel_args
+              carries rd=md0 and [payload] carries the stage 4 reset probe. Neither can
+              mean anything here, because the payload step in CI is not given
+              --data-ramdisk, and unixnu/payload.py only emits the ADT's
+              --data-ramdisk/--packed-data-ramdisk flag `if data`. With no
+              /chosen/memory-map/RAMDisk node, IOFindBSDRoot never reaches the mdevadd
+              that the probe is placed after, so a CI image would report "did not get
+              past _mdevadd" for the one reason that has nothing to do with the
+              question. Rather than ship an image whose answer is a false negative,
+              CI packs the plain baseline: no ramdisk root, no probe, panic screen on.
+
 --drop-gpu    For the Linux runner, in both passes.
               build-native-adreno-accelerator.py finds its tools through
               `brew --prefix llvm`, and there is no brew on that runner. It also needs
@@ -46,6 +58,9 @@ GPU_ARCHIVES = [b'"component:Adreno740",',
                 b'"build-native-adreno-accelerator.py",']
 GPU_COMPONENTS = [b'"Adreno740", ', b'"Adreno740",', b'"Adreno740"']
 GPU_CONFIG = ['CONFIG_XNU_NATIVE_ADRENO']
+RAMDISK_ROOT_ARGS = [b'"rd=md0",']
+PROBE_KEYS = [b'entry_probe_reset_delay', b'entry_probe_reset_after',
+              b'entry_probe_reset_in', b'entry_probe_reset_occurrence']
 
 
 def drop_lines(data, markers, what):
@@ -63,6 +78,13 @@ def drop_component(data, markers):
     return data, False
 
 
+def set_scalar(data, key, old, new):
+    marker = b'%s = %s' % (key, old)
+    if marker not in data:
+        sys.exit('board.toml: %s is not %s' % (key.decode(), old.decode()))
+    return data.replace(marker, b'%s = %s' % (key, new), 1)
+
+
 def turn_off(name, config):
     text = config.read_text()
     on = f'{name}=y'
@@ -76,10 +98,11 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--drop-pmgr', action='store_true')
     parser.add_argument('--drop-gpu', action='store_true')
+    parser.add_argument('--baseline-boot', action='store_true')
     parser.add_argument('--defconfig', default='vermeer_defconfig')
     args = parser.parse_args()
-    if not (args.drop_pmgr or args.drop_gpu):
-        parser.error('nothing to do: pass --drop-pmgr, --drop-gpu or both')
+    if not (args.drop_pmgr or args.drop_gpu or args.baseline_boot):
+        parser.error('nothing to do: pass --drop-pmgr, --drop-gpu, --baseline-boot or several')
 
     board = ROOT / 'board.toml'
     data = board.read_bytes()
@@ -102,6 +125,14 @@ def main():
         for name in GPU_CONFIG:
             turn_off(name, config)
             print(f'{config.name}: {name} off')
+
+    if args.baseline_boot:
+        data, n = drop_lines(data, RAMDISK_ROOT_ARGS, 'ramdisk root')
+        print(f'board.toml: removed {n} rd=md0 line from [payload] kernel_args')
+        data, n = drop_lines(data, PROBE_KEYS, 'entry probe')
+        print(f'board.toml: removed {n} entry_probe_reset_* lines')
+        data = set_scalar(data, b'panic_screen', b'false', b'true')
+        print('board.toml: panic_screen on (the probe cave it conflicts with is gone)')
 
     board.write_bytes(data)
 

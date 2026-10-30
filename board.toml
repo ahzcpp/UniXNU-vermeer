@@ -153,7 +153,20 @@ loader = "firmware"
 title = "vermeer first boot: source 4K XNU to console"
 dram_size = "0x80000000"             # conservative first-boot window, as sheng
 skip_setup_tool = "scripts/seed-data-skip-setup.py"   # used by --skip-setup
-panic_screen = true
+# Off for this round: scripts/patch-xnu-entry-probe.py puts the stage 4 reset in
+# cave 4, which leaves 0x970 of padding for the panic screen (PANIC_CAVE_END
+# 0xFFFFFFF00B9D0FF0 - CAVES[4] 0x...0620 - CAVE_SIZE 0x60) against the 0x9f5 it
+# needs, so the two cannot both be on and the tool exits rather than truncate.
+panic_screen = false
+
+# Stage 4 asks one question and answers it without a frame buffer: a reboot six
+# seconds in means the kernel got past the call, no reboot means it did not.
+# _mdevadd is 0xfffffff007477a58, called 21 times in the kernel but exactly once
+# from _IOFindBSDRoot (bl at 0xfffffff007982368), so occurrence 1 is that call.
+entry_probe_reset_delay = 6
+entry_probe_reset_after = "_mdevadd"
+entry_probe_reset_in = "_IOFindBSDRoot"
+entry_probe_reset_occurrence = 1
 trust_cache_sha256 = [
   "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7",
   "8900d6a93d7a59ce1a872a5c081e559f4240a218f97e12d44d22dda46644d68f",
@@ -200,13 +213,17 @@ kernel_args = [
   "ml-timeout-lock-panic-scale=40",
   "sheng-touch-hid=1",
   "sheng-data-persist=2",
+  "rd=md0",
 ]
 
 [payload.adt]
 chip_id = "207"
 owned_memory_size = "0x20000000"   # 512 MiB: the window DarwinBoot can actually allocate on this device (observed BIG RUN ~0x3B300000)
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
-packed_data_ramdisk = true
+# false, measured: true against a payload that is not packed takes DarwinBoot
+# through KeepPacked && !RamdiskPacked to EFI_COMPROMISED_DATA and back to the
+# menu. Every rd=md0 round that reached the kernel on this device used false.
+packed_data_ramdisk = false
 unique_chip_id = "required"          # the platform seed is not stored in any repository
 
 # Image parameters come from the Mu-Silicium device config; [bootimg.image] would override them.

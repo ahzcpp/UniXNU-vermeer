@@ -642,6 +642,14 @@ jobs:
              "uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd"
           ls -l "uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd"
 
+      - name: Pack the plain baseline, not the ramdisk-root round
+        run: |
+          # The payload step below is not given --data-ramdisk, and payload.py only
+          # emits the ADT ramdisk flag when it is, so an image built from the device
+          # repository as it stands would carry rd=md0 and the stage 4 probe with no
+          # /chosen/memory-map/RAMDisk behind them. See scripts/ci-build-profile.py.
+          python3 scripts/ci-build-profile.py --baseline-boot
+
       - name: Configure (defconfig vermeer)
         run: |
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
