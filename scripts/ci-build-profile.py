@@ -23,7 +23,7 @@ Two separate reasons, two separate switches. Undo either with
               question. Rather than ship an image whose answer is a false negative,
               CI packs the plain baseline: no ramdisk root, no probe, panic screen on.
 
---drop-gpu    For the Linux runner, in both passes.
+--drop-gpu    For both runners, in both passes.
               build-native-adreno-accelerator.py finds its tools through
               `brew --prefix llvm`, and there is no brew on that runner. It also needs
               --globalize-symbol, which llvm-objcopy does not implement for Mach-O, and
@@ -32,6 +32,13 @@ Two separate reasons, two separate switches. Undo either with
               one that defines it, so dropping the option would leave the accelerator
               silently inert. The GPU is a stage 7 concern; the boot image this builds
               is for reaching the root volume, so the archives come out instead.
+              The macos-15 runner has brew and a working --globalize-symbol, but the
+              component itself does not survive -Werror there: drivers/Adreno740/
+              NativeAdrenoService.cpp:337-348 declares nine variables it never uses, so
+              component-Adreno740 ends the macOS kernel job with 9 unused-variable
+              errors. Silencing them would have to go through build-arm-driver.py, which
+              five components we do care about share, so the component comes out there
+              too until the GPU is the subject.
 
 Each switch touches every file that has a say, because different code reads each one:
 

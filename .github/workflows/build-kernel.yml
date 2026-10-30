@@ -90,7 +90,7 @@ jobs:
           # "No reference candidate available". That candidate is a build product carrying
           # Apple kext bytes and is never committed, so it is minted here instead: pass 1
           # builds with the PMGR archive switched off, pass 2 builds the delivered kernel.
-          python3 scripts/ci-build-profile.py --drop-pmgr
+          python3 scripts/ci-build-profile.py --drop-pmgr --drop-gpu
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
@@ -109,6 +109,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git checkout -- board.toml configs/vermeer_defconfig
+          # Adreno740 is out on this runner too; see scripts/ci-build-profile.py --drop-gpu.
+          python3 scripts/ci-build-profile.py --drop-gpu
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
