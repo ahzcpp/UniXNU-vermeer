@@ -41,7 +41,19 @@ CONFIG_XNU_OWNER_CACHE_STARTUP=n
 CONFIG_XNU_OWNER_BOOT_MANIFEST=n
 CONFIG_XNU_OWNER_DATA_MOUNT=n
 CONFIG_XNU_OWNER_UNION_SYSTEMOS=n
-CONFIG_XNU_BOOT_PROGRESS=n
+
+# The in-kernel diagnostic, which has nothing to do with the storage chain above
+# and was only swept in with it. package/BootProgress.c (it appears as
+# kits/vermeer/ in the build tree, see board.toml kit) paints the current stage,
+# the per-CPU SMP step table, TCR/TTBR/SCTLR, the last exception sample and the
+# latest kernel console lines onto the same framebuffer the panic screen uses --
+# its bp_panic_info layout is _Static_assert-ed against XNU's vc_info, so it
+# needs no board geometry of its own. scripts/build-xnu-4k-baseline.sh builds and
+# force_loads libBootProgress.a on its own when this is y, and the call sites come
+# from patches/xnu/zzz-boot-progress.patch, which the ipados-17.7.11-21H461 OS
+# series already applies. On a silent hang with nothing but loader bands on screen
+# this is the only way to see where the kernel stopped.
+CONFIG_XNU_BOOT_PROGRESS=y
 
 CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 CONFIG_XNU_OWNER_DATA_VOLUME_UUID="18AB5557-DC2D-469B-8758-855E60F5B0DF"
