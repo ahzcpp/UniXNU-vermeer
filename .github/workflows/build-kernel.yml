@@ -254,6 +254,54 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
           if-no-files-found: error
 
+      - name: Report the build tree inventory as a commit comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach, so there is no way to find out from outside which
+          # paths a Linux build actually leaves in the tree. The audit scripts need
+          # build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837 (IOPlatformExpert.cpo.json and
+          # mach.development.bcm2837.unstripped.noctf); whether this runner produces it
+          # decides what the next round can upload. A commit comment goes through the
+          # ordinary API, so this listing stays readable from anywhere gh works.
+          TREE=out/vermeer/ipados-17.7.11-21H461/vermeer/tree
+          BODY=$(mktemp)
+          {
+            echo "### \`kernel-linux\` tree inventory (run ${{ github.run_id }})"
+            echo
+            echo '```'
+            echo "== kernel/ =="
+            ls -l out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/ 2>&1 | head -n 20
+            echo
+            echo "== tree/build top level =="
+            ls -1 "$TREE/build" 2>&1 | head -n 60
+            echo
+            echo "== tree/build/xnu =="
+            ls -1 "$TREE/build/xnu" 2>&1 | head -n 20
+            echo
+            echo "== ios-obj target dir =="
+            ls -l "$TREE/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837" 2>&1 | head -n 30
+            echo
+            echo "== the two files the audits need =="
+            for f in "$TREE/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf" \
+                     "$TREE/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json"; do
+              if [ -f "$f" ]; then
+                echo "PRESENT  $(stat -c '%s' "$f") bytes  $f"
+              else
+                echo "ABSENT   $f"
+              fi
+            done
+            echo
+            echo "== ios-obj size =="
+            du -sh "$TREE/build/xnu/ios-obj" 2>&1 | head -n 2
+            echo '```'
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
+
       - name: Post the failing log where it can be read without the artifact store
         if: failure()
         env:
