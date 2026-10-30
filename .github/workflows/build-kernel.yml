@@ -85,7 +85,7 @@ jobs:
           # "No reference candidate available". That candidate is a build product carrying
           # Apple kext bytes and is never committed, so it is minted here instead: pass 1
           # builds with the PMGR archive switched off, pass 2 builds the delivered kernel.
-          python3 -c "import pathlib; p = pathlib.Path('configs/vermeer_defconfig'); p.write_text(p.read_text().replace('CONFIG_XNU_SHENG_PMGR=y', '# CONFIG_XNU_SHENG_PMGR is not set'))"
+          python3 scripts/ci-pmgr-bootstrap.py
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
@@ -103,7 +103,7 @@ jobs:
           # reach the reference; the token keeps that fallback out of the shared rate-limit bucket.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git checkout -- configs/vermeer_defconfig
+          git checkout -- board.toml configs/vermeer_defconfig
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
@@ -189,7 +189,7 @@ jobs:
           # "No reference candidate available". That candidate is a build product carrying
           # Apple kext bytes and is never committed, so it is minted here instead: pass 1
           # builds with the PMGR archive switched off, pass 2 builds the delivered kernel.
-          python3 -c "import pathlib; p = pathlib.Path('configs/vermeer_defconfig'); p.write_text(p.read_text().replace('CONFIG_XNU_SHENG_PMGR=y', '# CONFIG_XNU_SHENG_PMGR is not set'))"
+          python3 scripts/ci-pmgr-bootstrap.py
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
@@ -205,7 +205,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git checkout -- configs/vermeer_defconfig
+          git checkout -- board.toml configs/vermeer_defconfig
           python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
           python3 unixnu/unixnu build kernel -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out"
 
