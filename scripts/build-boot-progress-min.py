@@ -25,14 +25,24 @@ RECORD = ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/s
 # The host has no Apple ar; llvm-ar writes the same BSD archive the linker reads.
 AR = next((c for c in ('llvm-ar', 'ar') if shutil.which(c)), 'ar')
 NM = next((c for c in ('llvm-nm', 'nm') if shutil.which(c)), 'nm')
-# The UEFI checkout is a sibling of this repository, not part of the assembled tree.
-UEFI = next((p for p in (ROOT / 'uefi-sheng', ROOT.parent / 'uefi-sheng',
-                         Path(os.environ.get('UNIXNU_UEFI_ROOT', '/')))
-             if (p / 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib').is_dir()),
-            ROOT / 'uefi-sheng')
-FONT = UEFI / 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h'
-if not FONT.is_file():
-    raise SystemExit(f'missing {FONT}: the boot progress panel needs its 5x12 glyph table')
+# BOARD DEVIATION from the ishtar script (keep in sync when re-basing): it looks for
+# the glyph table in a sibling uefi-sheng checkout, which cannot work in the kernel
+# job -- that job checks out no UEFI tree at all (only bootimg does), and this board's
+# tree is uefi-vermeer. scripts/build-boot-progress.py already solved this for the full
+# monitor by keeping a verbatim copy of the Mu-Silicium FrameBufferSerialPortLib Font.h
+# in the device package, which appears as kits/<kit>/ in the build tree; package/Font.h
+# here is byte-identical to
+# uefi-vermeer/Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h.
+# The sibling checkout is still accepted, so a tree that does have one still builds.
+UEFI_FONT = 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib/Font.h'
+FONT = next((p for p in (SOURCE.parent / 'Font.h',
+                         ROOT / 'uefi-vermeer' / UEFI_FONT, ROOT.parent / 'uefi-vermeer' / UEFI_FONT,
+                         ROOT / 'uefi-sheng' / UEFI_FONT, ROOT.parent / 'uefi-sheng' / UEFI_FONT,
+                         Path(os.environ.get('UNIXNU_UEFI_ROOT', '/')) / UEFI_FONT)
+             if p.is_file()), None)
+if FONT is None:
+    raise SystemExit(f'no Font.h beside {SOURCE} or in a UEFI checkout: '
+                     'the boot progress panel needs its 5x12 glyph table')
 
 OUT.mkdir(parents=True, exist_ok=True)
 record = json.loads(RECORD.read_text().strip().rstrip(','))
