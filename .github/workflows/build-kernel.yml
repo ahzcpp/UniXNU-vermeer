@@ -30,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       unique_chip_id:
-        description: 'Platform seed for the device tree (8-byte hex). Empty = the payload step is skipped.'
+        description: 'Platform seed for the device tree (8-byte hex). Empty = the committed CI default is used.'
         required: false
         default: ''
 
@@ -585,16 +585,21 @@ jobs:
 
       - name: Build the payload volume
         env:
-          # The platform seed is not stored in any repository (board.toml [payload.adt]
-          # unique_chip_id = "required"). Supply it as a workflow input or a repository
-          # secret; without it the payload cannot be written.
-          UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.unique_chip_id || secrets.UNIXNU_UNIQUE_CHIP_ID }}
+          # /chosen/unique-chip-id seeds XNU's IOPlatformUUID. Upstream documents it as a
+          # "software identity seed, not Apple silicon IDs" (scripts/make-sheng-adt.py:82) and
+          # validates only that it is nonzero and fits 8 bytes, so it is not device-secret
+          # material: UniXNU-clover builds with a fixed 0x81ffcaaa throughout its development
+          # log. The same value is the default here so that an unattended push still produces
+          # a flashable boot image. A real device seed still overrides it.
+          # Precedence: workflow_dispatch input > UNIXNU_UNIQUE_CHIP_ID secret > this default.
+          UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.unique_chip_id || secrets.UNIXNU_UNIQUE_CHIP_ID || '0x81ffcaaa' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "${UNIXNU_UNIQUE_CHIP_ID}" ]; then
-            echo "::warning::No --unique-chip-id (workflow input or UNIXNU_UNIQUE_CHIP_ID secret); skipping the payload and the boot image"
-            exit 0
+            echo "::error::No platform seed and no default; the payload cannot be written"
+            exit 1
           fi
+          echo "Platform seed: ${UNIXNU_UNIQUE_CHIP_ID}"
           python3 unixnu/unixnu build payload \
             -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" \
             --uefi "$GITHUB_WORKSPACE/uefi" \
@@ -604,8 +609,8 @@ jobs:
       - name: Pack the boot image (BootShim + FD + DTB + payload)
         run: |
           if [ ! -f out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img ]; then
-            echo "::warning::No payload volume; skipping bootimg"
-            exit 0
+            echo "::error::No payload volume; the previous step did not write one"
+            exit 1
           fi
           python3 unixnu/unixnu bootimg \
             -D "$GITHUB_WORKSPACE" --out "$GITHUB_WORKSPACE/out" \
@@ -621,7 +626,7 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.json
             out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img
             out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.json
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Post the failing log where it can be read without the artifact store
         if: failure()
