@@ -22,13 +22,13 @@ CONFIG_XNU_NATIVE_AES=y
 CONFIG_XNU_TRUST_CACHE_RUNTIME=y
 CONFIG_XNU_SOURCE_MOCKFS=y
 CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
-CONFIG_XNU_SHENG_PMGR=y
+# CONFIG_XNU_SHENG_PMGR is not set
 CONFIG_XNU_DT_PANIC_REGION=y
 CONFIG_XNU_ZONE_PGZ_ALIGNMENT_PROBE=y
 CONFIG_XNU_NATIVE_ARCH_TIMER=y
 CONFIG_XNU_NATIVE_PAN=y
 # CONFIG_XNU_NATIVE_LEGACY_DISPLAY is not set
-CONFIG_XNU_NATIVE_ADRENO=y
+# CONFIG_XNU_NATIVE_ADRENO is not set
 
 # Off until the live storage metadata observation is recorded on this device.
 CONFIG_XNU_NATIVE_VIRTIO_BLOCK=n
@@ -41,7 +41,15 @@ CONFIG_XNU_OWNER_CACHE_STARTUP=n
 CONFIG_XNU_OWNER_BOOT_MANIFEST=n
 CONFIG_XNU_OWNER_DATA_MOUNT=n
 CONFIG_XNU_OWNER_UNION_SYSTEMOS=n
-CONFIG_XNU_BOOT_PROGRESS=n
+# On, and this time the gate it needs is satisfied. The four-way interlock in
+# build-xnu-4k-baseline.sh:79-82 exists for the full kits/vermeer/BootProgress.c,
+# which reads UFS, Virtio, ADSP, touch, GPU and cpufreq counters; ishtar's
+# scripts/build-boot-progress-min.py records that it fails on about 118 undefined
+# symbols in a slim configuration. This board builds kits/vermeer/BootProgressMin.c
+# instead -- one hard extern, physmap_base, everything else weak_import -- and the
+# board copy of the baseline script relaxes the interlock to the crypto provider
+# alone, which is CONFIG_XNU_SOURCE_CORECRYPTO14=y at line 16.
+CONFIG_XNU_BOOT_PROGRESS=y
 
 CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 CONFIG_XNU_OWNER_DATA_VOLUME_UUID="18AB5557-DC2D-469B-8758-855E60F5B0DF"
