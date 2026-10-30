@@ -19,6 +19,11 @@ name: build-kernel
 # components listed in board.toml [ipsw] fetch straight from the Apple CDN; out/ipsw is
 # cached between runs.
 
+# Posting the failing log as a commit comment needs write access to the
+# repository contents; the default token is read-only here.
+permissions:
+  contents: write
+
 on:
   push:
     branches: [main, master]
