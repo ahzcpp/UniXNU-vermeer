@@ -251,7 +251,22 @@ jobs:
           name: vermeer-kernel-linux
           path: |
             out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho
-            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.json
+          if-no-files-found: error
+
+      - name: Upload the XNU build records the audits read
+        uses: actions/upload-artifact@v4
+        with:
+          # audit-storage-interface.py, audit-aes-interface.py and the archive
+          # builders read the native kernel and the per-object compile records of
+          # the XNU build; the run 41011352600 inventory confirmed this runner
+          # leaves all of them in the tree (ios-obj is 421 MB whole, so only the
+          # reference kernel and the records go out, ~25 MB).
+          name: vermeer-xnu-records
+          path: |
+            out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf
+            out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/compile_commands.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/**/*.o.json
           if-no-files-found: error
 
       - name: Report the build tree inventory as a commit comment
