@@ -47,6 +47,9 @@ jobs:
       - name: Checkout device repository (UniXNU-vermeer)
         uses: actions/checkout@v4
 
+      - name: Check the committed board configuration is not a build profile
+        run: python3 scripts/ci-build-profile.py --verify
+
       - name: Checkout UniXNU build system (with submodules)
         uses: actions/checkout@v4
         with:
@@ -177,6 +180,9 @@ jobs:
     steps:
       - name: Checkout device repository (UniXNU-vermeer)
         uses: actions/checkout@v4
+
+      - name: Check the committed board configuration is not a build profile
+        run: python3 scripts/ci-build-profile.py --verify
 
       - name: Checkout UniXNU build system (with submodules)
         uses: actions/checkout@v4
@@ -364,6 +370,9 @@ jobs:
       - name: Checkout device repository (UniXNU-vermeer)
         uses: actions/checkout@v4
 
+      - name: Check the committed board configuration is not a build profile
+        run: python3 scripts/ci-build-profile.py --verify
+
       - name: Checkout UniXNU build system (with submodules)
         uses: actions/checkout@v4
         with:
@@ -473,6 +482,9 @@ jobs:
       - name: Checkout device repository (UniXNU-vermeer)
         uses: actions/checkout@v4
 
+      - name: Check the committed board configuration is not a build profile
+        run: python3 scripts/ci-build-profile.py --verify
+
       - name: Checkout UniXNU build system (with submodules)
         uses: actions/checkout@v4
         with:
@@ -575,6 +587,9 @@ jobs:
     steps:
       - name: Checkout device repository (UniXNU-vermeer)
         uses: actions/checkout@v4
+
+      - name: Check the committed board configuration is not a build profile
+        run: python3 scripts/ci-build-profile.py --verify
 
       - name: Checkout UniXNU build system (with submodules)
         uses: actions/checkout@v4

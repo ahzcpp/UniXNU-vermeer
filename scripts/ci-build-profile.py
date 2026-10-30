@@ -40,6 +40,17 @@ Two separate reasons, two separate switches. Undo either with
               five components we do care about share, so the component comes out there
               too until the GPU is the subject.
 
+--verify      Asserts the committed board.toml and defconfig are in their source
+              state, which is to say NOT the output of this script. It exists because
+              the output got committed once: a local test ran --drop-pmgr --drop-gpu,
+              only board.toml was restored afterwards, and the defconfig went in with
+              CONFIG_XNU_SHENG_PMGR and CONFIG_XNU_NATIVE_ADRENO switched off. That is
+              a bad commit twice over -- CI's own --drop-pmgr then exits because the
+              switch is already off, so the kernel job dies nine steps in, and anyone
+              building from that commit gets a kernel with no PMGR and walks back into
+              the AMFI wall. CI runs this first so the failure is one line at the top
+              instead of a mangled kernel at the bottom.
+
 Each switch touches every file that has a say, because different code reads each one:
 
   board.toml  [components] include -- archive_plan() raises "needs component entries
@@ -100,20 +111,47 @@ def turn_off(name, config):
     config.write_text(text.replace(on, f'# {name} is not set'))
 
 
+def verify(data, config):
+    """The invariants a commit must hold: every switch this script turns off is on."""
+    text = config.read_text()
+    problems = [f'{config.name}: {name} is not =y' for name in PMGR_CONFIG + GPU_CONFIG
+                if f'{name}=y' not in text]
+    problems += [f'board.toml: {m.decode()} missing from [kernel] archives'
+                 for m in PMGR_ARCHIVES + GPU_ARCHIVES if m not in data]
+    if not any(m in data for m in GPU_COMPONENTS):
+        problems.append('board.toml: Adreno740 missing from [components] include')
+    problems += [f'board.toml: {m.decode()} missing from [payload] kernel_args'
+                 for m in RAMDISK_ROOT_ARGS if m not in data]
+    problems += [f'board.toml: {k.decode()} missing from [payload]'
+                 for k in PROBE_KEYS if k not in data]
+    if problems:
+        for line in problems:
+            print('  ' + line)
+        sys.exit('The committed board configuration looks like the output of this script, '
+                 'not its input. Restore board.toml and the defconfig from git and commit that.')
+    print('board configuration is in its source state')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--drop-pmgr', action='store_true')
     parser.add_argument('--drop-gpu', action='store_true')
     parser.add_argument('--baseline-boot', action='store_true')
+    parser.add_argument('--verify', action='store_true')
     parser.add_argument('--defconfig', default='vermeer_defconfig')
     args = parser.parse_args()
-    if not (args.drop_pmgr or args.drop_gpu or args.baseline_boot):
-        parser.error('nothing to do: pass --drop-pmgr, --drop-gpu, --baseline-boot or several')
+    if not (args.drop_pmgr or args.drop_gpu or args.baseline_boot or args.verify):
+        parser.error('nothing to do: pass --drop-pmgr, --drop-gpu, --baseline-boot, --verify or several')
 
     board = ROOT / 'board.toml'
     data = board.read_bytes()
     config = ROOT / 'configs' / args.defconfig
+
+    if args.verify:
+        verify(data, config)
+        if not (args.drop_pmgr or args.drop_gpu or args.baseline_boot):
+            return
 
     if args.drop_pmgr:
         data, n = drop_lines(data, PMGR_ARCHIVES, 'PMGR')
