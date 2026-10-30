@@ -116,6 +116,34 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
           if-no-files-found: error
 
+      - name: Post the failing log where it can be read without the artifact store
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach. A commit comment goes through the ordinary API, so
+          # the tail of every build log stays readable from anywhere gh works.
+          LOGS=out/vermeer/ipados-17.7.11-21H461/vermeer/logs
+          BODY=$(mktemp)
+          {
+            echo "### \`${{ github.job }}\` failed on ${{ runner.os }} (run ${{ github.run_id }})"
+            echo
+            for f in "$LOGS"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f") (tail)</summary>"
+              echo
+              echo '```'
+              tail -c 6000 "$f"
+              echo '```'
+              echo "</details>"
+              echo
+            done
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
+
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -218,6 +246,34 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho.json
           if-no-files-found: error
 
+      - name: Post the failing log where it can be read without the artifact store
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach. A commit comment goes through the ordinary API, so
+          # the tail of every build log stays readable from anywhere gh works.
+          LOGS=out/vermeer/ipados-17.7.11-21H461/vermeer/logs
+          BODY=$(mktemp)
+          {
+            echo "### \`${{ github.job }}\` failed on ${{ runner.os }} (run ${{ github.run_id }})"
+            echo
+            for f in "$LOGS"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f") (tail)</summary>"
+              echo
+              echo '```'
+              tail -c 6000 "$f"
+              echo '```'
+              echo "</details>"
+              echo
+            done
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
+
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -288,6 +344,34 @@ jobs:
             uefi/Build/vermeerPkg/*/FV/SILICIUM_UEFI.fd
             out/vermeer/ipados-17.7.11-21H461/vermeer/package/Build/Out/
           if-no-files-found: error
+
+      - name: Post the failing log where it can be read without the artifact store
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach. A commit comment goes through the ordinary API, so
+          # the tail of every build log stays readable from anywhere gh works.
+          LOGS=out/vermeer/ipados-17.7.11-21H461/vermeer/logs
+          BODY=$(mktemp)
+          {
+            echo "### \`${{ github.job }}\` failed on ${{ runner.os }} (run ${{ github.run_id }})"
+            echo
+            for f in "$LOGS"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f") (tail)</summary>"
+              echo
+              echo '```'
+              tail -c 6000 "$f"
+              echo '```'
+              echo "</details>"
+              echo
+            done
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
 
       - name: Upload build logs
         if: always()
@@ -370,6 +454,34 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.img
             out/vermeer/ipados-17.7.11-21H461/vermeer/boot/boot.json
           if-no-files-found: error
+
+      - name: Post the failing log where it can be read without the artifact store
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach. A commit comment goes through the ordinary API, so
+          # the tail of every build log stays readable from anywhere gh works.
+          LOGS=out/vermeer/ipados-17.7.11-21H461/vermeer/logs
+          BODY=$(mktemp)
+          {
+            echo "### \`${{ github.job }}\` failed on ${{ runner.os }} (run ${{ github.run_id }})"
+            echo
+            for f in "$LOGS"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f") (tail)</summary>"
+              echo
+              echo '```'
+              tail -c 6000 "$f"
+              echo '```'
+              echo "</details>"
+              echo
+            done
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
 
       - name: Upload build logs
         if: always()
@@ -502,6 +614,34 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img
             out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.json
           if-no-files-found: warn
+
+      - name: Post the failing log where it can be read without the artifact store
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The artifact and raw-log endpoints redirect to blob storage, which some
+          # networks cannot reach. A commit comment goes through the ordinary API, so
+          # the tail of every build log stays readable from anywhere gh works.
+          LOGS=out/vermeer/ipados-17.7.11-21H461/vermeer/logs
+          BODY=$(mktemp)
+          {
+            echo "### \`${{ github.job }}\` failed on ${{ runner.os }} (run ${{ github.run_id }})"
+            echo
+            for f in "$LOGS"/*.log; do
+              [ -f "$f" ] || continue
+              echo "<details><summary>$(basename "$f") (tail)</summary>"
+              echo
+              echo '```'
+              tail -c 6000 "$f"
+              echo '```'
+              echo "</details>"
+              echo
+            done
+          } > "$BODY"
+          head -c 60000 "$BODY" > "$BODY.cut"
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@"$BODY.cut" || echo "could not post the comment"
 
       - name: Upload build logs
         if: always()
