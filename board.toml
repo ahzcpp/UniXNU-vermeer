@@ -148,7 +148,14 @@ BUILDID_STRING = "vermeer-research"
 
 [payload]
 volume = "VERMEERESP"
-size_mib = 192
+# 64, measured on this device: a 192 MiB payload makes a 193 MB boot.img, and
+# `fastboot flash boot_b` refuses it with "Volume Full". 68,665,344 B (a 64 MiB
+# payload plus 1.5 MB of shim and firmware volume) is the largest image that has
+# been written to boot_b here. 192 was inherited from the sheng-family boards --
+# clover uses 56, fuxi 192, sheng 208, sirius 256 -- and is a property of each
+# device's boot partition, not of the kit. The 51 MB kernel leaves about 15 MB
+# for the firmware volume, DTB, ADT, data ramdisk and trust cache.
+size_mib = 64
 loader = "firmware"
 title = "vermeer first boot: source 4K XNU to console"
 dram_size = "0x80000000"             # conservative first-boot window, as sheng

@@ -267,6 +267,7 @@ jobs:
             out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf
             out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/compile_commands.json
             out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/**/*.o.json
+            out/vermeer/ipados-17.7.11-21H461/vermeer/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/**/*.cpo.json
           if-no-files-found: error
 
       - name: Report the build tree inventory as a commit comment
