@@ -1,0 +1,462 @@
+{
+  "excluded_files": [
+    {
+      "path": "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/Tests/coff-atomic-audit.txt",
+      "reason": "generated header, executable, binary, or build result"
+    },
+    {
+      "path": "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/Tests/host-results.json",
+      "reason": "test/build result JSON"
+    },
+    {
+      "path": "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/ClangdAutoGen.h",
+      "reason": "generated header, executable, binary, or build result"
+    },
+    {
+      "path": "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Tests/host-results.json",
+      "reason": "test/build result JSON"
+    }
+  ],
+  "file_count": 75,
+  "package_prefix": "package/uefi/K70DiagnosticsPkg",
+  "patch_bytes": 497711,
+  "patch_sha256": "0100b5c01d8cda5fc1953ead836790b78eada2b937afb0959d4d193afd705cc3",
+  "runtime_source_sha256": {
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/K70LogRingDxe.c": "eae3f2c89d3aa0d8629056d07a6905ab1c663547fa3848f684d40040836630b9",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/K70LogRingDxe.inf": "3b0a45d41e522beb7db00aad1e96373f34186d5187dea7831884083609257e47",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/DiagFont.h": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagCore.c": "79c04913a83b8d3e8bfad29b0e8625f8861deab09fe463fe80165cf79df041f7",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagCore.h": "11ae1357e1ce0c1879485f3a5c974aec22a963f83286a30f880065deca03a79c",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagDxe.c": "67410b0aa6cec651be34d7c8b9b8ebc2c3dc9b5463550964b0f731a775543760",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagDxe.inf": "067653125bbb0937c85642d899e39ec6d5a65a83ae2dcac1d8ac7f2cbb409183",
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/QcomUsbCompat.h": "508bb586238d84b30f526cab6094589b5e1f38e58948a4d8b15f82963c44a3ec",
+    "package/uefi/K70DiagnosticsPkg/Include/K70LogRing.h": "1caf538e65488d32b9e04b381c645e06a97ccf560134a25bc4880e5c1eedff7a",
+    "package/uefi/K70DiagnosticsPkg/K70DiagnosticsPkg.dec": "66f65b71f2435db743de900854522952ed66675956630cb105685e72b58c46d5",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Boot.c": "0e7bc453894fee99d16ce48bd248c3cbb0f055ebed24520003e31a7eb1c63041",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Config.c": "c070b2eb1c4922df345a2f830c5f2c420bafd11dde759fee2d2ce4f3be3923c5",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/DiagPolicy.c": "f33ad4a72fbd435af380d7eb3d6e8e336906b00006ddc777a8dde3740b9e9b9d",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/DiagUniXNULib.inf": "6637d855402d76f85bb32170a4769a5402451dbe8638f7c8c69106854a0c7ca9",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Font.c": "391c7dbc8c6eb3cd07230e3dd8d38e4ba8a5a9b603bcaecb4d8e62a4603d2ac6",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Inject.c": "9fe26f16f90de00b4b4fb3631b0015ddd1021f8cf7bdd92aada37a2f3b71a126",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Internal.h": "0e2f52c4ad1b20493eb6b4fe4f51e9d2abf62b04264d1c7c8d625b856aec6073",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Kext.c": "1d1ac3576573676a1cef9d8295d52d92cd2845242b775d07161c1a518c48888f",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Logo.c": "da9d49c502f42c489742d2abaa8a300db1c265b0fcf807e4d7bd3d8aa8a9e4a1",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/LogoShape.h": "8fe96788c3c1e27df7f4209c31ae1b3818ae99cf858d6dae457cd16643a6a43b",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Main.c": "a8d54695ce8401c68bbf57556c450fd507870e6682a082608f1233dc2818ed4e",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Menu.c": "4adf5ec907622116030f820db40b488cb689d86c9ebb9fb658f37c701aa08df2",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Slice.c": "e9f23a7307adc0337982d27e5d11fc178aa2ee2dc023345acba3388d7ed576d3",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Toml.c": "4d82a7de6196873df6f0a2cc033c67d337f505c53d235b053b8c6458d7332a2a",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Ui.c": "7f5a2773424a5a8cc68c12d061744ffd80c2847aa6595625740f41e0b5ea6792",
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Volume.c": "ab9a7b36a258cfb43b8c15fee86393ec9a1978e9b3d3e8d8e2a83b2f36bdbff2",
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/DxeLogSerialPortLib.c": "56e41e0f8be9843dccaaf38d44f8ee558ea3acfcdb0a2a574faee8340c326894",
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/DxeLogSerialPortLib.inf": "22afa90fdb60e85b5acc389a3def9d6c5494b3a106c3b195645c2a9f9d9846b2",
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/Font.h": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e",
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/FrameBuffer.h": "556f0ba7479eda4d0ecfe3a6b01c83ba3cfbfe60338e26d0aeeb8645d615993f",
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/FrameBufferSerialPortLib.original.inc": "07d3b7034159420a074947ccb38db235b95202d9928ed79e367ee770505be61a",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/DtbTemplate.h": "fef39136b53b53e27e13dfbaa45f62075cc8608aa1dff9673cfb9478ed76ea00",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Include/FvList.h": "14d7f23a4ccff4fc89632aebef61a90e1ece7ecc48e2352fe19670bf612505e7",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/K70XblValidation.h": "bc69c205cadd5bb57eca0b13d66af828d615a0982cc81808d1431af26e16bbb8",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPei.c": "27c34cce0c25efb1e4e9c967793ca9e6a221e43fd94727fb96cc5d23472d01ed",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPei.h": "db24dea1abf8c25b6be287b8d39d32335ea6a8e073b0e0fa1e811f74f01061de",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPeiLib.inf": "ba75217de2f4b37e79a972b4d8d176fa9b170fb5774b9a83957767544d191351",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/SchedulerTemplate.h": "067ec2692eb43ebecaff819952f84eabb0049ef6baa96f4d53d2e54bf8cf685b",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/SerialPort.c": "cdf39d007d192107e9d70e3c2824db0a2e14a5d0dc8e5dab48129b85d5c8de5d",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFISerialPort.h": "53986b1296ae2c6065f16cb8ef3444ee338aae51149803f4b18e34d51bf8cf2a",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFIShim.h": "e552d65b677ff0674a8249ce3b1051a8eeec1ada755927da251cb8984239abbc",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFIUefiConfig.h": "a97069d8ac300ec7a80f04e0bf341178f1fb1cc255bd11a133c49083a6c468e0",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLoader.c": "5378fa6d0273b332e5e6e178c1b9c5793283e5b1f67cf13ce4e2628c0144c209",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/UefiConfig.c": "fb19a33a2a0427b04da52a8a85dc0dc6d4de12b6a7fa885f3764d64f34cc2cd9",
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/XblProtocols.c": "70120f5951cbd1df01046d3f6f04e8e001e21714f2c4ec2e41805e0fbdc60342",
+    "package/uefi/K70DiagnosticsPkg/Library/MemoryMapUsbDiagLib/MemoryMapLib.c": "9c91e5f7838527e0476429c8c3b60dc1f0ab84d6d7e2af440267d45737576cf8",
+    "package/uefi/K70DiagnosticsPkg/Library/MemoryMapUsbDiagLib/MemoryMapLib.inf": "cd90ec0645a6a7c9d98472dde6e0c497c694296bcd5efb982ebc0c4e147ec555",
+    "package/uefi/K70DiagnosticsPkg/Profiles/APRIORI.inc": "2a2f3ed8fae5a83090d93d9464c2f8a1828b82dfc24a155945cf5e363e1269ce",
+    "package/uefi/K70DiagnosticsPkg/Profiles/DXE.inc": "361a533e42804666e1f5dd79743e969773a71d4949a02509d90f6272e0f95256",
+    "package/uefi/K70DiagnosticsPkg/Profiles/vermeer-usb-diag.dsc": "d3ad6facb1c541b83daf91f4073aa2456e04f708ab97aa8c8c86c45d17f637b6",
+    "package/uefi/K70DiagnosticsPkg/Profiles/vermeer-usb-diag.fdf": "169bfc36ae7c3039a0c5bae6d64f5b11d78149b2bfe35542f75c9cc4987fe36b"
+  },
+  "schema": "k70-uefi-diagnostics-source-export/1",
+  "scope": "Text sources/licenses/provenance/tests only; no USB, firmware execution, or publishing",
+  "source_files": {
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/K70LogRingDxe.c": {
+      "bytes": 3848,
+      "mode": "100644",
+      "sha256": "eae3f2c89d3aa0d8629056d07a6905ab1c663547fa3848f684d40040836630b9"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/K70LogRingDxe.inf": {
+      "bytes": 743,
+      "mode": "100644",
+      "sha256": "3b0a45d41e522beb7db00aad1e96373f34186d5187dea7831884083609257e47"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/Tests/HostTest.c": {
+      "bytes": 10507,
+      "mode": "100644",
+      "sha256": "b1665ab8f85a6262f7507b0ccb97572b413d920d15db487161b44d0dbf5312a7"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70LogRingDxe/Tests/run-host-tests.py": {
+      "bytes": 5257,
+      "mode": "100644",
+      "sha256": "67fd592d8edf5a408fd8e8beb0ef2b38f2083efdcad027b98dadc883ba13550b"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/DiagFont.h": {
+      "bytes": 3692,
+      "mode": "100644",
+      "sha256": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagCore.c": {
+      "bytes": 8983,
+      "mode": "100644",
+      "sha256": "79c04913a83b8d3e8bfad29b0e8625f8861deab09fe463fe80165cf79df041f7"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagCore.h": {
+      "bytes": 2655,
+      "mode": "100644",
+      "sha256": "11ae1357e1ce0c1879485f3a5c974aec22a963f83286a30f880065deca03a79c"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagDxe.c": {
+      "bytes": 23820,
+      "mode": "100644",
+      "sha256": "67410b0aa6cec651be34d7c8b9b8ebc2c3dc9b5463550964b0f731a775543760"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/K70UsbDiagDxe.inf": {
+      "bytes": 1147,
+      "mode": "100644",
+      "sha256": "067653125bbb0937c85642d899e39ec6d5a65a83ae2dcac1d8ac7f2cbb409183"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/QcomUsbCompat.h": {
+      "bytes": 1187,
+      "mode": "100644",
+      "sha256": "508bb586238d84b30f526cab6094589b5e1f38e58948a4d8b15f82963c44a3ec"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/README.md": {
+      "bytes": 6869,
+      "mode": "100644",
+      "sha256": "5abba9ff073098423ca1ae08efdddc61cf9ced221ee9a5e183520bf3478d9ecc"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/tests/CoreMock.c": {
+      "bytes": 7230,
+      "mode": "100644",
+      "sha256": "78e4a5dd65933821c519bf2cd92a64b028a402f90d93035b5678f6b6c086b71c"
+    },
+    "package/uefi/K70DiagnosticsPkg/Drivers/K70UsbDiagDxe/tests/run-host-tests.sh": {
+      "bytes": 354,
+      "mode": "100644",
+      "sha256": "faf2cf7cd566785fe947f94c4aa0c46dc09720f44e34b0011307fe2232f9169b"
+    },
+    "package/uefi/K70DiagnosticsPkg/Include/K70LogRing.h": {
+      "bytes": 7884,
+      "mode": "100644",
+      "sha256": "1caf538e65488d32b9e04b381c645e06a97ccf560134a25bc4880e5c1eedff7a"
+    },
+    "package/uefi/K70DiagnosticsPkg/K70DiagnosticsPkg.dec": {
+      "bytes": 573,
+      "mode": "100644",
+      "sha256": "66f65b71f2435db743de900854522952ed66675956630cb105685e72b58c46d5"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Boot.c": {
+      "bytes": 1080,
+      "mode": "100644",
+      "sha256": "0e7bc453894fee99d16ce48bd248c3cbb0f055ebed24520003e31a7eb1c63041"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Config.c": {
+      "bytes": 45492,
+      "mode": "100644",
+      "sha256": "c070b2eb1c4922df345a2f830c5f2c420bafd11dde759fee2d2ce4f3be3923c5"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/DiagPolicy.c": {
+      "bytes": 2125,
+      "mode": "100644",
+      "sha256": "f33ad4a72fbd435af380d7eb3d6e8e336906b00006ddc777a8dde3740b9e9b9d"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/DiagUniXNULib.inf": {
+      "bytes": 1956,
+      "mode": "100644",
+      "sha256": "6637d855402d76f85bb32170a4769a5402451dbe8638f7c8c69106854a0c7ca9"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Font.c": {
+      "bytes": 12616,
+      "mode": "100644",
+      "sha256": "391c7dbc8c6eb3cd07230e3dd8d38e4ba8a5a9b603bcaecb4d8e62a4603d2ac6"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Inject.c": {
+      "bytes": 1620,
+      "mode": "100644",
+      "sha256": "9fe26f16f90de00b4b4fb3631b0015ddd1021f8cf7bdd92aada37a2f3b71a126"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Internal.h": {
+      "bytes": 16303,
+      "mode": "100644",
+      "sha256": "0e2f52c4ad1b20493eb6b4fe4f51e9d2abf62b04264d1c7c8d625b856aec6073"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Kext.c": {
+      "bytes": 574,
+      "mode": "100644",
+      "sha256": "1d1ac3576573676a1cef9d8295d52d92cd2845242b775d07161c1a518c48888f"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Logo.c": {
+      "bytes": 4613,
+      "mode": "100644",
+      "sha256": "da9d49c502f42c489742d2abaa8a300db1c265b0fcf807e4d7bd3d8aa8a9e4a1"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/LogoShape.h": {
+      "bytes": 8266,
+      "mode": "100644",
+      "sha256": "8fe96788c3c1e27df7f4209c31ae1b3818ae99cf858d6dae457cd16643a6a43b"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Main.c": {
+      "bytes": 5216,
+      "mode": "100644",
+      "sha256": "a8d54695ce8401c68bbf57556c450fd507870e6682a082608f1233dc2818ed4e"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Menu.c": {
+      "bytes": 14573,
+      "mode": "100644",
+      "sha256": "4adf5ec907622116030f820db40b488cb689d86c9ebb9fb658f37c701aa08df2"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/README.md": {
+      "bytes": 4409,
+      "mode": "100644",
+      "sha256": "1ac409ac13747dbc7fa9d087ce73a5db4ed3805b3f0311002e32b698ea440851"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/SOURCE-PIN.json": {
+      "bytes": 1777,
+      "mode": "100644",
+      "sha256": "ee4ceb6b89c9850689c7aae21cc93a174aff8294169e33201848b89b59bd49fe"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Slice.c": {
+      "bytes": 346,
+      "mode": "100644",
+      "sha256": "e9f23a7307adc0337982d27e5d11fc178aa2ee2dc023345acba3388d7ed576d3"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Tests/AutoToolHost.c": {
+      "bytes": 4088,
+      "mode": "100644",
+      "sha256": "235858af8cea605c107548e383e93b7f744f340cd48d67962a5b1dabca7ace11"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Tests/PolicyHost.c": {
+      "bytes": 6114,
+      "mode": "100644",
+      "sha256": "440a358b6956470dea2d91ab66b6e57b3e1d2937c44164cf4bf2fb17f6dc54e7"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Tests/run-host-tests.sh": {
+      "bytes": 1193,
+      "mode": "100644",
+      "sha256": "a3b8ce31cc67b3ae45609147cc956689bb0601b1a270a454b95ac38b10d99562"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Toml.c": {
+      "bytes": 15838,
+      "mode": "100644",
+      "sha256": "4d82a7de6196873df6f0a2cc033c67d337f505c53d235b053b8c6458d7332a2a"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Ui.c": {
+      "bytes": 27007,
+      "mode": "100644",
+      "sha256": "7f5a2773424a5a8cc68c12d061744ffd80c2847aa6595625740f41e0b5ea6792"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DiagUniXNULib/Volume.c": {
+      "bytes": 8739,
+      "mode": "100644",
+      "sha256": "ab9a7b36a258cfb43b8c15fee86393ec9a1978e9b3d3e8d8e2a83b2f36bdbff2"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/DxeLogSerialPortLib.c": {
+      "bytes": 3229,
+      "mode": "100644",
+      "sha256": "56e41e0f8be9843dccaaf38d44f8ee558ea3acfcdb0a2a574faee8340c326894"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/DxeLogSerialPortLib.inf": {
+      "bytes": 1301,
+      "mode": "100644",
+      "sha256": "22afa90fdb60e85b5acc389a3def9d6c5494b3a106c3b195645c2a9f9d9846b2"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/Font.h": {
+      "bytes": 3692,
+      "mode": "100644",
+      "sha256": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/FrameBuffer.h": {
+      "bytes": 928,
+      "mode": "100644",
+      "sha256": "556f0ba7479eda4d0ecfe3a6b01c83ba3cfbfe60338e26d0aeeb8645d615993f"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/FrameBufferSerialPortLib.original.inc": {
+      "bytes": 9082,
+      "mode": "100644",
+      "sha256": "07d3b7034159420a074947ccb38db235b95202d9928ed79e367ee770505be61a"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/LICENSE.upstream": {
+      "bytes": 1884,
+      "mode": "100644",
+      "sha256": "2b031880c646006165194888f9814806719ab4c91c26d330c4eb71e1983f0187"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/DxeLogSerialPortLib/UPSTREAM.md": {
+      "bytes": 2750,
+      "mode": "100644",
+      "sha256": "7470fbf2e6d90beeafd849cd402853777ebfc26d06de060b07909dbc768bb60f"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/DtbTemplate.h": {
+      "bytes": 1067,
+      "mode": "100644",
+      "sha256": "fef39136b53b53e27e13dfbaa45f62075cc8608aa1dff9673cfb9478ed76ea00"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Include/FvList.h": {
+      "bytes": 342,
+      "mode": "100644",
+      "sha256": "14d7f23a4ccff4fc89632aebef61a90e1ece7ecc48e2352fe19670bf612505e7"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/K70XblValidation.h": {
+      "bytes": 1186,
+      "mode": "100644",
+      "sha256": "bc69c205cadd5bb57eca0b13d66af828d615a0982cc81808d1431af26e16bbb8"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/LICENSE.upstream": {
+      "bytes": 1884,
+      "mode": "100644",
+      "sha256": "2b031880c646006165194888f9814806719ab4c91c26d330c4eb71e1983f0187"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPei.c": {
+      "bytes": 5449,
+      "mode": "100644",
+      "sha256": "27c34cce0c25efb1e4e9c967793ca9e6a221e43fd94727fb96cc5d23472d01ed"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPei.h": {
+      "bytes": 671,
+      "mode": "100644",
+      "sha256": "db24dea1abf8c25b6be287b8d39d32335ea6a8e073b0e0fa1e811f74f01061de"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/PlatformPeiLib.inf": {
+      "bytes": 1345,
+      "mode": "100644",
+      "sha256": "ba75217de2f4b37e79a972b4d8d176fa9b170fb5774b9a83957767544d191351"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/README.md": {
+      "bytes": 5134,
+      "mode": "100644",
+      "sha256": "c6364539520efa3a879d14aacb848768dcb121d6b9a306aa3a74e6c16d939170"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/SchedulerTemplate.h": {
+      "bytes": 2854,
+      "mode": "100644",
+      "sha256": "067ec2692eb43ebecaff819952f84eabb0049ef6baa96f4d53d2e54bf8cf685b"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/SerialPort.c": {
+      "bytes": 190,
+      "mode": "100644",
+      "sha256": "cdf39d007d192107e9d70e3c2824db0a2e14a5d0dc8e5dab48129b85d5c8de5d"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFISerialPort.h": {
+      "bytes": 2976,
+      "mode": "100644",
+      "sha256": "53986b1296ae2c6065f16cb8ef3444ee338aae51149803f4b18e34d51bf8cf2a"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFIShim.h": {
+      "bytes": 1559,
+      "mode": "100644",
+      "sha256": "e552d65b677ff0674a8249ce3b1051a8eeec1ada755927da251cb8984239abbc"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLibraries/EFIUefiConfig.h": {
+      "bytes": 3729,
+      "mode": "100644",
+      "sha256": "a97069d8ac300ec7a80f04e0bf341178f1fb1cc255bd11a133c49083a6c468e0"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/ShimLoader.c": {
+      "bytes": 1684,
+      "mode": "100644",
+      "sha256": "5378fa6d0273b332e5e6e178c1b9c5793283e5b1f67cf13ce4e2628c0144c209"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Tests/FvListTest.c": {
+      "bytes": 3259,
+      "mode": "100644",
+      "sha256": "84ce17a9659dc07499b66e49975d5bbec104beea460ac418739e371d5afda6df"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Tests/ScannerTest.c": {
+      "bytes": 8873,
+      "mode": "100644",
+      "sha256": "8d06bb2f01b44f397f1347a83f97129ce6421dd88ee3c70c6bcb675d035e2fd3"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/Tests/run-host-tests.py": {
+      "bytes": 3109,
+      "mode": "100644",
+      "sha256": "525b5fd9332bb982bed0a8ff30a5a2baca1fd0ba74de2dd7bd65543ff41102af"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/UefiConfig.c": {
+      "bytes": 730,
+      "mode": "100644",
+      "sha256": "fb19a33a2a0427b04da52a8a85dc0dc6d4de12b6a7fa885f3764d64f34cc2cd9"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/K70PlatformPeiLib/XblProtocols.c": {
+      "bytes": 20317,
+      "mode": "100644",
+      "sha256": "70120f5951cbd1df01046d3f6f04e8e001e21714f2c4ec2e41805e0fbdc60342"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/MemoryMapUsbDiagLib/MemoryMapLib.c": {
+      "bytes": 10002,
+      "mode": "100644",
+      "sha256": "9c91e5f7838527e0476429c8c3b60dc1f0ab84d6d7e2af440267d45737576cf8"
+    },
+    "package/uefi/K70DiagnosticsPkg/Library/MemoryMapUsbDiagLib/MemoryMapLib.inf": {
+      "bytes": 413,
+      "mode": "100644",
+      "sha256": "cd90ec0645a6a7c9d98472dde6e0c497c694296bcd5efb982ebc0c4e147ec555"
+    },
+    "package/uefi/K70DiagnosticsPkg/Profiles/APRIORI.inc": {
+      "bytes": 1816,
+      "mode": "100644",
+      "sha256": "2a2f3ed8fae5a83090d93d9464c2f8a1828b82dfc24a155945cf5e363e1269ce"
+    },
+    "package/uefi/K70DiagnosticsPkg/Profiles/DXE.inc": {
+      "bytes": 5193,
+      "mode": "100644",
+      "sha256": "361a533e42804666e1f5dd79743e969773a71d4949a02509d90f6272e0f95256"
+    },
+    "package/uefi/K70DiagnosticsPkg/Profiles/vermeer-usb-diag.dsc": {
+      "bytes": 8166,
+      "mode": "100644",
+      "sha256": "d3ad6facb1c541b83daf91f4073aa2456e04f708ab97aa8c8c86c45d17f637b6"
+    },
+    "package/uefi/K70DiagnosticsPkg/Profiles/vermeer-usb-diag.fdf": {
+      "bytes": 6047,
+      "mode": "100644",
+      "sha256": "169bfc36ae7c3039a0c5bae6d64f5b11d78149b2bfe35542f75c9cc4987fe36b"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/README-build-firmware.md": {
+      "bytes": 2464,
+      "mode": "100644",
+      "sha256": "d41bab47e39d0cb93ef234385fb255493236d046a08e705531049dce091a5b50"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/README.md": {
+      "bytes": 2789,
+      "mode": "100644",
+      "sha256": "8c161e918919a0335369fd5367869f2a4633b63f8a586dc9afbb04c169833385"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/build-firmware.py": {
+      "bytes": 16782,
+      "mode": "100644",
+      "sha256": "10bdd88173fcc50880c06f3ef61b060a7c7c1c21d13607509954cf4f132dd4b2"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/oem-fv-audit.py": {
+      "bytes": 12176,
+      "mode": "100644",
+      "sha256": "36567781b2a375ca8a8fed86571406cab0c261fb900de3780a2e2b95b3bbd7a1"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/oem-modules.json": {
+      "bytes": 16326,
+      "mode": "100644",
+      "sha256": "3747f9c9153d73c13fe9eb89c2501e8ff789823799e0c4fcfe94bc8054bd9e9e"
+    },
+    "package/uefi/K70DiagnosticsPkg/Tools/prepare-oem.py": {
+      "bytes": 12864,
+      "mode": "100644",
+      "sha256": "1db15c9e83b81203245ef48dddff53189a41e6c7e3976495df289199779749d7"
+    },
+    "scripts/tests/test-capture-k70-uefi.ps1": {
+      "bytes": 9532,
+      "mode": "100644",
+      "sha256": "1bda68c545a41048eecef8d909d8f1e612e63a7ddb0351c2bb9bb56daede387a"
+    }
+  },
+  "verification": {
+    "all_applied_file_hashes_equal_source": true,
+    "git_apply_check": true,
+    "git_apply_to_empty_repository": true,
+    "source_snapshot_unchanged": true
+  }
+}
