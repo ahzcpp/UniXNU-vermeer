@@ -1,8 +1,14 @@
 # K70 clean source build, 2026-11-04
 
-The user's K70 has reached a bootloader menu. The two supplied photographs are
-references, not observations of this phone. Earlier workspace notes and binary
-images are not evidence for this installation.
+The user's K70 now boots the newly built UniXNU menu and shows the new XNU
+entry. The latest photograph from this connected session shows the green
+DarwinEnter handoff bar, with no blue or magenta XNU entry-probe bars. This
+establishes the loader handoff stage, not XNU execution or an OS boot.
+
+The two photographs supplied at the start remain references, not observations
+of this phone. Earlier workspace notes and binary images are not evidence for
+this installation. See [the current handoff record](handoff-trace-2026-11-04.md)
+for the new device evidence and the next diagnostic build.
 
 The agreed first OS target is iPadOS 17.7.11 (21H461), iPad7,1. This is a new
 source build, not a conversion of the stock Linux kernel into XNU.
@@ -46,13 +52,17 @@ GPU is excluded from this diagnostic baseline, as in the inherited CI profile.
 
 - The inherited defconfig disables the native UFS/root chain. A successfully
   compiled baseline cannot mount an iPadOS installation by itself.
-- The user's partition geometry, active DTBO, runtime memory map, panel and
-  touch identity have not been read in this run. The old userdata LBAs are not
-  measurements of this phone and must not be used to generate a flash image.
+- Userdata GPT geometry, the active DTBO selection and the runtime memory map
+  have not been established in this run. Stock dtbo overlay 54 identifies an
+  SM8550 vermeer board and has been parsed and combined offline only. That is
+  not proof of the overlay selected by the running phone. The old userdata
+  LBAs must not be used to generate a flash image.
 - The UEFI source includes a high DRAM bank borrowed from sheng and explicitly
   calls it unverified for K70. Physical testing must validate the memory map.
-- Apple OS/SystemOS, writable Data state, matching storage ABI and verified
-  root policies must be integrated before launchd and SpringBoard can work.
+- Original Apple OS and SystemOS inputs have been downloaded and their sizes
+  and SHA-256 values match the board pins. No root/userdata image has been
+  created or written. Writable Data state, matching storage ABI and verified
+  root policies still need integration before launchd and SpringBoard can work.
 - Touch/display/GPU support on sheng does not prove support for K70 hardware.
 
 The source defaults no longer request `rd=md0` without an input ramdisk or a
@@ -61,10 +71,16 @@ it does not supply a root filesystem or prove that XNU executes on this phone.
 
 ## Device session
 
-No USB or partition-writing command has been run. The first connected session
-must identify the single fastboot device, confirm `product: vermeer`, record
-partition sizes and collect the current boot evidence. Only a complete,
-unpacked and hash-checked Android image may be considered for temporary boot.
+The connected session identified one fastboot device with `product: vermeer`,
+hardware revision `20000`, current slot `b`, and `unlocked: yes`. Serial numbers
+and the private platform seed are deliberately omitted from this record.
+
+The complete v2 boot image was independently checked before it was flashed to
+`boot_b`, and the device was rebooted. Its size is 68,657,152 bytes and its
+SHA-256 is
+`ad2660d1c0c766146f55b1a68bf705050fa1c6af48e37c4f6aecec72dbc44b58`.
+The user confirmed the new UniXNU menu and XNU item. The subsequent green
+DarwinEnter bar is the last confirmed stage. No userdata write was performed.
 No userdata image will be made from inherited geometry. Preserve the two
 original stock files for recovery.
 
@@ -82,11 +98,18 @@ the decompressed firmware matched byte-for-byte, and the old verifier offset
 failure was reproduced. The patch is `android-v0-offset.patch` at repository
 root and must be applied to the pinned UniXNU build checkout before packaging.
 
-These UEFI-only wrappers have no XNU payload and no OS. They are not the desired
-system image, and neither is selected for this phone before its hardware
-revision and runtime memory map are established. The existing board DTB is also
-not byte-identical to the provided stock firmware's v2 tree.
+Those earlier UEFI-only wrappers have no XNU payload and no OS. The connected
+test instead used the complete v2 image identified above. The stock dtbo
+overlay 54 has subsequently been inspected offline; the synthesized tree has
+not been flashed. A runtime memory map is still needed.
 
-The new workflow builds the diagnostic XNU baseline and firmware independently,
-then packs an Android boot image only if both jobs succeed. The image still has
-no OS root; a green workflow is a host build result, not a successful phone boot.
+The workflow builds the diagnostic XNU baseline and firmware independently,
+then packs an Android boot image only if both jobs succeed. All three jobs
+succeeded in [run 41680341472](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41680341472)
+and [run 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681910792).
+These are host build results. The phone test separately confirms the menu and
+green loader handoff bar; neither result establishes XNU or userland execution.
+
+The next `trace01` diagnostic image is being built. It adds loader-stage bands
+and address output described in the handoff record. It has not been recorded
+as flashed or successful.

@@ -1,0 +1,53 @@
+{
+  "created_utc": "2026-11-03T17:09:05.513470+00:00",
+  "purpose": "Original OS/SystemOS inputs only; no userdata packaging or device operation",
+  "hardware_tested": false,
+  "userdata_image_created": false,
+  "status": "verified",
+  "core_commit": "c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5",
+  "device_commit": "f021f82a95e2a2f85552c7c73999c0c43f0cd78f",
+  "board_toml_sha256": "7d94b50a2245c7764b69619fd188dd53e1db911fa63579ab800f5d57fa00974c",
+  "ipsw_url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw",
+  "identity_verified_by_upstream_Ipsw": true,
+  "product": "iPad7,1",
+  "version": "17.7.11",
+  "build": "21H461",
+  "device_class": "j120ap",
+  "chip_id": 32785,
+  "board_id": 12,
+  "total_member_bytes": 8460420469,
+  "total_zip_compressed_bytes": 6478931189,
+  "download_limit_bytes": 12000000000,
+  "e_drive_free_bytes_at_check": 20660019200,
+  "wsl_free_bytes_at_check": 204666380288,
+  "members": [
+    {
+      "component": "OS",
+      "member": "044-76040-038.dmg",
+      "bytes": 5157406069,
+      "zip_compressed_bytes": 5157406069,
+      "path": "/root/k70-clean-20261104/out/ipsw/21H461/044-76040-038.dmg",
+      "expected_sha256": "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d",
+      "pin_present": true,
+      "exists": true,
+      "actual_bytes": 5157406069,
+      "actual_sha256": "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d",
+      "size_matches": true,
+      "sha256_matches_pin": true
+    },
+    {
+      "component": "Cryptex1,SystemOS",
+      "member": "044-76034-038.dmg",
+      "bytes": 3303014400,
+      "zip_compressed_bytes": 1321525120,
+      "path": "/root/k70-clean-20261104/out/ipsw/21H461/044-76034-038.dmg",
+      "expected_sha256": "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f",
+      "pin_present": true,
+      "exists": true,
+      "actual_bytes": 3303014400,
+      "actual_sha256": "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f",
+      "size_matches": true,
+      "sha256_matches_pin": true
+    }
+  ]
+}

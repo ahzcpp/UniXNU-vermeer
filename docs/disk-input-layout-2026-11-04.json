@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "member": "044-76040-038.dmg",
+      "stored_bytes": 5157406069,
+      "raw_disk_bytes": 6077580800,
+      "udif_block_table_validated": true,
+      "chunks": 3814,
+      "first64_hex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "first_block_nxsb_magic": false
+    },
+    {
+      "member": "044-76034-038.dmg",
+      "stored_bytes": 3303014400,
+      "raw_disk_bytes": 3303014400,
+      "udif_block_table_validated": false,
+      "chunks": null,
+      "first64_hex": "1a3a25600dd845a301000000000000000e0000000000000001000080000000004e58534200100000004e0c000000000000000000000000000000000000000000",
+      "first_block_nxsb_magic": true
+    }
+  ],
+  "userdata_image_created": false
+}
