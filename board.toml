@@ -29,12 +29,9 @@ fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustC
 "044-76040-038.dmg" = "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d"
 "044-76034-038.dmg" = "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f"
 
-# The raw image for the userdata partition. TODO: replace with the GPT entry "userdata" of
-# LUN 0 read from this K70 (fastboot: `fastboot oem get-partition-info userdata` or a GPT dump).
+# No userdata geometry is set for this installation. Read this phone's GPT
+# before generating a root image; inherited LBAs are not device measurements.
 [userdata]
-first_lba = 0x273840
-last_lba = 0x3afa3fa
-lba_bytes = 4096
 windows = [
   { name = "OS", component = "OS" },
   { name = "SystemOS", component = "Cryptex1,SystemOS" },
@@ -66,7 +63,7 @@ archives = [
 ]
 
 [kernel.prelink]
-tool = "kits/NativePrelink/emit_prelink.py"
+tool = "kits/XnuPrelink/emit_prelink.py"
 kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
 kernelcache_sha256 = "f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7"
 slide = "-0x1000000"
@@ -148,42 +145,23 @@ BUILDID_STRING = "vermeer-research"
 
 [payload]
 volume = "VERMEERESP"
-# 64, measured on this device: a 192 MiB payload makes a 193 MB boot.img, and
-# `fastboot flash boot_b` refuses it with "Volume Full". 68,665,344 B (a 64 MiB
-# payload plus 1.5 MB of shim and firmware volume) is the largest image that has
-# been written to boot_b here. 192 was inherited from the sheng-family boards --
-# clover uses 56, fuxi 192, sheng 208, sirius 256 -- and is a property of each
-# device's boot partition, not of the kit. The 51 MB kernel leaves about 15 MB
-# for the firmware volume, DTB, ADT, data ramdisk and trust cache.
+# Initial payload size. The connected phone's partition and download limits
+# must be read before testing a complete Android image.
 size_mib = 64
 loader = "firmware"
-title = "vermeer first boot: source 4K XNU to console"
+title = "vermeer clean XNU baseline - root integration pending"
 dram_size = "0x80000000"             # conservative first-boot window, as sheng
 skip_setup_tool = "scripts/seed-data-skip-setup.py"   # used by --skip-setup
-# Off for this round: scripts/patch-xnu-entry-probe.py puts the stage 4 reset in
-# cave 4, which leaves 0x970 of padding for the panic screen (PANIC_CAVE_END
-# 0xFFFFFFF00B9D0FF0 - CAVES[4] 0x...0620 - CAVE_SIZE 0x60) against the 0x9f5 it
-# needs, so the two cannot both be on and the tool exits rather than truncate.
-panic_screen = false
+# Keep panic diagnostics; no automatic reset probe is installed by default.
+panic_screen = true
 
-# Stage 4 asks one question and answers it without a frame buffer: a reboot six
-# seconds in means the kernel got past the call, no reboot means it did not.
-# _mdevadd is 0xfffffff007477a58, called 21 times in the kernel but exactly once
-# from _IOFindBSDRoot (bl at 0xfffffff007982368), so occurrence 1 is that call.
-entry_probe_reset_delay = 6
-entry_probe_reset_after = "_mdevadd"
-entry_probe_reset_in = "_IOFindBSDRoot"
-entry_probe_reset_occurrence = 1
 trust_cache_sha256 = [
   "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7",
   "8900d6a93d7a59ce1a872a5c081e559f4240a218f97e12d44d22dda46644d68f",
 ]
 kernel_args = [
-  # The set that has booted this device to a userspace exit status. Every entry
-  # here is live: -v, debug, kt_fixed_zones, cpus and -no_slto_panic are XNU's
-  # own, sheng-pmgr is read by package/ShengPlatformPower.cpp (archive 11), and
-  # rd=md0 selects the mockfs root. boot-progress is inert while
-  # CONFIG_XNU_BOOT_PROGRESS is n and is kept so it works when that flips.
+  # Initial diagnostic arguments, not a record of successful hardware tests.
+  # Add rd=md0 only when providing a matching root ramdisk explicitly.
   "-v",
   "debug=0x14e",
   "kt_fixed_zones=120",
@@ -191,7 +169,6 @@ kernel_args = [
   "boot-progress=2",
   "sheng-pmgr=2",
   "-no_slto_panic",
-  "rd=md0",
 ]
 
 # Parked. These were carried over from the sheng-family boards and none of them
@@ -249,7 +226,7 @@ kernel_args = [
 
 [payload.adt]
 chip_id = "207"
-owned_memory_size = "0x20000000"   # 512 MiB: the window DarwinBoot can actually allocate on this device (observed BIG RUN ~0x3B300000)
+owned_memory_size = "0x20000000"   # Initial 512 MiB request; contiguous availability is unverified on this phone.
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
 # false, measured: true against a payload that is not packed takes DarwinBoot
 # through KeepPacked && !RamdiskPacked to EFI_COMPROMISED_DATA and back to the
