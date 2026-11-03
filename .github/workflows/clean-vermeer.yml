@@ -1,0 +1,146 @@
+name: Clean vermeer kernel baseline
+
+on:
+  push:
+    branches: [research/clean-vermeer-20261104]
+    paths-ignore: ['docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      UNIXNU_TOOLCHAIN: /home/runner/unixnu-linux
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          submodules: recursive
+          path: unixnu
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.UNIXNU_TOOLCHAIN }}
+          key: unixnu-linux-toolchain-${{ hashFiles('unixnu/scripts/linux/setup-toolchain.py') }}
+      - name: Install and verify the official XNU toolchain
+        run: sudo python3 unixnu/scripts/linux/setup-toolchain.py "$UNIXNU_TOOLCHAIN"
+      - name: Build both kernel passes in an isolated source clone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 device/scripts/build-clean-kernel.py --core unixnu --work clean-kernel
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clean-vermeer-build-evidence
+          path: |
+            clean-kernel/build-manifest.json
+            clean-kernel/logs/
+            clean-kernel/out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
+            clean-kernel/out/vermeer/ipados-17.7.11-21H461/vermeer/.config
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-vermeer-kernel-NOT-fastboot-image
+          path: clean-kernel/out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/
+          if-no-files-found: error
+
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          submodules: recursive
+          path: unixnu
+      - uses: actions/checkout@v4
+        with:
+          repository: yyx2025/uefi-vermeer
+          ref: ae57e93f0eb6b556f1bb964ffb12f0e78aaaf33c
+          submodules: recursive
+          path: uefi
+      - name: Install firmware tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential nasm uuid-dev gettext python3 python3-pip clang lld llvm gcc-aarch64-linux-gnu device-tree-compiler git curl
+          python3 -m pip install --break-system-packages -r uefi/pip-requirements.txt
+      - name: Build fresh UniXNU and Mu firmware
+        env:
+          CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
+          UNIXNU_UEFI: ${{ github.workspace }}/uefi
+        run: python3 unixnu/unixnu build package firmware -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out" --uefi "$GITHUB_WORKSPACE/uefi"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-vermeer-firmware
+          path: uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clean-vermeer-firmware-logs
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
+
+  bootimg:
+    runs-on: ubuntu-24.04
+    needs: [kernel-linux, firmware]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          submodules: recursive
+          path: unixnu
+      - uses: actions/checkout@v4
+        with:
+          repository: yyx2025/uefi-vermeer
+          ref: ae57e93f0eb6b556f1bb964ffb12f0e78aaaf33c
+          path: uefi
+      - uses: actions/download-artifact@v4
+        with:
+          name: clean-vermeer-kernel-NOT-fastboot-image
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/kernel
+      - uses: actions/download-artifact@v4
+        with:
+          name: clean-vermeer-firmware
+          path: uefi/Build/vermeerPkg/DEBUG_CLANGPDB/FV
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang lld llvm device-tree-compiler mtools python3
+      - name: Correct the Android v0 verifier offset
+        run: git -C unixnu apply "$GITHUB_WORKSPACE/device/android-v0-offset.patch"
+      - name: Pack a diagnostic kernel boot image, without an OS root
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SEED="0x$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+          python3 unixnu/unixnu defconfig vermeer_defconfig -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out"
+          python3 unixnu/unixnu payload -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out" --uefi "$GITHUB_WORKSPACE/uefi" --kernel "$GITHUB_WORKSPACE/out/vermeer/ipados-17.7.11-21H461/vermeer/kernel/kernel.macho" --unique-chip-id "$SEED"
+          python3 unixnu/unixnu bootimg -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out" --uefi "$GITHUB_WORKSPACE/uefi" --dtb "$GITHUB_WORKSPACE/device/scripts/data/vermeer.dtb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean-vermeer-diagnostic-boot-NO-OS-ROOT
+          path: |
+            out/vermeer/ipados-17.7.11-21H461/vermeer/boot/
+            out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clean-vermeer-packaging-logs
+          path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
