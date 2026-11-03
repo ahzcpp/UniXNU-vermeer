@@ -39,6 +39,7 @@ jobs:
         if: always()
         with:
           name: clean-vermeer-build-evidence
+          include-hidden-files: true
           path: |
             clean-kernel/build-manifest.json
             clean-kernel/logs/
@@ -68,7 +69,6 @@ jobs:
         with:
           repository: yyx2025/uefi-vermeer
           ref: ae57e93f0eb6b556f1bb964ffb12f0e78aaaf33c
-          submodules: recursive
           path: uefi
       - name: Install firmware tools
         run: |
