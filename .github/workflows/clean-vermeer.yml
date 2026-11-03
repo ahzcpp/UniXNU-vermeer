@@ -79,7 +79,10 @@ jobs:
         env:
           CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
           UNIXNU_UEFI: ${{ github.workspace }}/uefi
-        run: python3 unixnu/unixnu build package firmware -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out" --uefi "$GITHUB_WORKSPACE/uefi"
+        run: |
+          git -C unixnu/drivers/DarwinBoot apply --check "$GITHUB_WORKSPACE/device/handoff-stage-trace.patch"
+          git -C unixnu/drivers/DarwinBoot apply "$GITHUB_WORKSPACE/device/handoff-stage-trace.patch"
+          python3 unixnu/unixnu build package firmware -D "$GITHUB_WORKSPACE/device" --out "$GITHUB_WORKSPACE/out" --uefi "$GITHUB_WORKSPACE/uefi"
       - uses: actions/upload-artifact@v4
         with:
           name: clean-vermeer-firmware
