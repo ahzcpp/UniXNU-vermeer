@@ -3,8 +3,10 @@
 This record covers the newly connected Redmi K70 session. The two photographs
 provided at the beginning of the request are references and are excluded from
 this device's evidence. The photographed green-only result below belongs to
-the first tested complete image. The subsequent `trace01` photograph,
-`trace02` user report and `trace03` write are recorded separately below.
+the first tested complete image. The subsequent trace experiments and the
+unsuccessful Linux reader USB attempt are recorded separately below. The user
+has now directed further USB work to remain in UniXNU/UEFI; the Linux reader
+experiment is discontinued.
 
 ## Experiment sequence
 
@@ -14,6 +16,8 @@ the first tested complete image. The subsequent `trace01` photograph,
 | trace01 | Loader cache/MMU-off bands and address display | New session photograph | Green, yellow and cyan; no blue/magenta; six addresses recorded below |
 | trace02 | Fixed-framebuffer stage-1 entry probe | User's text report; no new photograph supplied | Still green, yellow and cyan; no blue reported; address values not established for this image |
 | trace03 | Owned-memory request reduced from 512 to 256 MiB | Independently checked local image; fastboot write/reboot `OKAY` | Awaiting actual colour bands, PA and SIZE |
+| reader01 | Stock-GKI Linux reader boot/vendor_boot pair | Fastboot writes `OKAY`; 45-second host observation and user text | No USB transport or snapshot; user reports stop at Redmi/Xiaomi logo |
+| Return to UEFI | Restore original vendor_boot_b and previous trace02 boot_b | Restoration completed successfully | Restored UEFI inputs; subsequent USB transport still unverified |
 
 No experiment in this record has confirmed XNU entry. Only trace01 has the
 photographed addresses below; they must not be copied into later results.
@@ -167,6 +171,75 @@ be observed before relating any change in the blue entry band to placement.
 
 The stop remains unresolved. A high-RAM, XPU, capsule or lock issue is not
 established as the cause. No root/userdata image or system execution is claimed.
+
+## Reader01: no USB snapshot, return to UniXNU/UEFI
+
+The reader01 stock-GKI boot and vendor_boot pair was written, with fastboot
+reporting `OKAY` for the writes. During the following 45-second observation,
+no expected reader USB connection appeared and no snapshot was received. The
+user reported that the phone remained at the Redmi/Xiaomi logo. This is an
+unsuccessful reader transport attempt; it is not proof that its Linux init,
+CDC gadget or collection protocol ran on the phone. Host-only parser tests
+do not establish a successful device connection.
+
+The user then explicitly requested USB interaction in UniXNU/UEFI and no
+further Linux reader testing. Restoration to the original vendor_boot_b and
+the previously tested trace02 UEFI boot image has completed successfully.
+This restores the recorded UEFI inputs; it does not establish a UEFI USB
+connection or recover a snapshot from the failed reader attempt.
+
+| Restoration input | SHA-256 |
+| --- | --- |
+| Original vendor_boot.img | `8bede21000f37f1f1416a983b5a5e79c8984a69d518c85ce9da107a65a6a940f` |
+| Trace02 complete UEFI boot image | `dea0d7bdcf99f037b8b5407364fc82b7c3bd0c8e83f6cbb93b7aa6771951be2a` |
+
+No userdata, init_boot, dtbo or vbmeta partition was written in these reader
+and restoration operations. No reader snapshot or recovered earlier UEFI/XNU
+log is available. Further USB work must establish a UEFI device-controller
+and transport path on this board, with its own observed results.
+
+## UEFI USB direction: source review, not a working connection
+
+The [UniXNU firmware guide](https://unixnu.com/zh/porting/uefi-firmware) and
+[UEFI driver integration guide](https://unixnu.com/zh/drivers/uefi-drivers)
+require a driver to publish its protocol before a consumer uses it. UniXNU's
+[logging implementation](https://github.com/UniXNU/UniXNU/blob/main/package/UniXNUPkg/Library/UniXNULib/Main.c)
+finds an existing `EFI_SERIAL_IO_PROTOCOL` and writes to it. This does not
+create a USB peripheral controller, CDC descriptors or a host COM port.
+
+The current vermeer firmware's
+[DSC](https://github.com/yyx2025/uefi-vermeer/blob/vermeer/Platforms/Xiaomi/vermeerPkg/vermeer.dsc)
+defaults `VERMEER_VENDOR_HW` to zero. Its
+[DXE include](https://github.com/yyx2025/uefi-vermeer/blob/vermeer/Platforms/Xiaomi/vermeerPkg/Include/DXE.inc)
+places UsbfnDwc3Dxe, UsbDeviceDxe, UsbConfigDxe, UsbInitDxe and related vendor
+drivers behind that gate. The DSC also records display loss when the entire
+vendor hardware set is initialized. A USB experiment must isolate its actual
+dependencies rather than treat the complete gate as a verified USB fix.
+
+HakiOS supplies a relevant UEFI transport example, distinct from its XNU
+drivers: [loader.c](https://github.com/oosexgang/hakios-xnu-kernel/blob/main/xnuloader/loader.c)
+implements a polled fastboot bulk server through the Qualcomm USB device
+protocol declared in [efi.h](https://github.com/oosexgang/hakios-xnu-kernel/blob/main/xnuloader/efi.h).
+It signals the platform USB-init event, locates the protocol and starts the
+descriptor set. Its [host script](https://github.com/oosexgang/hakios-xnu-kernel/blob/main/xl)
+contains memory-map and log retrieval commands. This is a consumer-side
+reference, not a replacement for a missing K70 controller driver, and the
+[HakiOS phone guide](https://hackios-web.vercel.app/en/guide/phone) describes
+redwood rather than vermeer. Its storage-log behavior is not adopted here.
+
+The [standard USB Function I/O declaration](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Protocol/UsbFunctionIo.h)
+and Qualcomm's USB device API are different interfaces; a probe must identify
+which provider is actually installed. Only after that can a bounded UEFI
+memory-map/FDT/log exporter establish host enumeration and transfer results.
+Boot-services USB output must not be assumed to survive ExitBootServices.
+
+The [UniXNU USB debug-terminal documentation](https://unixnu.com/guide/debugging#device-compatibility)
+requires the giulia device-side protocol. Its host terminal is not evidence
+of a UEFI or XNU USB implementation running on K70. The
+[AdvancedLogDxe source](https://github.com/UniXNU/UniXNU/tree/main/package/UniXNUPkg/Driver/AdvancedLogDxe)
+exports an existing Advanced Logger buffer as QR frames while boot services
+are available; it does not itself add USB or log collection. No such protocol
+or USB transport has been observed on this K70 in this record.
 
 References: [official bring-up order](https://unixnu.com/zh/porting/bring-up),
 [loader entry diagnostics](https://unixnu.com/zh/guide/debugging),
