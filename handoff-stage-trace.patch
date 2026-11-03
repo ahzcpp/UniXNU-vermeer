@@ -1,0 +1,75 @@
+diff --git a/DarwinBootPkg/Driver/DarwinBoot.c b/DarwinBootPkg/Driver/DarwinBoot.c
+index 3b6cafc..a534b91 100644
+--- a/DarwinBootPkg/Driver/DarwinBoot.c
++++ b/DarwinBootPkg/Driver/DarwinBoot.c
+@@ -809,6 +809,20 @@ Boot (
+           READ_SYSREG (id_aa64mmfr0_el1) & 0xF, (((READ_SYSREG (id_aa64mmfr0_el1) >> 28) & 0xF) == 0xF) ? "NOT supported" : "supported"));
+   DEBUG ((DEBUG_ERROR, "ID_AA64PFR0_EL1  0x%lx\n", READ_SYSREG (id_aa64pfr0_el1)));
+   DEBUG ((DEBUG_ERROR, "\nExiting boot services. A green bar across the top\nmarks the loader handoff before the kernel branch.\n"));
++  // Keep the addresses below the top handoff bars for a readable photo.
++  {
++    CHAR16 Line[96];
++    DiagDraw (L"K70 TRACE 01 - NO OS ROOT", 0);
++    UnicodeSPrint (Line, sizeof (Line), L"PA %lx SIZE %lx", Address, WindowSize);
++    DiagDraw (Line, 1);
++    UnicodeSPrint (Line, sizeof (Line), L"ENTRY %lx ARGS %lx", Address + Kernel.Entry - Kernel.Base, ArgsAddress);
++    DiagDraw (Line, 2);
++    UnicodeSPrint (Line, sizeof (Line), L"LOADER %lx FB %lx", (UINT64)(UINTN)DarwinEnter, Video[0]);
++    DiagDraw (Line, 3);
++    DiagDraw (L"BOTTOM YELLOW=CACHE DONE", 4);
++    DiagDraw (L"BOTTOM CYAN=MMU OFF", 5);
++    DiagDraw (L"TOP BLUE=XNU ENTRY", 6);
++  }
+   for (Attempt = 0; Attempt < 3; Attempt++) {
+     MapSize = Capacity;
+     Status = gBS->GetMemoryMap (&MapSize, Map, &Key, &Stride, &Version);
+diff --git a/DarwinBootPkg/Driver/Entry.S b/DarwinBootPkg/Driver/Entry.S
+index a7a55c2..8c6c0a4 100644
+--- a/DarwinBootPkg/Driver/Entry.S
++++ b/DarwinBootPkg/Driver/Entry.S
+@@ -7,7 +7,29 @@ ASM_FUNC(DarwinCurrentEl)
+ 
+ // x0=boot_args PA, x1=entry PA, x2=owned PA, x3=owned size, x4=frame buffer
+ // PA (0 for none), x5=its size in bytes. EL1 only.
++// Diagnostic-only bands at the bottom; x0 (boot_args) and x1 (entry)
++// remain untouched. The normal XNU entry probes use the top bands.
++.macro HANDOFF_BAND band, lo, hi
++  cbz x14, 9f
++  lsr x13, x15, #4
++  bic x13, x13, #7
++  cbz x13, 9f
++  mov x17, #\band
++  mul x12, x13, x17
++  add x12, x14, x12
++  movz w16, #\lo
++  movk w16, #\hi, lsl #16
++8:
++  stp w16, w16, [x12], #8
++  subs x13, x13, #8
++  b.hi 8b
++  dsb sy
++9:
++.endm
++
+ ASM_FUNC(DarwinEnter)
++  mov x14, x4
++  mov x15, x5
+   msr daifset, #15
+   // Paint the top 1/16 of the framebuffer green (BGRA 0xFF00FF00)
+   // before cache maintenance, MMU shutdown and the branch to the kernel.
+@@ -40,6 +62,8 @@ ASM_FUNC(DarwinEnter)
+   ic iallu
+   dsb sy
+   isb
++  // Yellow: owned-window cache maintenance completed.
++  HANDOFF_BAND 13, 0xFF00, 0xFFFF
+   mrs x4, sctlr_el1
+   bic x4, x4, #1
+   bic x4, x4, #4
+@@ -49,4 +73,6 @@ ASM_FUNC(DarwinEnter)
+   tlbi vmalle1
+   dsb sy
+   isb
++  // Cyan: MMU disabled and TLB invalidation completed.
++  HANDOFF_BAND 14, 0xFFFF, 0xFF00
+   br x1
