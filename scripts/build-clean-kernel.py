@@ -29,10 +29,12 @@ def main():
         ap.error(f"expected UniXNU {CORE}, got {revision}")
     if sys.platform.startswith("linux"):
         clang = Path(os.environ.get("UNIXNU_TOOLCHAIN", "/opt/unixnu-linux")) / "llvm/bin/clang"
-        probe = subprocess.run([str(clang), "-E", "-x", "c", "-"], text=True,
+        probe = subprocess.run([str(clang), "-target", "arm64-apple-ios17.0", "-E", "-x", "c", "-"], text=True,
             input="#if __has_builtin(__builtin_xnu_type_summary)\nxnu_builtins_ready\n#endif\n",
             capture_output=True)
-        if probe.returncode or "xnu_builtins_ready" not in probe.stdout.splitlines():
+        if probe.returncode:
+            ap.error(f"{clang} compiler probe failed: {probe.stderr.strip()}")
+        if "xnu_builtins_ready" not in probe.stdout.splitlines():
             ap.error(f"{clang} lacks the required XNU builtins; install the official toolchain")
     if work == source or source in work.parents:
         ap.error("--work must be outside the device checkout")
