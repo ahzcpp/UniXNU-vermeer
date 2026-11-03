@@ -12,8 +12,7 @@ Two separate reasons, two separate switches. Undo either with
               committed, so CI mints it: pass 1 without the archive, then the real build.
 
 --baseline-boot  For the boot image job, which packs the payload.
-              The device repository is configured for a ramdisk-root round: kernel_args
-              carries rd=md0 and [payload] carries the stage 4 reset probe. Neither can
+              Earlier diagnostic rounds carried rd=md0 and a stage 4 reset probe. Neither can
               mean anything here, because the payload step in CI is not given
               --data-ramdisk, and unixnu/payload.py only emits the ADT's
               --data-ramdisk/--packed-data-ramdisk flag `if data`. With no
@@ -22,6 +21,7 @@ Two separate reasons, two separate switches. Undo either with
               past _mdevadd" for the one reason that has nothing to do with the
               question. Rather than ship an image whose answer is a false negative,
               CI packs the plain baseline: no ramdisk root, no probe, panic screen on.
+              The clean source defaults already use this baseline; this switch is idempotent.
 
 --drop-gpu    For both runners, in both passes.
               build-native-adreno-accelerator.py finds its tools through
@@ -120,10 +120,12 @@ def verify(data, config):
                  for m in PMGR_ARCHIVES + GPU_ARCHIVES if m not in data]
     if not any(m in data for m in GPU_COMPONENTS):
         problems.append('board.toml: Adreno740 missing from [components] include')
-    problems += [f'board.toml: {m.decode()} missing from [payload] kernel_args'
-                 for m in RAMDISK_ROOT_ARGS if m not in data]
-    problems += [f'board.toml: {k.decode()} missing from [payload]'
-                 for k in PROBE_KEYS if k not in data]
+    problems += ['board.toml: unexpected default ramdisk root argument'
+                 for m in RAMDISK_ROOT_ARGS if m in data]
+    problems += [f'board.toml: unexpected default {k.decode()}'
+                 for k in PROBE_KEYS if any(line.startswith(k) for line in data.splitlines())]
+    if b'panic_screen = true' not in data:
+        problems.append('board.toml: panic_screen is not true')
     if problems:
         for line in problems:
             print('  ' + line)
@@ -172,12 +174,13 @@ def main():
             print(f'{config.name}: {name} off')
 
     if args.baseline_boot:
-        data, n = drop_lines(data, RAMDISK_ROOT_ARGS, 'ramdisk root')
-        print(f'board.toml: removed {n} rd=md0 line from [payload] kernel_args')
-        data, n = drop_lines(data, PROBE_KEYS, 'entry probe')
-        print(f'board.toml: removed {n} entry_probe_reset_* lines')
-        data = set_scalar(data, b'panic_screen', b'false', b'true')
-        print('board.toml: panic_screen on (the probe cave it conflicts with is gone)')
+        if any(m in data for m in RAMDISK_ROOT_ARGS):
+            data, _ = drop_lines(data, RAMDISK_ROOT_ARGS, 'ramdisk root')
+        if any(line.startswith(k) for line in data.splitlines() for k in PROBE_KEYS):
+            data, _ = drop_lines(data, PROBE_KEYS, 'entry probe')
+        if b'panic_screen = false' in data:
+            data = set_scalar(data, b'panic_screen', b'false', b'true')
+        print('board.toml: baseline has no ramdisk-root argument or reset probe; panic_screen on')
 
     board.write_bytes(data)
 
