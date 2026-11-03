@@ -1,0 +1,48 @@
+{
+  "hardware_tested": false,
+  "contains_xnu": false,
+  "contains_os": false,
+  "purpose": "host packaging verification only; chip revision, DTBO and runtime RAM map unknown",
+  "images": [
+    {
+      "kernel_sha256": "1097169068d6382372d39c69f9c5ede85c276372c073805629d6e170a3f64dd7",
+      "ramdisk_bytes": 0,
+      "header_version": 0,
+      "kernel_address": "0x8000",
+      "tags_address": "0x1e00000",
+      "image_sha256": "2aa8982115bba900dc1c565c9a65d0b27fc466ef21f7dc0f44e88f69262765a8",
+      "image_bytes": 1548288,
+      "fd_sha256": "ed1e9094bc01e3fa5b8926f9bd237c76ce14865c604df7f8898b87c345ce49dd",
+      "dtb_sha256": "1d0daa058e0b964b57c2c5e53b037c569d5437ed334a32e8fdea9be5be239c88",
+      "shim_bytes": 192,
+      "hardware_tested": false,
+      "path": "/mnt/e/K70-UniXNU-20261104/artifacts/uefi-only/sm8550-v2/vermeer-uefi-only.img",
+      "revision": "sm8550-v2",
+      "contains_xnu": false,
+      "contains_os": false,
+      "firmware_bytes_compared": true,
+      "original_v0_offset_bug_reproduced": true,
+      "input_dtb_sha256": "1d0daa058e0b964b57c2c5e53b037c569d5437ed334a32e8fdea9be5be239c88"
+    },
+    {
+      "kernel_sha256": "c6e4e9ce62a113d5a9618262bf5eec46f0ac9eb82d8260eafbd63141a3e8ed50",
+      "ramdisk_bytes": 0,
+      "header_version": 0,
+      "kernel_address": "0x8000",
+      "tags_address": "0x1e00000",
+      "image_sha256": "cd178b7aee022a33fa85e92159d0374063bc0ad3e5eeaca87cdaf538fcaf6464",
+      "image_bytes": 1568768,
+      "fd_sha256": "ed1e9094bc01e3fa5b8926f9bd237c76ce14865c604df7f8898b87c345ce49dd",
+      "dtb_sha256": "1fdac0166ba950da0173f14dc40d5d9d4ab75373c7ae1b8f9d7a1624dfa92f6a",
+      "shim_bytes": 192,
+      "hardware_tested": false,
+      "path": "/mnt/e/K70-UniXNU-20261104/artifacts/uefi-only/sm8550-v1/vermeer-uefi-only.img",
+      "revision": "sm8550-v1",
+      "contains_xnu": false,
+      "contains_os": false,
+      "firmware_bytes_compared": true,
+      "original_v0_offset_bug_reproduced": true,
+      "input_dtb_sha256": "1fdac0166ba950da0173f14dc40d5d9d4ab75373c7ae1b8f9d7a1624dfa92f6a"
+    }
+  ]
+}
