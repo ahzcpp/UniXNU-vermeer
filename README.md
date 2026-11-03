@@ -22,7 +22,8 @@ Start with these records for the current phone and build:
 | Record | Contents |
 | --- | --- |
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
-| [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Previous screen evidence, verified `trace01` write and pending screen capture |
+| [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
+| [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 
 Other documents are retained as background. Their inherited observations,
 including blue/magenta probe bars and timed resets after `_arm_vm_init`, have
@@ -32,27 +33,33 @@ latest connected-session photograph is the current screen evidence.
 
 ## Current result
 
-The connected phone was identified as `vermeer`, hardware revision `20000`,
-slot `b`, bootloader unlocked. A checked complete v2 boot image was flashed to
-`boot_b` and the phone rebooted. The user confirmed the new UniXNU menu and XNU
-entry. That image's screen showed the green DarwinEnter handoff bar, without
-blue or magenta XNU entry-probe bars. This remains the last confirmed screen
-stage. XNU execution remains unconfirmed.
+The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. It has
+been restored to the supplied original `vendor_boot_b` and the known trace02
+UniXNU `boot_b`. Both writes and reboot reported `OKAY`; the user confirmed
+the UniXNU menu or handoff screen returned.
+
+The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
+the loader completed cache maintenance and its MMU-off sequence. Trace02's
+fixed-address entry probe still produced no blue bar. Trace03's 256 MiB
+allocation control instead reached a UEFI synchronous external read abort
+(`ESR=0x96000010`, `FAR=0xE687C000`). None of these establishes XNU entry,
+an Apple logo, userland, or a working operating system on this phone.
+
+A separate minimal Linux reader was tested, did not enumerate USB, and stayed
+at the Redmi/Xiaomi logo. It was then removed by the restoration above. At the
+user's request, current logging work targets USB inside UniXNU/UEFI. The PC
+collector passes offline mocks; the device-side USB service and RAM logger
+have passed module compilation/linking. Complete firmware integration and
+real USB enumeration/log transfer remain unverified. Boot-services logging
+does not imply a live USB channel after XNU takes control.
 
 All three host jobs succeeded in [CI 41680341472](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41680341472)
 and [CI 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681910792).
-Original OS/SystemOS inputs match the board's size and SHA-256 pins. No root or
-userdata image has been created or written. Storage, userland and device-driver
-support remain work to verify on this phone.
-
-The complete `trace01` v2 image has now been built, independently checked,
-flashed to `boot_b` and rebooted with fastboot reporting `OKAY`. Its size is
-68,657,152 bytes and SHA-256 is
-`a0b07325090e1438f2381f8024739e46d9db404cb00f8da55201d0e2399f3ed2`.
-The phone identity, slot, unlocked state and boot capacity were checked again
-before the write. Screen feedback for this image is pending; no new colour
-band, address display or XNU execution is claimed. See the handoff record for
-the expected yellow/cyan bands and central PA/ENTRY/ARGS fields.
+Original OS/SystemOS inputs match the board's size and SHA-256 pins. This
+session has not created or written a root/userdata image; the user's existing
+modified userdata has not been inspected. Storage, userland and device drivers
+remain work to verify. The handoff record retains image hashes and exact
+displayed addresses. A high-RAM, XPU or capsule failure has not been proved.
 
 ## Source baseline and build
 
