@@ -80,8 +80,9 @@ FV-list 保留原厂 592 字节布局，修复了 `UINTN *` 被当成字节指�
 | final03 完整固件构建及源哈希核对 | EDK exit 0；冻结源文件未变化 |
 | 最终 FD 解包、OEM PE/DEPEX、SEC TE 与当前构建输出绑定 | 通过；30 OEM PE/原 DEPEX 和 39 源码 PE 对应，SEC TE 重定位与源码身份对应 |
 | 完整 Android boot 镜像打包与独立解包 | 通过；1,699,840 字节、v0、空 ramdisk，无 FAT/XNU/系统根卷 |
-| K70 枚举、HELLO、真实日志回传 | 未验证 |
+| boot_b 真机刷写及重启 | 均返回 OKAY；没有写 vendor_boot 或 userdata |
+| K70 枚举、HELLO、真实日志回传 | 61.9 秒、15 次成功的有界主机枚举查询内未发现目标身份，没有收到 HELLO 或日志 |
 
 完整 boot 镜像 SHA-256 为 `9d83f4aa8a17cff018b69d54ed81920486808387bc011c8d79e8c617b9150979`；3 MiB FD 为 `b723a290ae884af6e5f451a8149b54aad53abc9a897d034efcd9fcf0c5c43c75`。已检查 Ring 与 USBdiag 各一份，FAT、DiskIo、Partition、UFS、SDCC、MSD、XHCI、DarwinBoot 和 UFPLoader 均未进入最终 FD。摘要见 [离线验证清单](uefi-usb-verification-2026-11-04.json)。
 
-截至本记录，手机仍在已恢复的 UniXNU 构建，本诊断镜像尚未刷写。完整构建和审计通过后仍需真机验证，不能把编译通过、日志模板或其他设备参考提升为本机 USB/iOS 成功证据。
+本诊断镜像已写入 boot_b，原厂 vendor_boot_b 保持恢复后的内容。刷写成功只证明 Fastboot 接受了镜像；当前手机屏幕状态未确认，未获得固件执行到哪一阶段的证据。用户随后要求暂停 USB 检测，继续 XNU 与系统启动工作。没有继续重试 USB，也没有把编译通过、日志模板或其他设备参考提升为本机 USB/iOS 成功证据。

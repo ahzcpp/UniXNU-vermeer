@@ -144,7 +144,7 @@ must not be assumed to match trace01. The text report does not confirm XNU
 entry, and the missing blue band does not establish a specific memory or
 protection fault.
 
-## Diagnostic image trace03: smaller allocation request, awaiting result
+## Diagnostic image trace03: smaller allocation request, firmware abort
 
 Trace03 retains the trace02 fixed-probe kernel, trace01 FD and existing boot
 arguments. Its memory experiment changes `/chosen/darwinboot-memory-size`
@@ -161,13 +161,17 @@ at byte offset 9196; its only changed byte is offset 9199, from `0x20` to
 | Complete v2 boot image bytes | 68,657,152 |
 | Boot image SHA-256 | `7613e03dece54212607b2381161f043f080bd2305d47853dae4b889e0b033466` |
 | Device operation | Unique vermeer / revision 20000 / slot b / unlocked state / capacity rechecked; sending / writing `boot_b` / reboot each `OKAY` |
-| Screen evidence | Pending colour bands, PA and SIZE feedback |
+| Screen evidence | Actual handset photograph `abfdc6ad...`: synchronous external read abort, ESR `0x96000010`, FAR `0xE687C000`, ELR `0xC6539224`, SP `0xA76495F0`, SPSR `0x20000205` |
 
 The complete image was unpacked and independently verified. The extracted
 kernel and FD match the previous inputs byte-for-byte. UEFI chooses the actual
 allocation address; this image does not force a low physical address. A smaller
-request is not proof of an allocation below 4 GiB. The actual PA and SIZE must
-be observed before relating any change in the blue entry band to placement.
+request is not proof of an allocation below 4 GiB. No allocated PA/SIZE was
+observed. The FAR equals the allocation candidate
+`align_up(0xE671D000, 2 MiB) + 0x7C000`, where `0x7C000` is the kernel
+virtual-base offset within a 2 MiB block. This links the failure to that
+candidate range; the photograph does not establish the faulting image or
+instruction, successful allocation, or XNU entry.
 
 The stop remains unresolved. A high-RAM, XPU, capsule or lock issue is not
 established as the cause. No root/userdata image or system execution is claimed.
