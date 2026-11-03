@@ -22,7 +22,7 @@ Start with these records for the current phone and build:
 | Record | Contents |
 | --- | --- |
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
-| [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Tested image, actual phone observations and the pending `trace01` diagnostic |
+| [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Previous screen evidence, verified `trace01` write and pending screen capture |
 
 Other documents are retained as background. Their inherited observations,
 including blue/magenta probe bars and timed resets after `_arm_vm_init`, have
@@ -35,8 +35,9 @@ latest connected-session photograph is the current screen evidence.
 The connected phone was identified as `vermeer`, hardware revision `20000`,
 slot `b`, bootloader unlocked. A checked complete v2 boot image was flashed to
 `boot_b` and the phone rebooted. The user confirmed the new UniXNU menu and XNU
-entry. The latest screen shows the green DarwinEnter handoff bar, without blue
-or magenta XNU entry-probe bars. XNU execution remains unconfirmed.
+entry. That image's screen showed the green DarwinEnter handoff bar, without
+blue or magenta XNU entry-probe bars. This remains the last confirmed screen
+stage. XNU execution remains unconfirmed.
 
 All three host jobs succeeded in [CI 41680341472](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41680341472)
 and [CI 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681910792).
@@ -44,9 +45,14 @@ Original OS/SystemOS inputs match the board's size and SHA-256 pins. No root or
 userdata image has been created or written. Storage, userland and device-driver
 support remain work to verify on this phone.
 
-`trace01` is being built to locate the stop within the loader handoff. It has
-not been recorded as flashed or successful. See the handoff record for the
-expected yellow/cyan bands and address display.
+The complete `trace01` v2 image has now been built, independently checked,
+flashed to `boot_b` and rebooted with fastboot reporting `OKAY`. Its size is
+68,657,152 bytes and SHA-256 is
+`a0b07325090e1438f2381f8024739e46d9db404cb00f8da55201d0e2399f3ed2`.
+The phone identity, slot, unlocked state and boot capacity were checked again
+before the write. Screen feedback for this image is pending; no new colour
+band, address display or XNU execution is claimed. See the handoff record for
+the expected yellow/cyan bands and central PA/ENTRY/ARGS fields.
 
 ## Source baseline and build
 
