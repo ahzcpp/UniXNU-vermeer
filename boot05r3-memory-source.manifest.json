@@ -1,0 +1,137 @@
+{
+  "format": "source-only-git-delta",
+  "base_patch_sha256": [
+    "588a60d1f22f45ba53a16596be18d2995a953f0cd0b18e9737a297fca884bb71",
+    "0042eea2b2e38291ac4742c99f110a3b5e778bc1b8db16d421d75ec93ba33bec"
+  ],
+  "files": {
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c": {
+      "bytes": 56770,
+      "sha256": "a4d2a5adf2b1b21ec47cfbea85a7ca4c51404d1d112739befc1b10a2269bec00",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c": {
+      "bytes": 13985,
+      "sha256": "54e50267c2a52d842fa6e3f5151c641ee9d881c67ee17b9b4e6dd72ffcc5ebee",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h": {
+      "bytes": 1705,
+      "sha256": "adad037388c09b32c74f8dbff4de5d372f907408a979b9cc5e33b63257361a91",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/QualifiedUnion.h": {
+      "bytes": 1762,
+      "sha256": "282aa404a97b4ab6e273a8aa878638e17e6a42ee172b476a3b9d87faf35c9e87",
+      "action": "modified"
+    },
+    "research/boot-chain-05/incremental-ui.py": {
+      "bytes": 11288,
+      "sha256": "1208170909a7ea895d0c8dd1c044ca72dd37bd7c6259855dbbe2383064122ca5",
+      "action": "modified"
+    },
+    "research/boot-chain-05/package-r3.py": {
+      "bytes": 7177,
+      "sha256": "ba985ea91c9606cd4e3ba152fcee17be1b177d8ec31081650c4629f87429178a",
+      "action": "added"
+    },
+    "research/boot-chain-05/R3-README.md": {
+      "bytes": 4971,
+      "sha256": "a020066005ea9e5c747819d6c2b2a1c8d2b124432427e50db6fd692a93495592",
+      "action": "added"
+    },
+    "research/boot-chain-05/export-r3-source.py": {
+      "bytes": 5762,
+      "sha256": "c981418ab4b34f663b807350efcb87fa6a09fa253a747649dfbee448874d74d0",
+      "action": "added"
+    },
+    "research/memory-next/prepare-r3-dynamic.py": {
+      "bytes": 8648,
+      "sha256": "455193c3969d2de9a2ce3feaf3414fa4bfa0fbe297007e7d7cd1b16d26095c5e",
+      "action": "added"
+    },
+    "research/memory-next/run-r3-tests.py": {
+      "bytes": 6458,
+      "sha256": "4c6b4b011ff97f0fb792feeca84d1ae18290c400a1e0cb8232f9a658b1228b10",
+      "action": "added"
+    },
+    "research/memory-next/test-fdt-ram-r3.c": {
+      "bytes": 9423,
+      "sha256": "6906121743b511b2558d2fbd2d7a72047b5fbef640722cf709a702bff0b0c828",
+      "action": "added"
+    },
+    "research/memory-next/r3-host-test-results.json": {
+      "bytes": 1245,
+      "sha256": "f4620bfe5aae7af44577cec4784883b384cdf37d2378cdb63dc0e50693647c95",
+      "action": "added"
+    },
+    "research/memory-next/r3-prepare-reproduction.json": {
+      "bytes": 254,
+      "sha256": "e2275688da566ba3ebd3270c6d75a6780d7d44bea6b19fb3c06293d7dd2ec3a3",
+      "action": "added"
+    },
+    "research/memory-next/dynamic-os-request-evidence.json": {
+      "bytes": 14662,
+      "sha256": "ce2b0074d834b7fc74a298f6e44a7559adef65304c99d4f2577d047456051a62",
+      "action": "added"
+    },
+    "research/memory-next/next-qualified-union/QualifiedUnion.h": {
+      "bytes": 1762,
+      "sha256": "282aa404a97b4ab6e273a8aa878638e17e6a42ee172b476a3b9d87faf35c9e87",
+      "action": "added"
+    },
+    "research/memory-next/next-qualified-union/FdtRamPlan.h": {
+      "bytes": 1670,
+      "sha256": "a270ab49c87a93484600a6302c5ed9142e04817ae2d2c7f13826be25e655a52e",
+      "action": "added"
+    },
+    "research/memory-next/next-qualified-union/test-qualified-union.c": {
+      "bytes": 3396,
+      "sha256": "4ed8c37a7eb7d136554934af82f24eba8cbbeb2424ed20408e0006fd47523055",
+      "action": "added"
+    },
+    "research/memory-next/next-qualified-union/verification.json": {
+      "bytes": 744,
+      "sha256": "64f51f4bcd95c3d9905fb16c82ab0e73fbee1cef1f12a53d41719e1246ee4358",
+      "action": "added"
+    },
+    "research/boot-chain-05/r3/build-result.json": {
+      "bytes": 17947,
+      "sha256": "3671619f2a6e09a8e15103645e4a23f4f53561c9cb951845368914655f431777",
+      "action": "added"
+    },
+    "research/boot-chain-05/r3/r3-change.json": {
+      "bytes": 2024,
+      "sha256": "55357758f5d0aa599784bc1e84bdfe72a152613c0e9aedb9640061edba34a59e",
+      "action": "added"
+    },
+    "research/boot-chain-05/r3/fd-audit.json": {
+      "bytes": 78367,
+      "sha256": "34ae19def47042e0b832516b346598aa4478deb180c249c9230ab00f3e126285",
+      "action": "added"
+    },
+    "research/boot-chain-05/r3/verification.json": {
+      "bytes": 1506,
+      "sha256": "24948add92653bea37edcd52ce8b91e9f8ccc7870d6877a3a9e6b16e1816d72c",
+      "action": "added"
+    },
+    "research/boot-chain-05/r3/high-pa-entry-readonly.json": {
+      "bytes": 1446,
+      "sha256": "5675346e31ca06bf445ff8e30081ca99996a7298c0eb713f40cd9d7c1346bc4d",
+      "action": "added"
+    }
+  },
+  "file_count": 23,
+  "patch_bytes": 186890,
+  "patch_sha256": "5d961374fe47476d74bea5ef4b4b29aa82d768e614365ce6d36c3af3d5b8fef4",
+  "r1_then_r2_then_r3_clean_apply_and_all_files_exact_readback": true,
+  "contains_apple_or_oem_binaries": false,
+  "contains_images_keys_or_private_phone_identifiers": false,
+  "fixed_local_workspace_dependency": true,
+  "r3_hardware_result": "pending",
+  "r3_boot_image_sha256": "08b46bbd801ce8b1a28440811c1f132b143fcc27c5c6f33027b5f282467e7ba9",
+  "r3_fd_sha256": "845d1790c4eda640435a17858cfbd4df4d91258e3fdcd904b453b78565631b9a",
+  "r3_immutable_fd_audit_sha256": "34ae19def47042e0b832516b346598aa4478deb180c249c9230ab00f3e126285",
+  "high_pa_binary_report_kernel": "storage962381; not baseline4559, not runtime or DMA proof",
+  "snapshot_files": 41
+}

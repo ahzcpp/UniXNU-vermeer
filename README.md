@@ -25,6 +25,8 @@ Start with these records for the current phone and build:
 | [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
 | [Heap-only entry experiment](docs/boot04-2026-11-04.md) | boot04 reached XNU/BSD initialization; root device mount failed |
 | [Measured RAM experiment](docs/boot05-memory-2026-11-04.md) | boot05r1 parsed 8 RAM banks but found no eligible 514 MiB contiguous GCD region |
+| [Actual RAM ranges](docs/boot05r2-memory-2026-11-04.md) | boot05r2 exposed dynamic allocation constraints incorrectly treated as occupied RAM |
+| [Dynamic request correction](docs/boot05r3-memory-2026-11-04.md) | boot05r3 fixes the 17 reviewed uninstantiated requests; full image qualified offline, hardware result pending |
 | [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no hardware root mount claim |
 | [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
@@ -53,10 +55,16 @@ successfully. Its actual handset photograph shows the entry returning
 reason. The display-only boot05r1 follow-up has now been flashed successfully;
 its held failure screen reports `M05 no measured 514MiB contiguous GCD gap`,
 with `META 0 BANKS 8 RESV 52 DYN 0`. The real runtime FDT parses successfully;
-the planner eligibility conditions are the current stopping point, before
-new RAM publication or XNU entry. This does not establish insufficient physical
-RAM, an XPU fault, or a working 512 MiB window. Boot04 remains the known
-XNU/BSD rollback image, and no userdata image has been written.
+the planner eligibility conditions stopped that image before new RAM publication
+or XNU entry. Boot05r2 then displayed 55 GCD descriptors, 21 unowned gaps and zero
+qualified pieces: the parser incorrectly accumulated `alloc-ranges` placement
+constraints as occupied reservations, excluding the entire candidate address
+space. This is a loader parser error, not evidence of insufficient physical RAM.
+Boot05r3 corrects the known, uninstantiated Linux dynamic requests while preserving
+fixed reservations, existing firmware ownership and all four placeholder HOBs.
+Its compile, serial FDS, full FD audit and image unpacking passed; its actual
+512 MiB/XNU result is pending. Boot04 remains the known XNU/BSD rollback image,
+and no userdata image has been written.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
@@ -104,8 +112,11 @@ Data mount or userland boot on the phone.
 Both OS/SystemOS authentication policies have been built and checked against
 all 2,290,185 source blocks. A separate storage-enabled native kernel has
 linked, and its final original-storage code, 16 bindings and 190 method slots
-passed the final binary checks. Payload integration and sufficient live RAM
-remain required. No root/userdata image has been written to the phone, and its
+passed the final binary checks. The five-file FAT payload has been integrated
+and read back, including both complete authentication tables and the corrected
+packed Data seed. A full storage boot containing the r3 firmware is also packaged
+and independently unpacked; it still requires actual RAM512, UFS I/O and root/Data
+mount qualification. No root/userdata image has been written to the phone, and its
 existing modified userdata is uninspected.
 Storage, userland and device drivers remain work to verify. The handoff record
 retains image hashes and exact displayed addresses. A high-RAM, XPU or capsule
