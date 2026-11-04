@@ -1,0 +1,108 @@
+{
+  "format": "source-only-git-delta",
+  "base_patch_sha256": "588a60d1f22f45ba53a16596be18d2995a953f0cd0b18e9737a297fca884bb71",
+  "base_public_commit": "3e544bf6e2e8a76136efe1221d3f7f82cd1510b8",
+  "files": {
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c": {
+      "bytes": 56719,
+      "sha256": "e7759a392cdd633aea2a94df3c64573f83d6ce69406a173fca1e59e135c4e634",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf": {
+      "bytes": 1067,
+      "sha256": "26c65c2e9a3055497b50a7b5e95653963a6a04aa6f593c6ce73ec4ef21f28f15",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredRam.c": {
+      "bytes": 7712,
+      "sha256": "b6c43442b502352506c2a8941b252410d56b76d8cfa383958539c96e14a230cd",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/QualifiedUnion.h": {
+      "bytes": 1578,
+      "sha256": "ceed3755d8af9302293ce39605ea8a96519ee79cc7f8b1da54ccd6826d9b2a2e",
+      "action": "added"
+    },
+    "research/boot-chain-05/incremental-ui.py": {
+      "bytes": 11056,
+      "sha256": "41d5fe530891e80a16230ad2ee14b35e0879f2585556f64f60688282936f2038",
+      "action": "modified"
+    },
+    "research/boot-chain-05/package-r2.py": {
+      "bytes": 6607,
+      "sha256": "207dbc14b8bf38ba043e0becebd429bdf2ad85ad31f0a7dd66bfea415c700fac",
+      "action": "added"
+    },
+    "research/boot-chain-05/R2-README.md": {
+      "bytes": 3306,
+      "sha256": "8a2057119e29d0b024b4c3ada8df071a68b7c9352ecb409ed5e39b5be1b1c6da",
+      "action": "added"
+    },
+    "research/boot-chain-05/export-r2-source.py": {
+      "bytes": 4641,
+      "sha256": "0bd3865df0088deb77de5d0ada1256c2805ff863a797c4852979cb82fccd54b6",
+      "action": "added"
+    },
+    "research/memory-next/QualifiedUnion.h": {
+      "bytes": 1578,
+      "sha256": "ceed3755d8af9302293ce39605ea8a96519ee79cc7f8b1da54ccd6826d9b2a2e",
+      "action": "added"
+    },
+    "research/memory-next/test-qualified-union.c": {
+      "bytes": 2494,
+      "sha256": "5f735d2d47c92bfd4e30b84fc0b4c102bc29fc674384108cc3cd3cddea2492bc",
+      "action": "added"
+    },
+    "research/memory-next/test-publish-r2.c": {
+      "bytes": 4995,
+      "sha256": "c9fc8960af009a6e446671eb91331b4e457f610bbda6847c94cf3d29e0d10c83",
+      "action": "added"
+    },
+    "research/memory-next/run-r2-tests.py": {
+      "bytes": 1888,
+      "sha256": "15b00ea225cbb349c574ce64922b58ce68bb8f5ded7593290177b01c20100cd4",
+      "action": "added"
+    },
+    "research/memory-next/qualified-union-test.json": {
+      "bytes": 453,
+      "sha256": "3d476e84c332d4bac642fef8124c5ffd93b041c674348c8d1250615e40dd7b62",
+      "action": "added"
+    },
+    "research/memory-next/publication-r2-test.json": {
+      "bytes": 717,
+      "sha256": "97d5a0ac7f35dc457fabe50f5d8747fea8d19bfbfd551d62b6d289effd147ade",
+      "action": "added"
+    },
+    "research/boot-chain-05/r2/build-result.json": {
+      "bytes": 17947,
+      "sha256": "5d1ece7f7e2563e630303f5d8ff3e76f8e6d3dbcf238e83250b17f3e110cb512",
+      "action": "added"
+    },
+    "research/boot-chain-05/r2/fd-audit.json": {
+      "bytes": 78367,
+      "sha256": "b57e70bef484e1803934aaf81f5ae8253b269addc92091622ad54a55f3d38121",
+      "action": "added"
+    },
+    "research/boot-chain-05/r2/r2-range-change.json": {
+      "bytes": 1374,
+      "sha256": "177adc5d1807ecc4453dc4822fdf8a18df840c35fba9d5256b10d78d21724a75",
+      "action": "added"
+    },
+    "research/boot-chain-05/r2/verification.json": {
+      "bytes": 1350,
+      "sha256": "94ba6eb32250a4a74898dbba06a4090562c6ee068968eb0774c93c3cf2304af0",
+      "action": "added"
+    }
+  },
+  "file_count": 18,
+  "patch_bytes": 148378,
+  "patch_sha256": "0042eea2b2e38291ac4742c99f110a3b5e778bc1b8db16d421d75ec93ba33bec",
+  "base_then_delta_clean_apply_and_all_files_exact_readback": true,
+  "contains_apple_or_oem_binaries": false,
+  "contains_private_phone_identifiers": false,
+  "fixed_local_workspace_dependency": true,
+  "r2_hardware_result": "pending",
+  "r1_actual_result": "M05 no measured 514MiB contiguous GCD gap; META0 BANKS8 RESV52 DYN0",
+  "r2_boot_image_sha256": "c0724bef6c62b504850264bbbff438fec8b78b045e260b9b5c4da1d824ae4c86",
+  "r2_fd_sha256": "2fdea384c5b94fde539fabd3f9a7370caf3372d9c667a5fbb90fc1a2548677f9"
+}
