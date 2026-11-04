@@ -1,0 +1,56 @@
+{
+  "schema": "k70-storage-r4-runtime/1",
+  "recorded": "2026-11-04T10:41:37.114899+08:00",
+  "boot_sha256": "b7b24c58eadfed82450066389700ecb7806fbcc813b412fbc0a6304084a1a1a5",
+  "fd_sha256": "2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a",
+  "kernel_sha256": "962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5",
+  "root_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "evidence_type": "Four user-supplied handset photographs after recorded r4 boot-only flash",
+  "actual_xnu_execution": true,
+  "root_mount_observed": true,
+  "root_authentication_decision_recorded": true,
+  "systemos_and_data_mount_returned": true,
+  "watchdog_launch_policy_ready": true,
+  "exec_signature_observations": [
+    {
+      "pid": 1,
+      "name": "launchd"
+    },
+    {
+      "pid": 110,
+      "name": "liveactivitiesd"
+    },
+    {
+      "pid": 127,
+      "name": "SpringBoard"
+    }
+  ],
+  "last_panic_text": "watchdogd[134] exited -- exit reason namespace 2 subcode 0x5 description: none",
+  "exit_decode": {
+    "namespace": "OS_REASON_SIGNAL",
+    "signal": "SIGTRAP",
+    "not_proven": "The reason the program triggered SIGTRAP"
+  },
+  "exception_observations": {
+    "aggregate_brk_counts": [
+      4,
+      12,
+      27
+    ],
+    "printed_pc": "0x0",
+    "printed_esr": "0xf2000000",
+    "note": "Counters aggregate across processes; observer saved-state decoding must be audited before treating PC0 as actual fault location."
+  },
+  "final_memory": {
+    "pages_hex": "0x1716a",
+    "free_hex": "0x25e",
+    "page_bytes": 4096,
+    "pages_mib": 369.4140625,
+    "free_mib": 2.3671875,
+    "note": "Severe low-free snapshot; does not establish OOM as the cause of SIGTRAP."
+  },
+  "actual_graphical_desktop_observed": false,
+  "stable_userland_qualified": false,
+  "userdata_rewritten_for_r4": false,
+  "next": "Keep r4 handoff and root; test larger measured RAM and correct exception telemetry if required."
+}

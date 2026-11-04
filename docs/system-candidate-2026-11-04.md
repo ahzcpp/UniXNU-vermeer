@@ -5,8 +5,9 @@
 该镜像已通过 fastboot 写入本机 userdata，17/17 稀疏分块发送和写入均为
 OKAY；配套 storage-native-02-r3 boot_b 及重启也为 OKAY。首次完整 payload
 实机照片随后停在加载器交接画面：顶部绿色和底部黄色可见，没有可见的青色、
-蓝色或 XNU 日志。当前不能确认该完整内核已执行，也没有真实 UFS 读取、
-根卷挂载或用户空间成功证据。
+蓝色或 XNU 日志。这是 r3 的历史结果。后续只换 boot_b 的 r4 已越过交接，出现根卷挂载、
+认证决策记录、SystemOS/Data 准备以及 launchd/SpringBoard 执行签名通过；
+最终 watchdogd 因 SIGTRAP 退出，尚未显示桌面。详见 [r4 实机记录](boot05r4-handoff-2026-11-04.md)。
 
 画面记录 PA=`8C007C000`、SIZE=`20000000`、ENTRY=`8C7812488`、
 ARGS=`8C870C000`、LOADER=`C65B6C58`、FB=`B8000000`。黄色标记位于
@@ -49,12 +50,13 @@ ABI、认证表和最终 payload 回读。macOS CI 制作并修正的 Data 种�
 [Data 记录](../system-next/data-seed-status-public-2026-11-04.txt)。这些检查仍
 不能替代真实硬件启动。
 
-当前实际刷入的配套 boot：135,774,208 字节，SHA-256
+首次完整系统写入使用的 r3 boot（随后已由 r4 替换）：135,774,208 字节，SHA-256
 `db4e96a673612be1f0b48e1602dd3d46dac383aad0269cb9d9136433a104eb9c`。
 它使用 FD `845d1790c4eda640435a17858cfbd4df4d91258e3fdcd904b453b78565631b9a`；
 同一 FD 已由 boot05r3 基线在强制 512 MiB 窗口下运行到 XNU/BSD，约 430.75 MiB
 空闲。当前完整 storage 内核 `962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5`
-仍需单独验证 UFS、SystemOS/OS 发布、根认证、Data mount 和 launchd。
+在 r4 中已实际通过根挂载、SystemOS/Data 准备并到达 launchd/SpringBoard exec；
+服务稳定性和图形桌面仍待验证。
 
 菜单标题保留 `K70 storage01 RAM512 authenticated UFS + packed Data - UNTESTED`，
 默认 3 秒后启动；编号来自未改动的 FAT payload，不表示用了旧 FD。当前编译的
