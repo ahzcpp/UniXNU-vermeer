@@ -105,7 +105,9 @@ def kind(st):
 
 
 def inventory(mount):
-    rows = {'': dict(kind='directory', mode=stat.S_IMODE(mount.lstat().st_mode))}
+    root_stat = mount.lstat()
+    rows = {'': dict(kind='directory', mode=stat.S_IMODE(root_stat.st_mode),
+                     uid=root_stat.st_uid, gid=root_stat.st_gid)}
     def fail(error):
         raise error
     root_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -119,7 +121,7 @@ def inventory(mount):
                 which = kind(s)
                 if which == 'symlink' and name in dirs:
                     dirs.remove(name)
-                row = dict(kind=which, mode=stat.S_IMODE(s.st_mode))
+                row = dict(kind=which, mode=stat.S_IMODE(s.st_mode), uid=s.st_uid, gid=s.st_gid)
                 with safe_parent_fd(root_fd, relative) as (parent, leaf):
                     if which == 'symlink':
                         require(stat.S_ISLNK(os.stat(leaf, dir_fd=parent, follow_symlinks=False).st_mode),
@@ -140,7 +142,7 @@ def inventory(mount):
                             after = os.fstat(fd)
                             require(count == before.st_size == after.st_size and
                                     before.st_mtime_ns == after.st_mtime_ns,
-                                    'file content changed during inventory')
+                                    'file content changed during inventory: ' + relative)
                             row.update(file_bytes=count, content_sha256=sha.hexdigest())
                         finally:
                             os.close(fd)
@@ -156,9 +158,43 @@ def content_manifest(rows):
                    if name in row} for path, row in rows.items()}
 
 
-def verify_contents_unchanged(before, after):
+def content_differences(before, after):
     original, corrected = content_manifest(before), content_manifest(after)
-    require(original == corrected, 'filesystem paths, file contents, or symlink targets changed during ownership fix')
+    added = [dict(path=path, after=corrected[path]) for path in sorted(corrected.keys() - original.keys())]
+    removed = [dict(path=path, before=original[path]) for path in sorted(original.keys() - corrected.keys())]
+    changed = []
+    for path in sorted(original.keys() & corrected.keys()):
+        fields = {name: dict(before=original[path].get(name), after=corrected[path].get(name))
+                  for name in sorted(original[path].keys() | corrected[path].keys())
+                  if original[path].get(name) != corrected[path].get(name)}
+        if fields:
+            changed.append(dict(path=path, fields=fields))
+    return dict(added=added, removed=removed, changed=changed,
+                added_count=len(added), removed_count=len(removed), changed_count=len(changed))
+
+
+def save_snapshot(path, rows):
+    path.write_text(json.dumps(rows, indent=2, sort_keys=True) + '\n')
+    print(json.dumps(dict(stage='inventory-saved', file=path.name, entries=len(rows))), flush=True)
+
+
+def verify_contents_unchanged(before, after, diff_path=None):
+    original, corrected = content_manifest(before), content_manifest(after)
+    if original != corrected:
+        differences = content_differences(before, after)
+        if diff_path is not None:
+            diff_path.write_text(json.dumps(differences, indent=2) + '\n')
+        # Print exact changed field values (hashes/lengths/link targets), not file
+        # payloads. The full JSON artifact retains every path if log is bounded.
+        summary = {key: differences[key] for key in ('added_count', 'removed_count', 'changed_count')}
+        summary.update(stage='content-comparison-failed',
+                       added=differences['added'][:40], removed=differences['removed'][:40],
+                       changed=differences['changed'][:40],
+                       full_diff=diff_path.name if diff_path is not None else None)
+        print(json.dumps(summary, sort_keys=True), flush=True)
+        raise RuntimeError('filesystem paths, file contents, or symlink targets changed during ownership fix: '
+                           + json.dumps({key: differences[key] for key in
+                                         ('added_count', 'removed_count', 'changed_count')}))
     manifest_sha = hashlib.sha256(json.dumps(original, sort_keys=True).encode()).hexdigest()
     return dict(unchanged=True, content_manifest_sha256=manifest_sha,
                 regular_files=sum(row['kind'] == 'file' for row in after.values()),
@@ -305,12 +341,18 @@ def main():
         mount.mkdir()
         with attached_copy(raw, mount, False, original_uuid):
             before = inventory(mount)
+            save_snapshot(args.out / 'owner-fix-before-rw.json', before)
             targets = expected_targets(before, source)
             apply_metadata(mount, targets)
             verify_metadata(mount, targets)
+            immediate = inventory(mount)
+            save_snapshot(args.out / 'owner-fix-after-metadata-rw.json', immediate)
+            (args.out / 'owner-fix-before-detach-diff.json').write_text(
+                json.dumps(content_differences(before, immediate), indent=2) + '\n')
         with attached_copy(raw, mount, True, original_uuid):
             after = inventory(mount)
-            content_check = verify_contents_unchanged(before, after)
+            save_snapshot(args.out / 'owner-fix-after-remount-ro.json', after)
+            content_check = verify_contents_unchanged(before, after, args.out / 'owner-fix-content-diff.json')
             checked = verify_metadata(mount, targets)
         packed = packer.pack(raw, output)
     require(digest(args.seed) == INPUT_SEED_SHA, 'original seed changed unexpectedly')
