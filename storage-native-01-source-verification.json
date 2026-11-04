@@ -1,0 +1,10 @@
+{
+  "archive": "/mnt/e/K70-UniXNU-20261104/storage-next/source-only/storage-native-01-source.zip",
+  "bytes": 97663,
+  "sha256": "6e3a75e217666dea94dd3b6bd1bda2aaa8780b7e0ab066cc1518f9b37a265d98",
+  "text_files": 48,
+  "readback_all_files_match": true,
+  "apple_oem_or_seed_binaries_included": false,
+  "source_manifest_sha256": "6fb364b231651821d93acfd6588cad7fc12afcba7e418b012e5922617c9a816b",
+  "hardware_tested": false
+}

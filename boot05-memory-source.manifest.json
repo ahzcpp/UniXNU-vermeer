@@ -1,0 +1,289 @@
+{
+  "format": "new-source-files-git-patch",
+  "files": {
+    "research/boot-chain-05/README.md": {
+      "bytes": 4725,
+      "sha256": "9f618455d0215f016d05096011c0cba3e142b736f145c1818fe0f82ffe8a794d"
+    },
+    "research/boot-chain-05/all-target-cancellation.json": {
+      "bytes": 432,
+      "sha256": "ce92ad013a0ab50f4a05be770e5d341284e536bbb3ada6171e77f75db2206ed1"
+    },
+    "research/boot-chain-05/audit-deps/bounded_fv.py": {
+      "bytes": 16954,
+      "sha256": "2d2183b7937fd300a31907c15035dcde089be9036f4a96d3700f86d8b490dab4"
+    },
+    "research/boot-chain-05/audit-deps/fd_pe_helpers.py": {
+      "bytes": 24590,
+      "sha256": "023cf5439499609d97dd821df0e7374688b4e8511e4f1395eb2734f14d3c1caf"
+    },
+    "research/boot-chain-05/audit-fd.py": {
+      "bytes": 20098,
+      "sha256": "8e6a6de5563d3ed34c47156340746061cad18b0b242ddb9202c59b8dc1c84d51"
+    },
+    "research/boot-chain-05/build-result.json": {
+      "bytes": 17248,
+      "sha256": "9baca60e3acacac43a1f7c7da8eb75c92e36413fff0f0af97dbd985fd7deef88"
+    },
+    "research/boot-chain-05/build.py": {
+      "bytes": 4101,
+      "sha256": "8a86057417d0f27a5d3b29a33de3235e8a997c9ce2d93a79b9d89221cc808b90"
+    },
+    "research/boot-chain-05/cancelled-all-build-result.json": {
+      "bytes": 3266,
+      "sha256": "9bde3ab1c0fff294dec6958ebc179f9c987bcb599c25d2cb8fa795838e827a44"
+    },
+    "research/boot-chain-05/coff-check.json": {
+      "bytes": 1351,
+      "sha256": "04654f0e9bf7a4d5be9c0c9daef6a6c36c94afcdd69d08f7e2e48d9b1641e182"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/DarwinBoot.dsc": {
+      "bytes": 1476,
+      "sha256": "7dcdf998c45dcd9e37c98fc3bcc0992ee2dcb5dd0b2b50bc1c52e71b11ec2993"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/BootArgs.h": {
+      "bytes": 1012,
+      "sha256": "1d6b172a306bf5d3fc409d22bd7e674d166e5fde92652c4135de5c79f3eddd16"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/BootVideo.h": {
+      "bytes": 1456,
+      "sha256": "8d25e85a166b272a1cbc0a5238288670e2707303f4cd97aef180ebf0c42246c4"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c": {
+      "bytes": 46750,
+      "sha256": "1a15e4ae855986f93cdf477d4b7a50b36c087c6e90b2c7699f7486001ac5d50c"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf": {
+      "bytes": 1048,
+      "sha256": "7aaaecfa685325b96f9ff1fcd908387b35ebf38925bf4307a81217bb510ce478"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DiagFont.h": {
+      "bytes": 3692,
+      "sha256": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S": {
+      "bytes": 1603,
+      "sha256": "4f78426d11b4978ce0c1f505ffff598678ccad813af2ef7572fb415aadbc8ed0"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c": {
+      "bytes": 9326,
+      "sha256": "34b72072064e28cbb1e6c9f0c335c96aed54c4cb1ea5f13ef5a307eaca4228b6"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h": {
+      "bytes": 1670,
+      "sha256": "a270ab49c87a93484600a6302c5ed9142e04817ae2d2c7f13826be25e655a52e"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/HeapWindow.h": {
+      "bytes": 556,
+      "sha256": "c34c976530884f843d0b2a815dec684786306fbb7a7e17c4b14dc72506a152cf"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredRam.c": {
+      "bytes": 7510,
+      "sha256": "d606ae7f2d6c505f064f74bc3455364cca30ef7489665fd75fec517e2bcbf988"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredRam.h": {
+      "bytes": 709,
+      "sha256": "94223a9a090620317e776fd1b9c9d120937882c018f0f1b031eb987eda96c087"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredWindow.h": {
+      "bytes": 1477,
+      "sha256": "ca2c502208fdd4e2a467a4d579061f11c732e745155895c6f9fc06dcff5e26ea"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/PackedRamdisk.h": {
+      "bytes": 2829,
+      "sha256": "8b3a326062baee88a179274e92df05a3a07792d25ef84daa23b71aa47b4a2326"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/WindowSize.h": {
+      "bytes": 580,
+      "sha256": "41073b6b6ed0a371b858f5c81291d739e7594f8cdfe3e16fde8f5839c8dcf8e9"
+    },
+    "research/boot-chain-05/durable-stop-change.json": {
+      "bytes": 3129,
+      "sha256": "cf6db447899b4ea0a7104d4115688d0d6a62da7ebcfd8be0f171758e2a6b3bb0"
+    },
+    "research/boot-chain-05/export-source.py": {
+      "bytes": 6390,
+      "sha256": "20ecbaf5b80bca79b46e26e5a77b26821755716e88a60d7bf368209a6751b8c3"
+    },
+    "research/boot-chain-05/fd-audit.json": {
+      "bytes": 78147,
+      "sha256": "b91f6fc1d6171b848c9cf563106264af8dd48209ec16a35f0da93bbc4f05fc05"
+    },
+    "research/boot-chain-05/incremental-ui.py": {
+      "bytes": 10786,
+      "sha256": "9b91f9f85a97d7bffe1b8dfaf46bbba178b8d372fa6f166de453f19b24d1f748"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib.c": {
+      "bytes": 10003,
+      "sha256": "f0ce88774addfa8a17e3096b0de1e5a6fd1450a19c09bf8365872f4f6b86cf5c"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib.inf": {
+      "bytes": 413,
+      "sha256": "895455c49f868f4e9042e58f145d05a2c38cba583819c00e18e8f43c48d1a004"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Profiles/Include/APRIORI.inc": {
+      "bytes": 6290,
+      "sha256": "690356033943627e27f2e9247594f040887109af7351b5c55892191ee423ec7e"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Profiles/Include/DXE.inc": {
+      "bytes": 6693,
+      "sha256": "1af992a8ef366a697453aed1571abc7b89aebe96beb60dc07bc44236f8786429"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Profiles/vermeer-boot05.dsc": {
+      "bytes": 4830,
+      "sha256": "fa876cf40d4a39dff87a2759e5743d57db54fd16018f0012d42a4dc3fa8326a3"
+    },
+    "research/boot-chain-05/package/K70Boot05Pkg/Profiles/vermeer-boot05.fdf": {
+      "bytes": 4968,
+      "sha256": "db9830b999fa377b11d55412076c56668a576e436ff782a64bb2cdc7b5d2ae67"
+    },
+    "research/boot-chain-05/package.py": {
+      "bytes": 6617,
+      "sha256": "87e2f046f8f3bf260a2675c674cb03166299510c25524e51fc492b5678c93720"
+    },
+    "research/boot-chain-05/pe-output-recovery.json": {
+      "bytes": 1126,
+      "sha256": "9f49c391d5617c25f9cef8487de4a1dcb71bc58db81c235a29c3609a88ed52a3"
+    },
+    "research/boot-chain-05/preparation-audit.json": {
+      "bytes": 3596,
+      "sha256": "e243c370bc45be45bfd0e02617fa1a52a7cb450f78ffccc60984bff0585d8431"
+    },
+    "research/boot-chain-05/test-result-guide.json": {
+      "bytes": 9386,
+      "sha256": "827cabb2106a4535ae83219662e4db60264472835b5fc3fd7d1857aa77b4b8b6"
+    },
+    "research/boot-chain-05/test-result-guide.txt": {
+      "bytes": 5390,
+      "sha256": "6e7544fc0b6f5691cbaad1e9db626fae262606f9c7518a595ee4ac0e2cdc51e7"
+    },
+    "research/boot-chain-05/verify-pe-recovery.py": {
+      "bytes": 3455,
+      "sha256": "6d509a4ca89f4a5512031f0d838b720c14996bd151ba7bc7f81f4cd77aca0522"
+    },
+    "research/boot-chain-05/window-check.json": {
+      "bytes": 268,
+      "sha256": "b0e9ef1a7165c2121cad018361f4c68a7c9cf11363aa446319c7513046ec9609"
+    },
+    "research/memory-next/FdtRamPlan.c": {
+      "bytes": 9326,
+      "sha256": "34b72072064e28cbb1e6c9f0c335c96aed54c4cb1ea5f13ef5a307eaca4228b6"
+    },
+    "research/memory-next/FdtRamPlan.h": {
+      "bytes": 1670,
+      "sha256": "a270ab49c87a93484600a6302c5ed9142e04817ae2d2c7f13826be25e655a52e"
+    },
+    "research/memory-next/FdtRamPlan.inf": {
+      "bytes": 362,
+      "sha256": "b6483a1dd8880a42f0bd3dd6c32319c16f9390638a18b7219fb35c2f8315a15f"
+    },
+    "research/memory-next/MeasuredRam.c": {
+      "bytes": 7510,
+      "sha256": "d606ae7f2d6c505f064f74bc3455364cca30ef7489665fd75fec517e2bcbf988"
+    },
+    "research/memory-next/MeasuredRam.h": {
+      "bytes": 709,
+      "sha256": "94223a9a090620317e776fd1b9c9d120937882c018f0f1b031eb987eda96c087"
+    },
+    "research/memory-next/PublishTestShim.h": {
+      "bytes": 2093,
+      "sha256": "2622eca3bb90c73b7acef6d11976e7c6dd95644610f2bf1c5a91ac51b7db4edd"
+    },
+    "research/memory-next/README.md": {
+      "bytes": 1519,
+      "sha256": "6fa64c7fc85f8b86eebd77c57550b80f4ed79fae0545653ea625020528309ae8"
+    },
+    "research/memory-next/SOURCE-REVIEW.txt": {
+      "bytes": 6963,
+      "sha256": "3f7db2101279aa6d53b44e1f1d702e9e9f5bbbd49fb125cbe777b009000bad44"
+    },
+    "research/memory-next/add-durable-stop.py": {
+      "bytes": 10092,
+      "sha256": "4707e34e64097143059ca23a56bd9dd5e8ff7072bcef710493ed648a6d3f0fed"
+    },
+    "research/memory-next/check-boot05-coff.py": {
+      "bytes": 3082,
+      "sha256": "f746d098640f8b9e0a0b5fd47759ba5a064f73feaaf5b0632b82773daaca7f7b"
+    },
+    "research/memory-next/check-window.py": {
+      "bytes": 2510,
+      "sha256": "bd8ed469d57f181790faae6266c7abb001a804535df2d70f3188aa5f1d2930b8"
+    },
+    "research/memory-next/host-test-results.json": {
+      "bytes": 2221,
+      "sha256": "de35bd7eebfd64a41ffbbebc4eafa5ca4842f21a871757f21fb7766dbfb00f0c"
+    },
+    "research/memory-next/inspect-sources.py": {
+      "bytes": 4035,
+      "sha256": "1cb006baf1a55c18524a85fe34ed406460c87cf080db1c0192b832f1d2116ad7"
+    },
+    "research/memory-next/prepare-boot05.py": {
+      "bytes": 12775,
+      "sha256": "34424d0845ea432e5d7887a7a3585c2d0ff0a8d6606395d0210e8fe12c52fa6c"
+    },
+    "research/memory-next/run-host-tests.py": {
+      "bytes": 3452,
+      "sha256": "ee086d12de5c6722b153967fd7b9e145a1ac8bb080470ac39c993965db266307"
+    },
+    "research/memory-next/source-audit.json": {
+      "bytes": 6162,
+      "sha256": "0c843721569519124c49fe814dd834a7f49d4b4ef6d61a4721e9d5240eb1a2de"
+    },
+    "research/memory-next/stop-platform-build.py": {
+      "bytes": 2000,
+      "sha256": "283d6d386d4265e58aec0ce94344f8b6339fc443b62b67e3fc1239f055eb41d7"
+    },
+    "research/memory-next/test-fdt-ram.c": {
+      "bytes": 5938,
+      "sha256": "be11e933d705197cb9e2b0f10b88f1e3fd094344c61dc17f18148ce2c244dc1e"
+    },
+    "research/memory-next/test-publish-ram.c": {
+      "bytes": 4392,
+      "sha256": "f428f6bf3ce8769e81b33ea38f654f81dcf89930ce4fbd7ce2a9582271098f41"
+    },
+    "research/memory-next/write-test-guide.py": {
+      "bytes": 6883,
+      "sha256": "23bcb6643aba92c4947f93a3ff3b7c9ab5957c1e0c05708ca9c38b5b60b97111"
+    },
+    "research/boot-chain-05/verification.json": {
+      "bytes": 1360,
+      "sha256": "387230b0785ae8ec7941d4ba85ecc0db5b0decf05e6c172042729939015ee526"
+    },
+    "research/boot-chain-05/original-verified/build-result.json": {
+      "bytes": 3266,
+      "sha256": "ce14353a479f1ed5fbe5097b7577306084d7f77e56dcf449dc2ea4e2313d63bb"
+    },
+    "research/boot-chain-05/original-verified/fd-audit.json": {
+      "bytes": 78196,
+      "sha256": "856a0018ab18c6bc0fdb91f841a577041cfbb1a98d8ac0fa9307bf1f96f126cc"
+    },
+    "research/boot-chain-05/original-verified/verification.json": {
+      "bytes": 1355,
+      "sha256": "aef01d006161322817d70413425b286024ef801cb8a2be0572cd2621044d5dd8"
+    },
+    "research/boot-chain-05/original-verified/build.py": {
+      "bytes": 4101,
+      "sha256": "8a86057417d0f27a5d3b29a33de3235e8a997c9ce2d93a79b9d89221cc808b90"
+    },
+    "research/boot-chain-05/original-verified/package.py": {
+      "bytes": 6610,
+      "sha256": "c4eb6447b407bd5161e4bb15e7402584a50de6cf4e98bdd2ba32f426d9e86d6e"
+    },
+    "research/boot-chain-05/original-verified/DarwinBoot.c": {
+      "bytes": 42863,
+      "sha256": "f871d355895e4a02b439a0a322b286ffb82e9e33d95ecb10adb1ec3724d8d58b"
+    }
+  },
+  "file_count": 68,
+  "patch_bytes": 595844,
+  "patch_sha256": "588a60d1f22f45ba53a16596be18d2995a953f0cd0b18e9737a297fca884bb71",
+  "clean_repository_apply_and_exact_readback": true,
+  "contains_apple_or_oem_binaries": false,
+  "contains_private_phone_identifiers": false,
+  "fixed_local_workspace_dependency": true,
+  "runtime_status": "Original boot05 returned generic Compromised Data; precise reason hidden by menu. r1 durable-stop awaits hardware result.",
+  "r1_firmware_sha256": "3947586d054aaecea3f622d5e2c6f04fa71f8532cbc157b8f4aaf82c5daed1f2",
+  "r1_boot_image_sha256": "d516e32db5d0c27cbc5397cef1902f763e4e0629b98d7cb5162c1e5a93ccd773",
+  "build_method": "Initial full boot05 succeeded; new r1 DarwinBoot compile/link completed; broad rebuild cancelled; verified unchanged/recovered PEs plus serial GenFds succeeded.",
+  "frozen_r1_source_files": 36
+}

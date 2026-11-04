@@ -24,6 +24,7 @@ Start with these records for the current phone and build:
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
 | [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
 | [Heap-only entry experiment](docs/boot04-2026-11-04.md) | boot04 reached XNU/BSD initialization; root device mount failed |
+| [Measured RAM experiment](docs/boot05-memory-2026-11-04.md) | boot05r1 parsed 8 RAM banks but found no eligible 514 MiB contiguous GCD region |
 | [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no hardware root mount claim |
 | [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
@@ -49,8 +50,12 @@ unverified; that diagnostic kernel disables native UFS/root publication.
 The subsequent boot05 measured-RAM experiment was also written to `boot_b`
 successfully. Its actual handset photograph shows the entry returning
 `Compromised Data` to the UniXNU menu. The menu hides the detailed rejection
-reason; this does not establish a corrupt system image or a working 512 MiB
-window. A display-only follow-up is being prepared. Boot04 remains the known
+reason. The display-only boot05r1 follow-up has now been flashed successfully;
+its held failure screen reports `M05 no measured 514MiB contiguous GCD gap`,
+with `META 0 BANKS 8 RESV 52 DYN 0`. The real runtime FDT parses successfully;
+the planner eligibility conditions are the current stopping point, before
+new RAM publication or XNU entry. This does not establish insufficient physical
+RAM, an XPU fault, or a working 512 MiB window. Boot04 remains the known
 XNU/BSD rollback image, and no userdata image has been written.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
