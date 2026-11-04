@@ -1,0 +1,115 @@
+{
+  "created_utc": "2026-11-03T23:57:30.763463+00:00",
+  "status": "offline_two_window_candidate_verified",
+  "product": "iPad7,1",
+  "version": "17.7.11",
+  "build": "21H461",
+  "image_bytes": 9382658048,
+  "image_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "manifest_version": 1,
+  "manifest_sha256": "bc908a6cf66491055077798550660f40128bfe6dce2fdc0db56e6af96511208d",
+  "measured_userdata_capacity_bytes": 242778615808,
+  "userdata_absolute_lbas_known": false,
+  "core_revision": "c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5",
+  "source_files": [
+    {
+      "path": "scripts/unixnu/udif.py",
+      "sha256": "c3a2111c2188fb8a9bf0bfdf3675662520688233ba3bbf0ebf9ccb900de10e19",
+      "byte_identical_to_pinned_commit": true
+    },
+    {
+      "path": "scripts/unixnu/util.py",
+      "sha256": "1f6efa81051d67f7225783958f1f8e86a38a7d4e538299ce6aa639b3cb4a759d",
+      "byte_identical_to_pinned_commit": true
+    },
+    {
+      "path": "scripts/unixnu/userdata.py",
+      "sha256": "637b1e62e05f3632fae6eab14024147811fcef3d2778acc571374d71ed0aa96a",
+      "byte_identical_to_pinned_commit": true
+    }
+  ],
+  "tools": [
+    {
+      "name": "build-root-candidate.py",
+      "sha256": "314c9024c28684bd66a1d397026fd35bbc94d1ce0cbe608fd25c6bbb79ca7c89"
+    },
+    {
+      "name": "verify-root-candidate.py",
+      "sha256": "91e48462cb38340589255750187475208df67f812efd5ac9b81c832fa5eefec7"
+    },
+    {
+      "name": "export-evidence.py",
+      "sha256": "b98005a0a420554dc6a054ae52cc9f3b0e30494bae12bed7d79527b362b3a76d"
+    }
+  ],
+  "decoder_change": "No upstream changes. Local builder splits RAW/zero/ignore extents into <=8MiB pieces; compressed extents are <=64MiB.",
+  "inputs": [
+    {
+      "member": "044-76040-038.dmg",
+      "stored_bytes": 5157406069,
+      "stored_sha256": "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d"
+    },
+    {
+      "member": "044-76034-038.dmg",
+      "stored_bytes": 3303014400,
+      "stored_sha256": "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f"
+    }
+  ],
+  "windows": [
+    {
+      "name": "OS",
+      "offset": 1048576,
+      "size": 6077580800,
+      "sha256": "e5634d04a8ac35f024845f583394e0a35deb26a04cb0c00286a8674e25a9a4f2",
+      "disk": {
+        "layout": "gpt-512",
+        "primary_header_crc_valid": true,
+        "backup_header_crc_valid": true,
+        "entries_crc_valid": true,
+        "backup_entries_match": true,
+        "partitions": [
+          {
+            "index": 0,
+            "type_uuid": "7C3457EF-0000-11AA-AA11-00306543ECAC",
+            "first_lba": 34,
+            "last_lba": 11870241,
+            "name": "",
+            "apfs": {
+              "magic": "NXSB",
+              "block_size": 4096,
+              "blocks": 1483776,
+              "container_uuid": "50F8A67F-AFC1-4A1B-BCBB-82162674C67F",
+              "superblock_checksum_valid": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SystemOS",
+      "offset": 6079643648,
+      "size": 3303014400,
+      "sha256": "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f",
+      "disk": {
+        "layout": "raw-apfs",
+        "apfs": {
+          "magic": "NXSB",
+          "block_size": 4096,
+          "blocks": 806400,
+          "container_uuid": "E886F82C-EE56-4B52-AF5F-E70BF46320C4",
+          "superblock_checksum_valid": true
+        }
+      }
+    }
+  ],
+  "phone_written": false,
+  "hardware_tested": false,
+  "contains_data_seed": false,
+  "desktop_boot_verified": false,
+  "independent_readback_verified": true,
+  "limitations": [
+    "Only OS/SystemOS windows; no Data seed, root policies or GPU addon.",
+    "Clean kernel currently disables native UFS/root publication and owner Data.",
+    "This is not a ready-to-flash OS; real storage, root mounting and userland remain unverified."
+  ]
+}
