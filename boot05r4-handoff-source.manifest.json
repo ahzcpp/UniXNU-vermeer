@@ -1,0 +1,78 @@
+{
+  "format": "source-only-git-delta",
+  "base_patch_sha256": [
+    "588a60d1f22f45ba53a16596be18d2995a953f0cd0b18e9737a297fca884bb71",
+    "0042eea2b2e38291ac4742c99f110a3b5e778bc1b8db16d421d75ec93ba33bec",
+    "5d961374fe47476d74bea5ef4b4b29aa82d768e614365ce6d36c3af3d5b8fef4"
+  ],
+  "files": {
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c": {
+      "bytes": 58717,
+      "sha256": "dd3bd03ad817b822d718bcfafea0c47213aadb6b17c1cddc47f0a0b29998b9fa",
+      "action": "modified"
+    },
+    "research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S": {
+      "bytes": 3190,
+      "sha256": "34246d96873d1450969daf4e93773241114cf568495b44c3a3ce7f690dbbd577",
+      "action": "modified"
+    },
+    "research/boot-chain-05/incremental-ui.py": {
+      "bytes": 11399,
+      "sha256": "b95586d4e8b4017ecccc437ba616e6909d4e2d01a7aa756f131534c820f8e314",
+      "action": "modified"
+    },
+    "research/boot-chain-05/R4-README.md": {
+      "bytes": 3733,
+      "sha256": "fcfcdac521e9cf1083492bbba8283e45b5525c134e843c135a27241740cb7efa",
+      "action": "added"
+    },
+    "research/boot-chain-05/export-r4-source.py": {
+      "bytes": 5620,
+      "sha256": "ab1355ff92efc958023c55e509b9a1f2e47bb8878df988546705c986c49ebfca",
+      "action": "added"
+    },
+    "research/memory-next/prepare-r4-handoff.py": {
+      "bytes": 6123,
+      "sha256": "91a7ac15f8777d545b004903289d12bfe52159dd7827fb8a1d98b015de3b7827",
+      "action": "added"
+    },
+    "research/boot-chain-05/r4/build-result.json": {
+      "bytes": 17947,
+      "sha256": "c8852eab74a3f93693cb8ad7c7e1d800acd92fa5edc88635d63592dc05033bc2",
+      "action": "added"
+    },
+    "research/boot-chain-05/r4/fd-audit.json": {
+      "bytes": 78367,
+      "sha256": "c758cca322d99ca03b9a5236a4dd4da72589654bd7748236612b4a2202f712d5",
+      "action": "added"
+    },
+    "research/boot-chain-05/r4/firmware-verification.json": {
+      "bytes": 523,
+      "sha256": "11985de03aa5a688cc1cf862620c37b691ea18a5f156ebc661f5acaabcc18d18",
+      "action": "added"
+    },
+    "research/boot-chain-05/r4/storage-r3-handoff-layout.json": {
+      "bytes": 11707,
+      "sha256": "a41e31ebb029e6345c625413fa248266642338471975c68af3f7c0261b60db31",
+      "action": "added"
+    },
+    "research/boot-chain-05/r4/storage-verification.json": {
+      "bytes": 2803,
+      "sha256": "4194b9bd6492255e856c8d62ab141f5647000814d524b16f30b86ff5cdcc278f",
+      "action": "added"
+    }
+  },
+  "file_count": 11,
+  "patch_bytes": 142263,
+  "patch_sha256": "d8f5ce30757d833e73843d6fbe741b16629e95c8f6f6e8fe75ab39ee791df740",
+  "r1_r2_r3_then_r4_clean_apply_and_all_files_exact_readback": true,
+  "contains_apple_or_oem_binaries": false,
+  "contains_images_keys_or_private_phone_identifiers": false,
+  "fixed_local_workspace_dependency": true,
+  "r4_runtime_result": "boot_b flashed/rebooted; stage result pending",
+  "fd_sha256": "2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a",
+  "immutable_audit_sha256": "c758cca322d99ca03b9a5236a4dd4da72589654bd7748236612b4a2202f712d5",
+  "fullboot_sha256": "b7b24c58eadfed82450066389700ecb7806fbcc813b412fbc0a6304084a1a1a5",
+  "userdata_rewritten_for_r4": false,
+  "snapshot_files": 31
+}

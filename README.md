@@ -27,6 +27,7 @@ Start with these records for the current phone and build:
 | [Measured RAM experiment](docs/boot05-memory-2026-11-04.md) | boot05r1 parsed 8 RAM banks but found no eligible 514 MiB contiguous GCD region |
 | [Actual RAM ranges](docs/boot05r2-memory-2026-11-04.md) | boot05r2 exposed dynamic allocation constraints incorrectly treated as occupied RAM |
 | [Dynamic request correction](docs/boot05r3-memory-2026-11-04.md) | boot05r3 reached XNU/BSD through its mandatory 512 MiB window; root device remains absent in this baseline |
+| [Handoff code writeback](docs/boot05r4-handoff-2026-11-04.md) | r4 adds identity checks, self-code cache writeback and finer MMU markers; boot-only follow-up flashed, result pending |
 | [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Root/storage boot writes all OKAY; full payload currently stops at loader handoff, before confirmed XNU/UFS execution |
 | [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
@@ -75,7 +76,9 @@ full-payload photo retains the green top and yellow cache-maintenance band,
 without a visible cyan/blue band or XNU log. The handoff is under investigation;
 this full kernel has not yet demonstrated XNU execution or any UFS/root access.
 The loader's old `NO OS ROOT` text is a stale diagnostic label, not proof that
-the newly written root/payload is absent. Follow-up work will preserve userdata.
+the newly written root/payload is absent. The r4 boot-only follow-up adds explicit
+handoff-code cache writeback, identity checks and finer transition markers; it has
+been flashed and rebooted with OKAY, preserving userdata. Its screen result is pending.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's

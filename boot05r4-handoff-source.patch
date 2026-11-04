@@ -1,0 +1,3011 @@
+diff --git a/research/boot-chain-05/R4-README.md b/research/boot-chain-05/R4-README.md
+new file mode 100644
+index 0000000..e7fd96b
+--- /dev/null
++++ b/research/boot-chain-05/R4-README.md
+@@ -0,0 +1,36 @@
++# boot05r4：定位并修正 MMU 交接的代码一致性
++
++baseline r3 已在真机通过强制、无回退的 512 MiB 窗口进入 XNU/BSD。首次完整 storage-r3 则停在顶部绿色、底部黄色，未见青色或入口蓝条。其画面数值为 PA `8C007C000`、SIZE `20000000`、ENTRY `8C7812488`、ARGS `8C870C000`、LOADER `C65B6C58`、FB `B8000000`，目前不能据此认定完整内核或 UFS 驱动已经执行。
++
++实际 MachO 布局与这些地址一致，full Used=`87FC000`，未覆盖低地址的 loader 或 framebuffer；缓存维护仍遍历完整 512 MiB，和成功的 baseline 相同。源码审查找到交接的一处缺口：此前只清理 XNU owned window，然后关 SCTLR 的 M/C/I；DarwinEnter 自身指令和 PE relocation 写入位于这个窗口之外，没有明确清理到 PoC。
++
++r4 在关闭 MMU 前对 DarwinEnter 的全部指令 span 做真实 identity 检查并逐 VA `dc cvac` 清理到 PoC，随后 DSB、I-cache invalidation、DSB/ISB。C 端检查完整代码页并给出明确失败原因；ExitBootServices 后的汇编再次通过 AT/PAR 核对每页，拒绝改变后的非 identity 映射。汇编 span 由实际 DarwinEnter/DarwinEnterEnd 符号界定，当前编译结果为 568 字节，源码要求 64 字节起始对齐。整个路径保留 x0/x1 和已保存的 framebuffer x14/x15，不用栈、literal pool、Boot Services 或全 set/way 清缓存。
++
++[Linux arm64 正式启动文档](https://docs.kernel.org/arch/arm64/booting.html) 的代码 clean-to-PoC、优先 VA maintenance 要求用于解释这个窄修复；没有套用 Linux 的传参 ABI，XNU 原 bootargs/entry 传参保持不变。该修复是否解决本机停顿仍待真机结果。
++
++新增色条用于分开观察阶段，编号是 framebuffer 的 1/16 区域：
++
++| 色条 | 阶段 |
++| --- | --- |
++| 黄 13 | owned window 的 D-cache 清理完成 |
++| 橙 10 | ExitBootServices 后代码 identity 不成立，保持 MMU 开启并停住 |
++| 白 12 | 代码 identity、全部 self-code PoC 清理和 I-cache 同步完成 |
++| 红 11 | 即将写 SCTLR_EL1 |
++| 品红 15 | 已越过 SCTLR 写入和 ISB 后的指令取用 |
++| 青 14 | 后续 TLBI、DSB、ISB 完成 |
++| 顶部蓝 | 内核入口探针，不代表 UFS 或根卷已工作 |
++
++C 端界面已改为中性的 `K70 RAM512 - XNU PAYLOAD`，显示实际 USED、RD、POL 大小，适用于同一 FD 搭载完整系统载荷。没有修改 RAM 发布策略、静态占位 HOB、内核、FAT payload 或 userdata。
++
++模块编译/链接、serial GenFds 与完整 FD 审计通过。FD SHA-256 为 `2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a`；不可变匹配审计 SHA 为 `c758cca322d99ca03b9a5236a4dd4da72589654bd7748236612b4a2202f712d5`。
++
++root 使用既有 FAT payload `f02a97df…` 和完整 kernel `962381af…` 组合新的 boot-only 候选，完整独立解包回读报告附在 `r4/storage-verification.json`。镜像为 135,774,208 字节，SHA-256 `b7b24c58eadfed82450066389700ecb7806fbcc813b412fbc0a6304084a1a1a5`。它已刷入 boot_b 并重启，未重复写 userdata；新色条/内核结果待确认。
++
++此源码增量依次应用在原 boot05/r1、r2、r3 源码补丁之后，保留所有历史版本和二进制。r4 冻结源码、报告及布局证据附在 `r4/`。补丁没有 Apple/OEM 二进制、照片、密钥或手机私有标识，也不修改基线/CI。构建继续依赖已有固定本地工作区及受检完成模块：
++
++```sh
++python3.11 /mnt/e/K70-UniXNU-20261104/boot-chain-05/incremental-ui.py
++python3.11 /mnt/e/K70-UniXNU-20261104/boot-chain-05/audit-fd.py
++```
++
++使用匹配 FD 和不可变审计通过已有 storage packager v2 组合相同载荷；这个修订只需要新 boot 镜像。
+diff --git a/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c b/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c
+index 04abcc6..90305fb 100644
+--- a/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c
++++ b/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c
+@@ -52,6 +52,8 @@ STATIC BOOLEAN mFailureHeld;
+ STATIC CONST VOID *mValidatedFdt;
+ STATIC UINTN mValidatedFdtBytes;
+ STATIC UINT64 mValidatedInitrd, mValidatedInitrdBytes;
++STATIC UINT64 mSelfCodeVa, mSelfCodePa, mSelfCodePar;
++extern UINT8 DarwinEnterEnd[];
+ UINT64 EFIAPI DarwinCurrentEl (VOID);
+ VOID EFIAPI DarwinEnter (UINT64 Args, UINT64 Entry, UINT64 Memory, UINT64 Size, UINT64 VideoBase, UINT64 VideoBytes);
+ 
+@@ -733,6 +735,10 @@ K70HoldFailure (CONST CHAR16 *Detail, EFI_STATUS Failure)
+       StrCmp (Detail, L"M05 no measured 514MiB contiguous GCD gap") == 0) {
+     K70RangeFrame (&Meta);
+   }
++  if (StrCmp (Detail, L"handoff code identity mapping") == 0) {
++    UnicodeSPrint (Line, sizeof (Line), L"SELF VA %lx PA %lx PAR %lx", mSelfCodeVa, mSelfCodePa, mSelfCodePar);
++    DiagDraw (Line, 13);
++  }
+   // The only metadata re-read above is the already coverage-validated FDT.
+   // No candidate RAM address is read or written by the failure screen.
+   for (;;) {
+@@ -785,6 +791,36 @@ K70InputMapped (EFI_MEMORY_DESCRIPTOR *Map, UINTN Size, UINTN Stride, UINT64 Bas
+   return Cursor >= Limit;
+ }
+ 
++
++// Read current EL1 translation metadata for the complete handoff instruction
++// span. This does not read/write unknown RAM and does not alter page tables.
++STATIC EFI_STATUS
++CheckHandoffIdentity (VOID)
++{
++  UINT64 Start = (UINT64)(UINTN)DarwinEnter;
++  UINT64 End = (UINT64)(UINTN)DarwinEnterEnd;
++  UINT64 Page, Top, Par, SavedPar;
++  EFI_STATUS Status = EFI_SUCCESS;
++  mSelfCodeVa = Start; mSelfCodePa = 0; mSelfCodePar = 0;
++  if (End <= Start || End - Start > EFI_PAGE_SIZE || End > MAX_UINT64 - EFI_PAGE_MASK) {
++    return EFI_COMPROMISED_DATA;
++  }
++  __asm__ volatile ("mrs %0, par_el1" : "=r" (SavedPar));
++  Top = ALIGN_VALUE (End, EFI_PAGE_SIZE);
++  for (Page = Start & ~((UINT64)EFI_PAGE_MASK); Page < Top; Page += EFI_PAGE_SIZE) {
++    __asm__ volatile ("at s1e1r, %1\n\tisb\n\tmrs %0, par_el1"
++                      : "=r" (Par) : "r" (Page) : "memory");
++    mSelfCodeVa = Page; mSelfCodePar = Par;
++    mSelfCodePa = Par & 0x000FFFFFFFFFF000ULL;
++    if ((Par & 1) != 0 || mSelfCodePa != Page) { Status = EFI_UNSUPPORTED; break; }
++  }
++  __asm__ volatile ("msr par_el1, %0" :: "r" (SavedPar) : "memory");
++  if (!EFI_ERROR (Status)) { mSelfCodeVa = Start; mSelfCodePa = Start; }
++  Print (L"HANDOFF SELF: VA %lx PA %lx PAR %lx SIZE %lx STATUS %r\n",
++         mSelfCodeVa, mSelfCodePa, mSelfCodePar, End - Start, Status);
++  return Status;
++}
++
+ STATIC
+ EFI_STATUS
+ K70CheckEntryInputs (VOID)
+@@ -842,7 +878,7 @@ K70CheckEntryInputs (VOID)
+          mMeasuredWindow.Base, mMeasuredWindow.End);
+   return EFI_SUCCESS;
+ Reject:
+-  DiagDraw (L"K70 boot05 FDT512 - NO OS ROOT", 0);
++  DiagDraw (L"K70 RAM512 - XNU PAYLOAD", 0);
+   UnicodeSPrint (Line, sizeof (Line), L"M05 REFUSED: %s", Reason);
+   DiagDraw (Line, 1);
+   Print (L"K70 boot05: %s; no input allocation or kernel copy attempted\n", Reason);
+@@ -894,7 +930,7 @@ AllocateWindow (KERNEL *Kernel, UINT64 WindowSize, EFI_PHYSICAL_ADDRESS *Address
+   if (EFI_ERROR (Status)) {
+     CHAR16 Line[96];
+     UINTN  Row = 1;
+-    DiagDraw (L"K70 boot05 FDT512 - NO OS ROOT", 0);
++    DiagDraw (L"K70 RAM512 - XNU PAYLOAD", 0);
+     UnicodeSPrint (Line, sizeof (Line), L"MEASURED WINDOW FAIL %lx FREE RUN %lx", WindowSize, BestBytes);
+     DiagDraw (Line, Row++);
+     DiagDraw (L"ONLY NEW FDT-DESCRIBED GCD RAM; NO FALLBACK", Row++);
+@@ -1042,7 +1078,7 @@ Boot (
+   if (KeepPacked && (!RamdiskPacked || (RamdiskOffset == MAX_UINTN))) { Status = EFI_COMPROMISED_DATA; goto Fail; }
+   Stage = L"explicit 512MiB ADT request";
+   if (WindowSize != SIZE_512MB) {
+-    DiagDraw (L"K70 boot05 FDT512 - NO OS ROOT", 0);
++    DiagDraw (L"K70 RAM512 - XNU PAYLOAD", 0);
+     DiagDraw (L"M05 REFUSED: ADT must explicitly request 512MiB", 1);
+     Status = EFI_UNSUPPORTED;
+     goto Fail;
+@@ -1131,7 +1167,7 @@ Boot (
+   Stage = L"loaded kernel/policy/window layout";
+   if (!K70MeasuredLayoutFits (Address, WindowSize, Used, mMeasuredWindow.Base, mMeasuredWindow.End)) {
+     CHAR16 Line[96];
+-    DiagDraw (L"K70 boot05 FDT512 - NO OS ROOT", 0);
++    DiagDraw (L"K70 RAM512 - XNU PAYLOAD", 0);
+     UnicodeSPrint (Line, sizeof (Line), L"LAYOUT FAIL USED %lx WINDOW %lx", Used, WindowSize);
+     DiagDraw (Line, 1);
+     Print (L"DARWINBOOT: used %lu window %lu kernel %lu ramdisk %lu\n", (UINT64)Used, (UINT64)WindowSize, (UINT64)(Kernel.End - Kernel.Base), (UINT64)RamdiskBytes);
+@@ -1184,6 +1220,9 @@ Boot (
+   FreePool (Tree); Tree = NULL;
+   FreePool (TreePath); TreePath = NULL;
+   Root->Close (Root); Root = NULL;
++  Stage = L"handoff code identity mapping";
++  Status = CheckHandoffIdentity ();
++  if (EFI_ERROR (Status)) { goto Fail; }
+   Stage = L"final EFI memory map preparation";
+   Status = GetMap (&Map, &Capacity, &MapSize, &Key, &Stride);
+   if (EFI_ERROR (Status)) { goto Fail; }
+@@ -1217,16 +1256,19 @@ Boot (
+   // Keep the addresses below the top handoff bars for a readable photo.
+   {
+     CHAR16 Line[96];
+-    DiagDraw (L"K70 boot05 FDT512 - NO OS ROOT", 0);
++    DiagDraw (L"K70 RAM512 - XNU PAYLOAD", 0);
+     UnicodeSPrint (Line, sizeof (Line), L"PA %lx SIZE %lx", Address, WindowSize);
+     DiagDraw (Line, 1);
+     UnicodeSPrint (Line, sizeof (Line), L"ENTRY %lx ARGS %lx", Address + Kernel.Entry - Kernel.Base, ArgsAddress);
+     DiagDraw (Line, 2);
+     UnicodeSPrint (Line, sizeof (Line), L"LOADER %lx FB %lx", (UINT64)(UINTN)DarwinEnter, Video[0]);
+     DiagDraw (Line, 3);
+-    DiagDraw (L"BOTTOM YELLOW=CACHE DONE", 4);
+-    DiagDraw (L"BOTTOM CYAN=MMU OFF", 5);
+-    DiagDraw (L"TOP BLUE=XNU ENTRY", 6);
++    UnicodeSPrint (Line, sizeof (Line), L"USED %lx RD %lx POL %lx", Used, RamdiskBytes, PolicySize);
++    DiagDraw (Line, 4);
++    DiagDraw (L"YELLOW13=WINDOW DC WHITE12=SELF READY", 5);
++    DiagDraw (L"RED11=PRE SCTLR MAGENTA15=POST SCTLR", 6);
++    DiagDraw (L"CYAN14=TLBI DONE TOP BLUE=XNU ENTRY", 7);
++    DiagDraw (L"ORANGE10=SELF IDENTITY REFUSED", 8);
+   }
+   Stage = L"ExitBootServices memory map/handoff";
+   for (Attempt = 0; Attempt < 3; Attempt++) {
+diff --git a/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S b/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S
+index 8c6c0a4..e3f25df 100644
+--- a/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S
++++ b/research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S
+@@ -27,7 +27,7 @@ ASM_FUNC(DarwinCurrentEl)
+ 9:
+ .endm
+ 
+-ASM_FUNC(DarwinEnter)
++ASM_FUNC_ALIGN(DarwinEnter, 64)
+   mov x14, x4
+   mov x15, x5
+   msr daifset, #15
+@@ -59,20 +59,70 @@ ASM_FUNC(DarwinEnter)
+   cmp x4, x5
+   b.lo 1b
+   dsb sy
++  // Yellow: the entire owned window is clean, before self-code maintenance.
++  HANDOFF_BAND 13, 0xFF00, 0xFFFF
++
++  // ExitBootServices may have run callbacks since the C-side identity check.
++  // Recheck EVERY instruction page at the actual point of MMU shutdown.
++  // No candidate address is dereferenced by AT; PAR faults refuse the handoff.
++  adr x8, ASM_PFX(DarwinEnter)
++  bic x8, x8, #0xfff
++  adr x9, ASM_PFX(DarwinEnterEnd)
++  add x9, x9, #0xfff
++  bic x9, x9, #0xfff
++5:
++  at s1e1r, x8
++  isb
++  mrs x10, par_el1
++  tbnz x10, #0, 7f
++  and x10, x10, #0x000ffffffffff000
++  cmp x10, x8
++  b.ne 7f
++  add x8, x8, #0x1000
++  cmp x8, x9
++  b.lo 5b
++
++  // The PE loader's relocation/code writes are outside the XNU owned window.
++  // Clean our ENTIRE instruction span to PoC before switching instruction
++  // fetch from the cacheable identity mapping to MMU/cache-off physical fetch.
++  // x6=line length and x7=line mask still hold from the window loop above.
++  adr x4, ASM_PFX(DarwinEnter)
++  bic x4, x4, x7
++  adr x5, ASM_PFX(DarwinEnterEnd)
++6:
++  dc cvac, x4
++  add x4, x4, x6
++  cmp x4, x5
++  b.lo 6b
++  dsb sy
+   ic iallu
+   dsb sy
+   isb
+-  // Yellow: owned-window cache maintenance completed.
+-  HANDOFF_BAND 13, 0xFF00, 0xFFFF
++  // White: self identity and instruction bytes are ready for physical fetch.
++  HANDOFF_BAND 12, 0xFFFF, 0xFFFF
++  // Red: next system-register transition is SCTLR_EL1.
++  HANDOFF_BAND 11, 0x0000, 0xFFFF
+   mrs x4, sctlr_el1
+   bic x4, x4, #1
+   bic x4, x4, #4
+   bic x4, x4, #0x1000
+   msr sctlr_el1, x4
+   isb
++  // Magenta: actual instruction fetch survived the SCTLR write + ISB.
++  HANDOFF_BAND 15, 0x00FF, 0xFFFF
+   tlbi vmalle1
+   dsb sy
+   isb
+   // Cyan: MMU disabled and TLB invalidation completed.
+   HANDOFF_BAND 14, 0xFFFF, 0xFF00
+   br x1
++
++  // No stack, boot services, exception-vector dependency, or guessed PA.
++  // Orange means code identity changed after ExitBootServices; MMU stays on.
++7:
++  HANDOFF_BAND 10, 0x8000, 0xFFFF
++8:
++  wfe
++  b 8b
++.global ASM_PFX(DarwinEnterEnd)
++ASM_PFX(DarwinEnterEnd):
+diff --git a/research/boot-chain-05/export-r4-source.py b/research/boot-chain-05/export-r4-source.py
+new file mode 100644
+index 0000000..068ff4e
+--- /dev/null
++++ b/research/boot-chain-05/export-r4-source.py
+@@ -0,0 +1,80 @@
++#!/usr/bin/env python3
++"""Freeze source-only r4 delta; do not build, flash or modify binary artifacts."""
++import hashlib
++import json
++from pathlib import Path
++import re
++import shutil
++import subprocess
++import tempfile
++
++W=Path(__file__).resolve().parent;B=W.parent;O=B/'device-source';A=B/'artifacts/boot-chain-05r4'
++BASES=[(O/'boot05-memory-source.patch','588a60d1f22f45ba53a16596be18d2995a953f0cd0b18e9737a297fca884bb71'),
++       (O/'boot05r2-memory-source.patch','0042eea2b2e38291ac4742c99f110a3b5e778bc1b8db16d421d75ec93ba33bec'),
++       (O/'boot05r3-memory-source.patch','5d961374fe47476d74bea5ef4b4b29aa82d768e614365ce6d36c3af3d5b8fef4')]
++def sha(data):return hashlib.sha256(data).hexdigest()
++for p,digest in BASES:assert sha(p.read_bytes())==digest
++r=json.loads((W/'build-result.json').read_text());a=json.loads((A/'fd-audit.json').read_text())
++assert r['exit_code']==0 and not r['source_changed_during_build'] and a['success']
++assert a['fd_sha256']=='2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a'
++for rel,digest in r['source_sha256'].items():assert sha((W/rel).read_bytes())==digest
++snapshot=W/'source-snapshots/r4-verified-2eb9d573'
++preserve={rel:W/rel for rel in r['source_sha256']};mapping={}
++def add(target,source):
++    data=source.read_bytes();text=data.decode('utf-8-sig')
++    assert '\0' not in text and re.search(r'^-----BEGIN [A-Z ]*PRIVATE KEY-----$',text,re.M) is None
++    assert target.startswith(('research/boot-chain-05/','research/memory-next/'))
++    mapping[target]=data
++for name in ['DarwinBoot.c','Entry.S']:
++    add('research/boot-chain-05/darwinboot/DarwinBootPkg/Driver/'+name,W/'darwinboot/DarwinBootPkg/Driver'/name)
++for name in ['incremental-ui.py','R4-README.md','export-r4-source.py']:
++    add('research/boot-chain-05/'+name,W/name);preserve[name]=W/name
++source=B/'memory-next/prepare-r4-handoff.py'
++add('research/memory-next/prepare-r4-handoff.py',source);preserve['memory-next/prepare-r4-handoff.py']=source
++for name in ['build-result.json']:
++    add('research/boot-chain-05/r4/'+name,W/name);preserve[name]=W/name
++for name in ['fd-audit.json','firmware-verification.json']:
++    add('research/boot-chain-05/r4/'+name,A/name);preserve[name]=A/name
++source=B/'storage-next/storage-r3-handoff-layout.json'
++add('research/boot-chain-05/r4/storage-r3-handoff-layout.json',source);preserve['storage-r3-handoff-layout.json']=source
++source=B/'artifacts/storage-native-03-r4/verification.json'
++storage=json.loads(source.read_text())
++assert storage['image_sha256']=='b7b24c58eadfed82450066389700ecb7806fbcc813b412fbc0a6304084a1a1a5'
++assert storage['fd_sha256']==a['fd_sha256']
++assert storage['fd_audit_sha256']==sha((A/'fd-audit.json').read_bytes())
++add('research/boot-chain-05/r4/storage-verification.json',source);preserve['storage-verification.json']=source
++for rel,source in preserve.items():
++    p=snapshot/rel;data=source.read_bytes()
++    if p.exists():assert p.read_bytes()==data,'Frozen r4 source differs: '+rel
++    else:p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
++
++def init(repo):
++    subprocess.run(['git','init','-q',str(repo)],check=True)
++    subprocess.run(['git','-C',str(repo),'config','core.autocrlf','false'],check=True)
++    for patch,_ in BASES:subprocess.run(['git','-C',str(repo),'apply','--whitespace=nowarn',str(patch)],check=True)
++with tempfile.TemporaryDirectory(prefix='k70-r4-delta-') as name:
++    repo=Path(name);init(repo);subprocess.run(['git','-C',str(repo),'add','--all'],check=True)
++    subprocess.run(['git','-C',str(repo),'-c','user.name=Source Audit','-c','user.email=source-audit@localhost',
++                    'commit','-qm','Frozen r1 r2 r3 source base'],check=True)
++    before={str(p.relative_to(repo)):p.read_bytes() for p in repo.rglob('*') if p.is_file() and '.git' not in p.parts}
++    for target,data in mapping.items():
++        p=repo/target;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
++    subprocess.run(['git','-C',str(repo),'add','--all'],check=True)
++    patch=subprocess.check_output(['git','-C',str(repo),'diff','--cached','--binary','--no-ext-diff'])
++with tempfile.TemporaryDirectory(prefix='k70-r4-apply-') as name:
++    repo=Path(name);init(repo);p=repo/'r4.patch';p.write_bytes(patch)
++    subprocess.run(['git','-C',str(repo),'apply','--check',str(p)],check=True)
++    subprocess.run(['git','-C',str(repo),'apply',str(p)],check=True)
++    for target,data in {**before,**mapping}.items():assert (repo/target).read_bytes()==data,'Exact readback failed: '+target
++result={'format':'source-only-git-delta','base_patch_sha256':[digest for _,digest in BASES],
++        'files':{name:{'bytes':len(data),'sha256':sha(data),'action':'modified' if name in before else 'added'} for name,data in mapping.items()},
++        'file_count':len(mapping),'patch_bytes':len(patch),'patch_sha256':sha(patch),
++        'r1_r2_r3_then_r4_clean_apply_and_all_files_exact_readback':True,
++        'contains_apple_or_oem_binaries':False,'contains_images_keys_or_private_phone_identifiers':False,
++        'fixed_local_workspace_dependency':True,'r4_runtime_result':'boot_b flashed/rebooted; stage result pending',
++        'fd_sha256':a['fd_sha256'],'immutable_audit_sha256':sha((A/'fd-audit.json').read_bytes()),
++        'fullboot_sha256':storage['image_sha256'],'userdata_rewritten_for_r4':False,'snapshot_files':len(preserve)}
++(O/'boot05r4-handoff-source.patch').write_bytes(patch)
++(O/'boot05r4-handoff-source.manifest.json').write_text(json.dumps(result,indent=2)+'\n')
++shutil.copyfile(W/'R4-README.md',O/'docs/boot05r4-handoff-2026-11-04.md')
++print(json.dumps({k:v for k,v in result.items() if k!='files'},indent=2))
+diff --git a/research/boot-chain-05/incremental-ui.py b/research/boot-chain-05/incremental-ui.py
+index 340b51c..c210dbb 100644
+--- a/research/boot-chain-05/incremental-ui.py
++++ b/research/boot-chain-05/incremental-ui.py
+@@ -41,7 +41,7 @@ assert initial_build['exit_code']==0 and initial_audit['success']
+ assert initial_audit['fd_sha256']=='2d207ced094daee8b72c22029efc64b54f37021546af1c1663a0614ee4a164fc'
+ for name,digest in initial_build['source_sha256'].items():
+     if not name.endswith('/DarwinBoot.c'):
+-        allowed={'darwinboot/DarwinBootPkg/Driver/MeasuredRam.c': 'b6c43442b502352506c2a8941b252410d56b76d8cfa383958539c96e14a230cd', 'darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf': '26c65c2e9a3055497b50a7b5e95653963a6a04aa6f593c6ce73ec4ef21f28f15', 'darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c': '54e50267c2a52d842fa6e3f5151c641ee9d881c67ee17b9b4e6dd72ffcc5ebee', 'darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h': 'adad037388c09b32c74f8dbff4de5d372f907408a979b9cc5e33b63257361a91'}
++        allowed={'darwinboot/DarwinBootPkg/Driver/MeasuredRam.c': 'b6c43442b502352506c2a8941b252410d56b76d8cfa383958539c96e14a230cd', 'darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf': '26c65c2e9a3055497b50a7b5e95653963a6a04aa6f593c6ce73ec4ef21f28f15', 'darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c': '54e50267c2a52d842fa6e3f5151c641ee9d881c67ee17b9b4e6dd72ffcc5ebee', 'darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h': 'adad037388c09b32c74f8dbff4de5d372f907408a979b9cc5e33b63257361a91', 'darwinboot/DarwinBootPkg/Driver/Entry.S': '34246d96873d1450969daf4e93773241114cf568495b44c3a3ce7f690dbbd577'}
+         assert sha((WORK/name).read_bytes())==allowed.get(name,digest),'Unrelated runtime/config changed: '+name
+ 
+ # The cancelled platform run relinked PcdDxe before its unchanged libraries.
+diff --git a/research/boot-chain-05/r4/build-result.json b/research/boot-chain-05/r4/build-result.json
+new file mode 100644
+index 0000000..eae9536
+--- /dev/null
++++ b/research/boot-chain-05/r4/build-result.json
+@@ -0,0 +1,332 @@
++{
++  "schema": 2,
++  "started_utc": "2026-11-04T02:26:22.512994+00:00",
++  "command": [
++    "build",
++    "fds",
++    "--no-genfds-multi-thread",
++    "-p",
++    "K70Boot05Pkg/Profiles/vermeer-boot05.dsc",
++    "-a",
++    "AARCH64",
++    "-b",
++    "DEBUG",
++    "-t",
++    "CLANGPDB",
++    "-n",
++    "2",
++    "-D",
++    "FD_BASE=0xa7100000",
++    "-D",
++    "FD_SIZE=0x300000",
++    "-D",
++    "FD_BLOCKS=768",
++    "-D",
++    "ENABLE_SECUREBOOT=1",
++    "-D",
++    "DEVICE_MODEL=vermeer",
++    "-D",
++    "MEMORY_PROTECTION=TRUE",
++    "-D",
++    "SHIP_MODE=FALSE",
++    "-D",
++    "BUILDID_STRING=vermeer-boot05-measured512"
++  ],
++  "commands": [
++    [
++      "build",
++      "-m",
++      "DarwinBootPkg/Driver/DarwinBoot.inf",
++      "-p",
++      "K70Boot05Pkg/Profiles/vermeer-boot05.dsc",
++      "-a",
++      "AARCH64",
++      "-b",
++      "DEBUG",
++      "-t",
++      "CLANGPDB",
++      "-n",
++      "2",
++      "-D",
++      "FD_BASE=0xa7100000",
++      "-D",
++      "FD_SIZE=0x300000",
++      "-D",
++      "FD_BLOCKS=768",
++      "-D",
++      "ENABLE_SECUREBOOT=1",
++      "-D",
++      "DEVICE_MODEL=vermeer",
++      "-D",
++      "MEMORY_PROTECTION=TRUE",
++      "-D",
++      "SHIP_MODE=FALSE",
++      "-D",
++      "BUILDID_STRING=vermeer-boot05-measured512"
++    ],
++    [
++      "build",
++      "fds",
++      "--no-genfds-multi-thread",
++      "-p",
++      "K70Boot05Pkg/Profiles/vermeer-boot05.dsc",
++      "-a",
++      "AARCH64",
++      "-b",
++      "DEBUG",
++      "-t",
++      "CLANGPDB",
++      "-n",
++      "2",
++      "-D",
++      "FD_BASE=0xa7100000",
++      "-D",
++      "FD_SIZE=0x300000",
++      "-D",
++      "FD_BLOCKS=768",
++      "-D",
++      "ENABLE_SECUREBOOT=1",
++      "-D",
++      "DEVICE_MODEL=vermeer",
++      "-D",
++      "MEMORY_PROTECTION=TRUE",
++      "-D",
++      "SHIP_MODE=FALSE",
++      "-D",
++      "BUILDID_STRING=vermeer-boot05-measured512"
++    ]
++  ],
++  "exit_code": 0,
++  "source_sha256": {
++    "package/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib.c": "f0ce88774addfa8a17e3096b0de1e5a6fd1450a19c09bf8365872f4f6b86cf5c",
++    "package/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib.inf": "895455c49f868f4e9042e58f145d05a2c38cba583819c00e18e8f43c48d1a004",
++    "package/K70Boot05Pkg/Profiles/Include/APRIORI.inc": "690356033943627e27f2e9247594f040887109af7351b5c55892191ee423ec7e",
++    "package/K70Boot05Pkg/Profiles/Include/DXE.inc": "1af992a8ef366a697453aed1571abc7b89aebe96beb60dc07bc44236f8786429",
++    "package/K70Boot05Pkg/Profiles/vermeer-boot05.dsc": "fa876cf40d4a39dff87a2759e5743d57db54fd16018f0012d42a4dc3fa8326a3",
++    "package/K70Boot05Pkg/Profiles/vermeer-boot05.fdf": "db9830b999fa377b11d55412076c56668a576e436ff782a64bb2cdc7b5d2ae67",
++    "darwinboot/DarwinBootPkg/DarwinBoot.dsc": "7dcdf998c45dcd9e37c98fc3bcc0992ee2dcb5dd0b2b50bc1c52e71b11ec2993",
++    "darwinboot/DarwinBootPkg/Driver/BootArgs.h": "1d6b172a306bf5d3fc409d22bd7e674d166e5fde92652c4135de5c79f3eddd16",
++    "darwinboot/DarwinBootPkg/Driver/BootVideo.h": "8d25e85a166b272a1cbc0a5238288670e2707303f4cd97aef180ebf0c42246c4",
++    "darwinboot/DarwinBootPkg/Driver/DarwinBoot.c": "dd3bd03ad817b822d718bcfafea0c47213aadb6b17c1cddc47f0a0b29998b9fa",
++    "darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf": "26c65c2e9a3055497b50a7b5e95653963a6a04aa6f593c6ce73ec4ef21f28f15",
++    "darwinboot/DarwinBootPkg/Driver/DiagFont.h": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e",
++    "darwinboot/DarwinBootPkg/Driver/Entry.S": "34246d96873d1450969daf4e93773241114cf568495b44c3a3ce7f690dbbd577",
++    "darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c": "54e50267c2a52d842fa6e3f5151c641ee9d881c67ee17b9b4e6dd72ffcc5ebee",
++    "darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h": "adad037388c09b32c74f8dbff4de5d372f907408a979b9cc5e33b63257361a91",
++    "darwinboot/DarwinBootPkg/Driver/HeapWindow.h": "c34c976530884f843d0b2a815dec684786306fbb7a7e17c4b14dc72506a152cf",
++    "darwinboot/DarwinBootPkg/Driver/MeasuredRam.c": "b6c43442b502352506c2a8941b252410d56b76d8cfa383958539c96e14a230cd",
++    "darwinboot/DarwinBootPkg/Driver/MeasuredRam.h": "94223a9a090620317e776fd1b9c9d120937882c018f0f1b031eb987eda96c087",
++    "darwinboot/DarwinBootPkg/Driver/MeasuredWindow.h": "ca2c502208fdd4e2a467a4d579061f11c732e745155895c6f9fc06dcff5e26ea",
++    "darwinboot/DarwinBootPkg/Driver/PackedRamdisk.h": "8b3a326062baee88a179274e92df05a3a07792d25ef84daa23b71aa47b4a2326",
++    "darwinboot/DarwinBootPkg/Driver/QualifiedUnion.h": "282aa404a97b4ab6e273a8aa878638e17e6a42ee172b476a3b9d87faf35c9e87",
++    "darwinboot/DarwinBootPkg/Driver/WindowSize.h": "41073b6b6ed0a371b858f5c81291d739e7594f8cdfe3e16fde8f5839c8dcf8e9"
++  },
++  "source_changed_during_build": [],
++  "mode": "DarwinBoot module-only + FDS",
++  "prior_successful_full_build_fd_sha256": "2d207ced094daee8b72c22029efc64b54f37021546af1c1663a0614ee4a164fc",
++  "unrelated_completed_pe_byte_exact_to_full_build": [
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/Dxe/DxeMain/OUTPUT/DxeCore.efi",
++      "sha256": "3dc6e8e233c7045ef8b60f34ebf30fb461cbb18a58338ac4d9aa64e9ffd6676c"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PCD/Dxe/Pcd/OUTPUT/PcdDxe.efi",
++      "sha256": "7921b517992855662acb4bace63973bb34a97fd98c02beb9adcb5d770897c008"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe/OUTPUT/ReportStatusCodeRouterRuntimeDxe.efi",
++      "sha256": "e1cb4c86d10d76c1ba7f2258b7a83b46259e3f0b22ea6eb89dd34604e2f59f71"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe/OUTPUT/StatusCodeHandlerRuntimeDxe.efi",
++      "sha256": "f8bd3b0245fdbb018721932d33cd881ee0b6e40a6809863d1e6e736c2d1cc522"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/CpuDxe/CpuDxe/OUTPUT/ArmCpuDxe.efi",
++      "sha256": "0b0c12b856fde85a7fedf52f890ecfb783baa6ccbbc7b63694ccf0713d071cf0"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/RuntimeDxe/RuntimeDxe/OUTPUT/RuntimeDxe.efi",
++      "sha256": "11195274ded8da4b074263cc20750947ce6aca1c968bae645fd5167089789365"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe/OUTPUT/SecurityStubDxe.efi",
++      "sha256": "4d9458c392dfdfef2d3150849fe4da309a3d6e00e52b0b02ce5e404e23abb1ac"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer/OUTPUT/WatchdogTimer.efi",
++      "sha256": "6496843a3baf718da30f29da92f00c1a70f9563fe46e18f5ff13c6349fdb16cb"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe/OUTPUT/CapsuleRuntimeDxe.efi",
++      "sha256": "496051c0066a3636928fac81e05d05f70ea6061936970930a74a7492dd1cde0b"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe/OUTPUT/VariableRuntimeDxe.efi",
++      "sha256": "66553684cda47ac0e514c9b9f9deafd65c4b9bf880df282eeea0234dacac88fc"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter/OUTPUT/EmbeddedMonotonicCounter.efi",
++      "sha256": "806d6702bf7e4514a0f4e4534d108caab4c3481244b6a3135c8dec7bfe3a5379"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe/OUTPUT/ResetSystemRuntimeDxe.efi",
++      "sha256": "7e571010ac376e6dd771b74490926d9c157803cb03f43de1db2329761afdd5f6"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe/OUTPUT/RealTimeClock.efi",
++      "sha256": "00acf98808bfac0ff15119361a80b80afa662b600976749bc5e664d920dac418"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/MetronomeDxe/MetronomeDxe/OUTPUT/MetronomeDxe.efi",
++      "sha256": "a2566e511614c681a4ecda013ce68992a7d43373c69abdbae354aa1babb257d5"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe/OUTPUT/HiiDatabase.efi",
++      "sha256": "afffaab0e3b88f26a8c6e9c63fb56a29fcbc2d6309cc274ced271de63fda321c"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/ArmGicDxe/ArmGicDxe/OUTPUT/ArmGicDxe.efi",
++      "sha256": "80f49df6749e58f80a330f5be2a1993e1d70e9fa9d7eabba83144f5370cd1a5d"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/TimerDxe/TimerDxe/OUTPUT/ArmTimerDxe.efi",
++      "sha256": "a22e5f26b6efc845ed8fa0936095ba9cad89a8de9c1f37c0443ddb0ac311fb97"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe/OUTPUT/DevicePathDxe.efi",
++      "sha256": "20eba2d41f028f4e78d1a765995b95425a0694382099060bc05d4672bf671fb3"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe/OUTPUT/UniXNURamDiskDxe.efi",
++      "sha256": "098640604ddf6926b09c429935d62265d88728d3f8ff967925e9d6d7c868ccd5"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe/OUTPUT/DiskIoDxe.efi",
++      "sha256": "634f6c34811f7f72a8bcdbb84d8c5ba48d2005ed3c1495e6de05f7d0d53c3483"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe/OUTPUT/PartitionDxe.efi",
++      "sha256": "782428c9e54c0d5af14be9b94421c3c68631d35217611ee8018c5c5bd5a7c4cb"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/FatPkg/EnhancedFatDxe/Fat/OUTPUT/Fat.efi",
++      "sha256": "1f03a8eed05d69958b20153faa584793db721b4746592ddf4f55650c378714a2"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe/OUTPUT/EnglishDxe.efi",
++      "sha256": "f110a6755e8e2c77eeb94ff6873669bab4d6a90675d652e389ff1df5cbadd365"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/BdsDxe/BdsDxe/OUTPUT/BdsDxe.efi",
++      "sha256": "e3344d92e35dbe0cd48a7ff030066b9c590f36fd1eaec67f318ce8334bffded3"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/SimpleTextInOutSerial/SimpleTextInOutSerial/OUTPUT/SimpleTextInOutSerial.efi",
++      "sha256": "88a74d90ebe5115b39ffcc8a23d903372542ac9cd34a6e3f89c25c448e0c29f9"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PrintDxe/PrintDxe/OUTPUT/PrintDxe.efi",
++      "sha256": "1f2c92a0c6cbfd012502e1accfaf9e841a3e7b4651dd4f73cdfbcbcfced4ca3e"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe/OUTPUT/ConPlatformDxe.efi",
++      "sha256": "4965e68bfcec30174c59305322061881099da07b9cd647f353ebb4c8c90ecb31"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe/OUTPUT/ConSplitterDxe.efi",
++      "sha256": "3837574578a4f85cd24a2cd0642918f8533a519e6db1655960a6a8f3da0fc393"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerKeyInputDxe/VermeerKeyInputDxe/OUTPUT/VermeerKeyInputDxe.efi",
++      "sha256": "8105c1b9595a4b553d363f393525bbf76a0c482b7fdf9f41b5e1680eef69783f"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe/OUTPUT/GraphicsConsoleDxe.efi",
++      "sha256": "fd815734865fa2439089c57c4cbf4f091829f8eeb6e6ddc6e90d3ac5333ca6cb"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUiDxe/OUTPUT/VermeerChineseUiDxe.efi",
++      "sha256": "59bfc230fc75386ebc205de3efa49181212bc8095b8fd32aef87db466fc5f5d5"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFbDxe/OUTPUT/SimpleFbDxe.efi",
++      "sha256": "9123c6fe79b6ada0ab1093e2acb06a57b5483dde6bf58c36cd287deffc0c870d"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe/OUTPUT/UsbBusDxe.efi",
++      "sha256": "189cbe3e81a92414014c657e68694e553a1b1f8f7b9cf4f91ec7c905dd2abb7a"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe/OUTPUT/UsbKbDxe.efi",
++      "sha256": "d62c849e83df61bec15cd7e3a589eedd84fcee7cf142bc82ce65b183238ae578"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe/OUTPUT/UsbMassStorageDxe.efi",
++      "sha256": "00bd83488f560371177d374ddbc631126fe2b2c156ebc2dfb57720a709c847d3"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe/OUTPUT/SmbiosDxe.efi",
++      "sha256": "cfc92cfe83881ca2207ab9111a58a48ae991d16118da57b4cc16e2cd38786a7a"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SmBiosTableDxe/SmBiosTableDxe/OUTPUT/SmBiosTableDxe.efi",
++      "sha256": "fa997923200a23b8fbc747456e2bd3b589cd89ec8634e9f2d5a805177c88cd2e"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Application/UniXNU/UniXNU/OUTPUT/UniXNU.efi",
++      "sha256": "f6e61ae14452eed81cf44385ba3b5e0547bc6e7a51d678cced3a452fb99cf4a5"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe/OUTPUT/UniXNUDxe.efi",
++      "sha256": "238f085b376ca4bed08ea8c664e4b847d13f3ee26ae7c2c038d9218b55e05f79"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUi/OUTPUT/VermeerChineseUi.efi",
++      "sha256": "f623fcd80e7df2227d6142cee3ef5617475dfa3575ce6d706c4d443ea2273358"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Drivers/IortDtDxe/IortDtDxe/OUTPUT/IortDtDxe.efi",
++      "sha256": "124d1cbfc0ad11999d2128e1a1cc225a99738e7e416354275490a78bf4993940"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Applications/MassStorage/MassStorage/OUTPUT/MassStorage.efi",
++      "sha256": "8c690f64abf085481ace5217c19b4053f97e42cd7fe50b6bb3e9b0b1738e6e60"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe/OUTPUT/BootGraphicsResourceTableDxe.efi",
++      "sha256": "217c60c0c16ea0cecce03b76fc5f495ae72ee7a55261f1141814ceb81541f956"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe/OUTPUT/SetupBrowser.efi",
++      "sha256": "b6ad165fd38eae9e3979f2a1a1c11ec7f71bd73aca0e1d21331bf7f7e1316b3e"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp/OUTPUT/BootManagerMenuApp.efi",
++      "sha256": "0467210a8ca30fe5214b1cd213cde2856c8d5a8d5efa1d568f6782090d25f2d4"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/PcBdsPkg/MsBootPolicy/MsBootPolicy/OUTPUT/MsBootPolicy.efi",
++      "sha256": "3f67bfe4e395526623b353dbcb61db9400a08cb92e961d38f4ac978580252fa2"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Applications/UFPLoader/UFPLoader/OUTPUT/UFPLoader.efi",
++      "sha256": "be0cf361d922bb11b611210f7c7bf8e872677850f58821827c72419617f7f7e1"
++    },
++    {
++      "path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Sec/Sec/OUTPUT/Sec.efi",
++      "sha256": "83ab9823e018289b8fa0f1e0443b24b2dd588bfd0b9436576dd55ea64c94b749"
++    }
++  ],
++  "explicit_verified_output_recovery": [],
++  "darwin_c_sha256": "dd3bd03ad817b822d718bcfafea0c47213aadb6b17c1cddc47f0a0b29998b9fa",
++  "darwin_object_sha256": "9c92642421638864b8eba66acbee855bba178bb998060670f5c432eae85312a3",
++  "darwin_object_source_md5": "5ea020a508849d542fc665af01df1ad1",
++  "darwin_pe_sha256": "21524173269bf42cfa9645671cdde7f4e2ec65941798cd187ae1df0fe36de470",
++  "cancelled_all_target_is_not_success": true,
++  "sdk_flags_same_as_preserved_full_build": true,
++  "hardware_tested": false,
++  "contains_os_root": false,
++  "generated_fv_cache_recreated": true,
++  "genfds_serial_container_generation_only": true
++}
+diff --git a/research/boot-chain-05/r4/fd-audit.json b/research/boot-chain-05/r4/fd-audit.json
+new file mode 100644
+index 0000000..db52f1a
+--- /dev/null
++++ b/research/boot-chain-05/r4/fd-audit.json
+@@ -0,0 +1,1674 @@
++{
++  "schema": "k70-boot05-fd-audit/1",
++  "success": true,
++  "errors": [],
++  "hardware_tested": false,
++  "script_sha256": "8e6a6de5563d3ed34c47156340746061cad18b0b242ddb9202c59b8dc1c84d51",
++  "created_utc": "2026-11-04T02:28:50.622846+00:00",
++  "limitations": [
++    "Offline artifact identity/structure only; no XNU execution or iPadOS startup established."
++  ],
++  "fd_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd",
++  "fd_sha256": "2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a",
++  "fd_bytes": 3145728,
++  "build_result_sha256": "c8852eab74a3f93693cb8ad7c7e1d800acd92fa5edc88635d63592dc05033bc2",
++  "build_source_files": 22,
++  "memory_map_binding": {
++    "success": true,
++    "method": "source snapshot + compiled LLVM constant table + exact SEC PE/final TE table data",
++    "source_path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/package/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib.c",
++    "source_sha256": "f0ce88774addfa8a17e3096b0de1e5a6fd1450a19c09bf8365872f4f6b86cf5c",
++    "compiled_source_md5": "b3cf1996a271da8f6ccd2c2b24771bb7",
++    "object_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib/OUTPUT/MemoryMapLib.obj",
++    "object_sha256": "2fbd99eb065230fd73cc2452a4f9a536a9085477b64f96a990ded7c985553ff3",
++    "llvm_dis_sha256": "5c134e586de3e3443c3972b224da7419e6174e9cf2e45e6ff9d7fce396927796",
++    "descriptor_count": 80,
++    "descriptor_bytes": 72,
++    "table_sha256": "ec986409bcf1b59d2c0cc100bced2faf3ae728c6eb9e30264bb1e7d4bb5734c9",
++    "sec_pe_table_file_offset": "0xd000",
++    "fd_sec_te_table_file_offset": "0xcea8",
++    "link_library_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/K70Boot05Pkg/Library/MemoryMapLib/MemoryMapLib/OUTPUT/MemoryMapLib.lib",
++    "link_library_sha256": "c2c4a4f87894106e50915e79472155ab15090f2f3cabb0536aea4855473efd30",
++    "library_member_equals_object": true,
++    "limitation": "Not an independent compiler rebuild of all SEC code. Does establish all current descriptor bytes, table-return IR, link input membership, and their exact presence in the source-bound SEC image."
++  },
++  "fv_count": 2,
++  "ffs_count": 58,
++  "lzma_sections": 1,
++  "required_modules": {
++    "1b64af87-8415-4b57-9b16-680d70913b9f": "DarwinBoot",
++    "75ca63ad-fbae-4a06-92a0-f937c671251d": "UniXNURamDiskDxe"
++  },
++  "forbidden_modules_absent": {
++    "37cf646d-1729-4afd-998f-285df8864211": "VermeerBootMemoryDxe",
++    "6c561b72-e945-4fcf-8cd9-ab763ceb493c": "K70UsbDiagDxe",
++    "0a43774a-8887-4b61-8aa1-9cdaef4a3c69": "K70LogRingDxe"
++  },
++  "source_pe_checks": [
++    {
++      "guid": "d6a2cb7f-6a18-4e2f-b43b-9920a733700a",
++      "ui": [
++        "DxeCore"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/Dxe/DxeMain/OUTPUT/DxeCore.efi",
++      "source_identity": {
++        "guid": "d6a2cb7f-6a18-4e2f-b43b-9920a733700a",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/Dxe/DxeMain/DEBUG/AutoGen.c",
++        "autogen_sha256": "e5971f0bbfcd2c446bf08ef525f35ccac1ab160175873c995fc849b7a626c522"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 170496,
++        "fd_bytes": 170496,
++        "original_sha256": "3dc6e8e233c7045ef8b60f34ebf30fb461cbb18a58338ac4d9aa64e9ffd6676c",
++        "fd_sha256": "3dc6e8e233c7045ef8b60f34ebf30fb461cbb18a58338ac4d9aa64e9ffd6676c",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "80cf7257-87ab-47f9-a3fe-d50b76d89541",
++      "ui": [
++        "PcdDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PCD/Dxe/Pcd/OUTPUT/PcdDxe.efi",
++      "source_identity": {
++        "guid": "80cf7257-87ab-47f9-a3fe-d50b76d89541",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PCD/Dxe/Pcd/DEBUG/AutoGen.c",
++        "autogen_sha256": "1193ee66b4b2244e294a99f35c176298d4aa599b237de6ab44176f855675bf6e"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 38912,
++        "fd_bytes": 38912,
++        "original_sha256": "7921b517992855662acb4bace63973bb34a97fd98c02beb9adcb5d770897c008",
++        "fd_sha256": "7921b517992855662acb4bace63973bb34a97fd98c02beb9adcb5d770897c008",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "d93ce3d8-a7eb-4730-8c8e-cc466a9ecc3c",
++      "ui": [
++        "ReportStatusCodeRouterRuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe/OUTPUT/ReportStatusCodeRouterRuntimeDxe.efi",
++      "source_identity": {
++        "guid": "d93ce3d8-a7eb-4730-8c8e-cc466a9ecc3c",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "3b5d27001d5ff1da2c93b12a245aa2a4e75a73d1a96d189c1d9c50e31c8230c4"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 9216,
++        "fd_bytes": 9216,
++        "original_sha256": "e1cb4c86d10d76c1ba7f2258b7a83b46259e3f0b22ea6eb89dd34604e2f59f71",
++        "fd_sha256": "e1cb4c86d10d76c1ba7f2258b7a83b46259e3f0b22ea6eb89dd34604e2f59f71",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "6c2004ef-4e0e-4be4-b14c-340eb4aa5891",
++      "ui": [
++        "StatusCodeHandlerRuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe/OUTPUT/StatusCodeHandlerRuntimeDxe.efi",
++      "source_identity": {
++        "guid": "6c2004ef-4e0e-4be4-b14c-340eb4aa5891",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "7134c87bcaa04d89af0e8329a6a72f50d8ddfcfbe21ba109a2a16c43a9315c34"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 22528,
++        "fd_bytes": 22528,
++        "original_sha256": "f8bd3b0245fdbb018721932d33cd881ee0b6e40a6809863d1e6e736c2d1cc522",
++        "fd_sha256": "f8bd3b0245fdbb018721932d33cd881ee0b6e40a6809863d1e6e736c2d1cc522",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "b8d9777e-d72a-451f-9bdb-bafb52a68415",
++      "ui": [
++        "ArmCpuDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/CpuDxe/CpuDxe/OUTPUT/ArmCpuDxe.efi",
++      "source_identity": {
++        "guid": "b8d9777e-d72a-451f-9bdb-bafb52a68415",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/CpuDxe/CpuDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "58710c4659c23cc093a71921173ee1c58df99a25363327e00f552df226f24c6b"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 47616,
++        "fd_bytes": 47616,
++        "original_sha256": "0b0c12b856fde85a7fedf52f890ecfb783baa6ccbbc7b63694ccf0713d071cf0",
++        "fd_sha256": "0b0c12b856fde85a7fedf52f890ecfb783baa6ccbbc7b63694ccf0713d071cf0",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "b601f8c4-43b7-4784-95b1-f4226cb40cee",
++      "ui": [
++        "RuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/RuntimeDxe/RuntimeDxe/OUTPUT/RuntimeDxe.efi",
++      "source_identity": {
++        "guid": "b601f8c4-43b7-4784-95b1-f4226cb40cee",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Core/RuntimeDxe/RuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "95ff34bb2eb75abe08073b7f6135a3dcb9653e3dc9fb28beb6eb6756e87b4aa8"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 23552,
++        "fd_bytes": 23552,
++        "original_sha256": "11195274ded8da4b074263cc20750947ce6aca1c968bae645fd5167089789365",
++        "fd_sha256": "11195274ded8da4b074263cc20750947ce6aca1c968bae645fd5167089789365",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "f80697e9-7fd6-4665-8646-88e33ef71dfc",
++      "ui": [
++        "SecurityStubDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe/OUTPUT/SecurityStubDxe.efi",
++      "source_identity": {
++        "guid": "f80697e9-7fd6-4665-8646-88e33ef71dfc",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "6e593ad0a2a58ed28ff63a780a9f4afc360ea376e062475186657883eed079bb"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 954368,
++        "fd_bytes": 954368,
++        "original_sha256": "4d9458c392dfdfef2d3150849fe4da309a3d6e00e52b0b02ce5e404e23abb1ac",
++        "fd_sha256": "4d9458c392dfdfef2d3150849fe4da309a3d6e00e52b0b02ce5e404e23abb1ac",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "f099d67f-71ae-4c36-b2a3-dceb0eb2b7d8",
++      "ui": [
++        "WatchdogTimer"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer/OUTPUT/WatchdogTimer.efi",
++      "source_identity": {
++        "guid": "f099d67f-71ae-4c36-b2a3-dceb0eb2b7d8",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer/DEBUG/AutoGen.c",
++        "autogen_sha256": "59017069af58c5ec13d2293c953393b3d751bde1ff031bd696f9820b6754f9a2"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 20992,
++        "fd_bytes": 20992,
++        "original_sha256": "6496843a3baf718da30f29da92f00c1a70f9563fe46e18f5ff13c6349fdb16cb",
++        "fd_sha256": "6496843a3baf718da30f29da92f00c1a70f9563fe46e18f5ff13c6349fdb16cb",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "42857f0a-13f2-4b21-8a23-53d3f714b840",
++      "ui": [
++        "CapsuleRuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe/OUTPUT/CapsuleRuntimeDxe.efi",
++      "source_identity": {
++        "guid": "42857f0a-13f2-4b21-8a23-53d3f714b840",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "b0722d568e0ab93706b9a89a5ad679d297a08b8028efae08e62ff2903c326da6"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 22528,
++        "fd_bytes": 22528,
++        "original_sha256": "496051c0066a3636928fac81e05d05f70ea6061936970930a74a7492dd1cde0b",
++        "fd_sha256": "496051c0066a3636928fac81e05d05f70ea6061936970930a74a7492dd1cde0b",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "cbd2e4d5-7068-4ff5-b462-9822b4ad8d60",
++      "ui": [
++        "VariableRuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe/OUTPUT/VariableRuntimeDxe.efi",
++      "source_identity": {
++        "guid": "cbd2e4d5-7068-4ff5-b462-9822b4ad8d60",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "0050df545c26ca1bbb9788da195831bdf3eef7007aaf4138f217dcdb9fa77590"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 974848,
++        "fd_bytes": 974848,
++        "original_sha256": "66553684cda47ac0e514c9b9f9deafd65c4b9bf880df282eeea0234dacac88fc",
++        "fd_sha256": "66553684cda47ac0e514c9b9f9deafd65c4b9bf880df282eeea0234dacac88fc",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "fcabe6a7-7953-4a84-b7ec-d29e89b62e87",
++      "ui": [
++        "EmbeddedMonotonicCounter"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter/OUTPUT/EmbeddedMonotonicCounter.efi",
++      "source_identity": {
++        "guid": "fcabe6a7-7953-4a84-b7ec-d29e89b62e87",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter/DEBUG/AutoGen.c",
++        "autogen_sha256": "03e3882ab262cb80f7338afac120cca3dec0293589df37b4e0c13be898e23d2f"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 19968,
++        "fd_bytes": 19968,
++        "original_sha256": "806d6702bf7e4514a0f4e4534d108caab4c3481244b6a3135c8dec7bfe3a5379",
++        "fd_sha256": "806d6702bf7e4514a0f4e4534d108caab4c3481244b6a3135c8dec7bfe3a5379",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "4b28e4c7-ff36-4e10-93cf-a82159e777c5",
++      "ui": [
++        "ResetSystemRuntimeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe/OUTPUT/ResetSystemRuntimeDxe.efi",
++      "source_identity": {
++        "guid": "4b28e4c7-ff36-4e10-93cf-a82159e777c5",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "8fe512096231982afd08a2066476eb3e2047398dc818263bb5abcc86cd92597d"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 25088,
++        "fd_bytes": 25088,
++        "original_sha256": "7e571010ac376e6dd771b74490926d9c157803cb03f43de1db2329761afdd5f6",
++        "fd_sha256": "7e571010ac376e6dd771b74490926d9c157803cb03f43de1db2329761afdd5f6",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "b336f62d-4135-4a55-ae4e-4971bbf0885d",
++      "ui": [
++        "RealTimeClock"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe/OUTPUT/RealTimeClock.efi",
++      "source_identity": {
++        "guid": "b336f62d-4135-4a55-ae4e-4971bbf0885d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "901fb389be2a31724d6b65d043eba19025409e998eb3fb4668f397b29bcf84ff"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 21504,
++        "fd_bytes": 21504,
++        "original_sha256": "00acf98808bfac0ff15119361a80b80afa662b600976749bc5e664d920dac418",
++        "fd_sha256": "00acf98808bfac0ff15119361a80b80afa662b600976749bc5e664d920dac418",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "4c6e0267-c77d-410d-8100-1495911a989d",
++      "ui": [
++        "MetronomeDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/MetronomeDxe/MetronomeDxe/OUTPUT/MetronomeDxe.efi",
++      "source_identity": {
++        "guid": "4c6e0267-c77d-410d-8100-1495911a989d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/MetronomeDxe/MetronomeDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "2937eb32e40e79836e7d7427809a536042c92b094e14174ec88f14aa97d567da"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 20480,
++        "fd_bytes": 20480,
++        "original_sha256": "a2566e511614c681a4ecda013ce68992a7d43373c69abdbae354aa1babb257d5",
++        "fd_sha256": "a2566e511614c681a4ecda013ce68992a7d43373c69abdbae354aa1babb257d5",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "348c4d62-bfbd-4882-9ece-c80bb1c4783b",
++      "ui": [
++        "HiiDatabase"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe/OUTPUT/HiiDatabase.efi",
++      "source_identity": {
++        "guid": "348c4d62-bfbd-4882-9ece-c80bb1c4783b",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "a7e7b67a0132f691c5867ff4e7463945b6c2646694a12876cde3777bd5f027cb"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 126464,
++        "fd_bytes": 126464,
++        "original_sha256": "afffaab0e3b88f26a8c6e9c63fb56a29fcbc2d6309cc274ced271de63fda321c",
++        "fd_sha256": "afffaab0e3b88f26a8c6e9c63fb56a29fcbc2d6309cc274ced271de63fda321c",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "de371f7c-dec4-4d21-adf1-593abcc15882",
++      "ui": [
++        "ArmGicDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/ArmGicDxe/ArmGicDxe/OUTPUT/ArmGicDxe.efi",
++      "source_identity": {
++        "guid": "de371f7c-dec4-4d21-adf1-593abcc15882",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/ArmGicDxe/ArmGicDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "90ccb1c99acd165cf8bad527b91f37d5db2960b2a8bea003ef5b647aac7d1819"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 31232,
++        "fd_bytes": 31232,
++        "original_sha256": "80f49df6749e58f80a330f5be2a1993e1d70e9fa9d7eabba83144f5370cd1a5d",
++        "fd_sha256": "80f49df6749e58f80a330f5be2a1993e1d70e9fa9d7eabba83144f5370cd1a5d",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "49ea041e-6752-42ca-b0b1-7344fe2546b7",
++      "ui": [
++        "ArmTimerDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/TimerDxe/TimerDxe/OUTPUT/ArmTimerDxe.efi",
++      "source_identity": {
++        "guid": "49ea041e-6752-42ca-b0b1-7344fe2546b7",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/ArmPkg/Drivers/TimerDxe/TimerDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "041426a339b2a9ed726d28ed8739e0d616439930ae252811741f01bed29a7d05"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 21504,
++        "fd_bytes": 21504,
++        "original_sha256": "a22e5f26b6efc845ed8fa0936095ba9cad89a8de9c1f37c0443ddb0ac311fb97",
++        "fd_sha256": "a22e5f26b6efc845ed8fa0936095ba9cad89a8de9c1f37c0443ddb0ac311fb97",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "9b680fce-ad6b-4f3a-b60b-f59899003443",
++      "ui": [
++        "DevicePathDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe/OUTPUT/DevicePathDxe.efi",
++      "source_identity": {
++        "guid": "9b680fce-ad6b-4f3a-b60b-f59899003443",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "ffa4b4ddaa3c551bb78532e1853fed4d209f2c354bf6145f7413fbe97a8f41c6"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 64512,
++        "fd_bytes": 64512,
++        "original_sha256": "20eba2d41f028f4e78d1a765995b95425a0694382099060bc05d4672bf671fb3",
++        "fd_sha256": "20eba2d41f028f4e78d1a765995b95425a0694382099060bc05d4672bf671fb3",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "75ca63ad-fbae-4a06-92a0-f937c671251d",
++      "ui": [
++        "UniXNURamDiskDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe/OUTPUT/UniXNURamDiskDxe.efi",
++      "source_identity": {
++        "guid": "75ca63ad-fbae-4a06-92a0-f937c671251d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "d68be37f97056f4cbc33af36eb34fe942153818d923bf587567af8778b3be083"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 26112,
++        "fd_bytes": 26112,
++        "original_sha256": "098640604ddf6926b09c429935d62265d88728d3f8ff967925e9d6d7c868ccd5",
++        "fd_sha256": "098640604ddf6926b09c429935d62265d88728d3f8ff967925e9d6d7c868ccd5",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "1b64af87-8415-4b57-9b16-680d70913b9f",
++      "ui": [
++        "DarwinBoot"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/DarwinBootPkg/Driver/DarwinBoot/OUTPUT/DarwinBoot.efi",
++      "source_identity": {
++        "guid": "1b64af87-8415-4b57-9b16-680d70913b9f",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/DarwinBootPkg/Driver/DarwinBoot/DEBUG/AutoGen.c",
++        "autogen_sha256": "230aaaa8280880ff89362918bb70b814748df5c6ec7b982ef6d9e09eb9ab2489"
++      },
++      "output_reused_from_prior_incremental_step": false,
++      "pe": {
++        "original_bytes": 67072,
++        "fd_bytes": 67072,
++        "original_sha256": "21524173269bf42cfa9645671cdde7f4e2ec65941798cd187ae1df0fe36de470",
++        "fd_sha256": "21524173269bf42cfa9645671cdde7f4e2ec65941798cd187ae1df0fe36de470",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      },
++      "critical_source_snapshot": [
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/BootArgs.h",
++          "sha256": "1d6b172a306bf5d3fc409d22bd7e674d166e5fde92652c4135de5c79f3eddd16"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/BootVideo.h",
++          "sha256": "8d25e85a166b272a1cbc0a5238288670e2707303f4cd97aef180ebf0c42246c4"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.c",
++          "sha256": "dd3bd03ad817b822d718bcfafea0c47213aadb6b17c1cddc47f0a0b29998b9fa"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DarwinBoot.inf",
++          "sha256": "26c65c2e9a3055497b50a7b5e95653963a6a04aa6f593c6ce73ec4ef21f28f15"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/DiagFont.h",
++          "sha256": "d2a3687db67b069f4e34a961e17fd28b0242986e3fa8dd8a7545cab70834fa8e"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/Entry.S",
++          "sha256": "34246d96873d1450969daf4e93773241114cf568495b44c3a3ce7f690dbbd577"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.c",
++          "sha256": "54e50267c2a52d842fa6e3f5151c641ee9d881c67ee17b9b4e6dd72ffcc5ebee"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/FdtRamPlan.h",
++          "sha256": "adad037388c09b32c74f8dbff4de5d372f907408a979b9cc5e33b63257361a91"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/HeapWindow.h",
++          "sha256": "c34c976530884f843d0b2a815dec684786306fbb7a7e17c4b14dc72506a152cf"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredRam.c",
++          "sha256": "b6c43442b502352506c2a8941b252410d56b76d8cfa383958539c96e14a230cd"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredRam.h",
++          "sha256": "94223a9a090620317e776fd1b9c9d120937882c018f0f1b031eb987eda96c087"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/MeasuredWindow.h",
++          "sha256": "ca2c502208fdd4e2a467a4d579061f11c732e745155895c6f9fc06dcff5e26ea"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/PackedRamdisk.h",
++          "sha256": "8b3a326062baee88a179274e92df05a3a07792d25ef84daa23b71aa47b4a2326"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/QualifiedUnion.h",
++          "sha256": "282aa404a97b4ab6e273a8aa878638e17e6a42ee172b476a3b9d87faf35c9e87"
++        },
++        {
++          "path": "/mnt/e/K70-UniXNU-20261104/boot-chain-05/darwinboot/DarwinBootPkg/Driver/WindowSize.h",
++          "sha256": "41073b6b6ed0a371b858f5c81291d739e7594f8cdfe3e16fde8f5839c8dcf8e9"
++        }
++      ]
++    },
++    {
++      "guid": "6b38f7b4-ad98-40e9-9093-aca2b5a253c4",
++      "ui": [
++        "DiskIoDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe/OUTPUT/DiskIoDxe.efi",
++      "source_identity": {
++        "guid": "6b38f7b4-ad98-40e9-9093-aca2b5a253c4",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "5a5f605de1b630a8668b1db68dc7cc5002f2714b48b7aed3a69da1ccf971d43a"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 31232,
++        "fd_bytes": 31232,
++        "original_sha256": "634f6c34811f7f72a8bcdbb84d8c5ba48d2005ed3c1495e6de05f7d0d53c3483",
++        "fd_sha256": "634f6c34811f7f72a8bcdbb84d8c5ba48d2005ed3c1495e6de05f7d0d53c3483",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "1fa1f39e-feff-4aae-bd7b-38a070a3b609",
++      "ui": [
++        "PartitionDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe/OUTPUT/PartitionDxe.efi",
++      "source_identity": {
++        "guid": "1fa1f39e-feff-4aae-bd7b-38a070a3b609",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "b5f451ef515cd7373b4f9e5da253690b7c2f2244722a0c17f6defb56ea9790c7"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 38912,
++        "fd_bytes": 38912,
++        "original_sha256": "782428c9e54c0d5af14be9b94421c3c68631d35217611ee8018c5c5bd5a7c4cb",
++        "fd_sha256": "782428c9e54c0d5af14be9b94421c3c68631d35217611ee8018c5c5bd5a7c4cb",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "961578fe-b6b7-44c3-af35-6bc705cd2b1f",
++      "ui": [
++        "Fat"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/FatPkg/EnhancedFatDxe/Fat/OUTPUT/Fat.efi",
++      "source_identity": {
++        "guid": "961578fe-b6b7-44c3-af35-6bc705cd2b1f",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/FatPkg/EnhancedFatDxe/Fat/DEBUG/AutoGen.c",
++        "autogen_sha256": "fabb7ff2fb90c6d5007bd905ca94d02a9c34425a5d95ce3e673061b5894c346e"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 55808,
++        "fd_bytes": 55808,
++        "original_sha256": "1f03a8eed05d69958b20153faa584793db721b4746592ddf4f55650c378714a2",
++        "fd_sha256": "1f03a8eed05d69958b20153faa584793db721b4746592ddf4f55650c378714a2",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "cd3bafb6-50fb-4fe8-8e4e-ab74d2c1a600",
++      "ui": [
++        "EnglishDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe/OUTPUT/EnglishDxe.efi",
++      "source_identity": {
++        "guid": "cd3bafb6-50fb-4fe8-8e4e-ab74d2c1a600",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "b9c3aaf9fa342d5304b148cf8d34bdacc17649a8d0e0ed3b9f3ac6063d6abfb1"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 21504,
++        "fd_bytes": 21504,
++        "original_sha256": "f110a6755e8e2c77eeb94ff6873669bab4d6a90675d652e389ff1df5cbadd365",
++        "fd_sha256": "f110a6755e8e2c77eeb94ff6873669bab4d6a90675d652e389ff1df5cbadd365",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "6d33944a-ec75-4855-a54d-809c75241f6c",
++      "ui": [
++        "BdsDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/BdsDxe/BdsDxe/OUTPUT/BdsDxe.efi",
++      "source_identity": {
++        "guid": "6d33944a-ec75-4855-a54d-809c75241f6c",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/BdsDxe/BdsDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "abc8042f8db22d54a26c30d9bd84225c0a4dd69e1bfb88c81fe631e03daf52cd"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 406528,
++        "fd_bytes": 406528,
++        "original_sha256": "e3344d92e35dbe0cd48a7ff030066b9c590f36fd1eaec67f318ce8334bffded3",
++        "fd_sha256": "e3344d92e35dbe0cd48a7ff030066b9c590f36fd1eaec67f318ce8334bffded3",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "6696936d-3637-467c-87cb-14ea8248948c",
++      "ui": [
++        "SimpleTextInOutSerial"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/SimpleTextInOutSerial/SimpleTextInOutSerial/OUTPUT/SimpleTextInOutSerial.efi",
++      "source_identity": {
++        "guid": "6696936d-3637-467c-87cb-14ea8248948c",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/EmbeddedPkg/SimpleTextInOutSerial/SimpleTextInOutSerial/DEBUG/AutoGen.c",
++        "autogen_sha256": "776bc5703c82ce07373917b5c45f7981a7fc7e090ab532a2dbd5e28ae362fba6"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 22528,
++        "fd_bytes": 22528,
++        "original_sha256": "88a74d90ebe5115b39ffcc8a23d903372542ac9cd34a6e3f89c25c448e0c29f9",
++        "fd_sha256": "88a74d90ebe5115b39ffcc8a23d903372542ac9cd34a6e3f89c25c448e0c29f9",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "79e4a61c-ed73-4312-94fe-e3e7563362a9",
++      "ui": [
++        "PrintDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PrintDxe/PrintDxe/OUTPUT/PrintDxe.efi",
++      "source_identity": {
++        "guid": "79e4a61c-ed73-4312-94fe-e3e7563362a9",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/PrintDxe/PrintDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "2b46fa2dd70ef80b1e71c0b29f0331f27a6dd7981c4911fb5874d9e58955a0c1"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 25088,
++        "fd_bytes": 25088,
++        "original_sha256": "1f2c92a0c6cbfd012502e1accfaf9e841a3e7b4651dd4f73cdfbcbcfced4ca3e",
++        "fd_sha256": "1f2c92a0c6cbfd012502e1accfaf9e841a3e7b4651dd4f73cdfbcbcfced4ca3e",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "51ccf399-4fdf-4e55-a45b-e123f84d456a",
++      "ui": [
++        "ConPlatformDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe/OUTPUT/ConPlatformDxe.efi",
++      "source_identity": {
++        "guid": "51ccf399-4fdf-4e55-a45b-e123f84d456a",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "47b4a2cfd39c0e01c3b275271a278da9ce362495060ad3ba5250fd3ace819785"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 31744,
++        "fd_bytes": 31744,
++        "original_sha256": "4965e68bfcec30174c59305322061881099da07b9cd647f353ebb4c8c90ecb31",
++        "fd_sha256": "4965e68bfcec30174c59305322061881099da07b9cd647f353ebb4c8c90ecb31",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "408edcec-cf6d-477c-a5a8-b4844e3de281",
++      "ui": [
++        "ConSplitterDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe/OUTPUT/ConSplitterDxe.efi",
++      "source_identity": {
++        "guid": "408edcec-cf6d-477c-a5a8-b4844e3de281",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "183aa5704b93cf3ac75a4085de66a5bbe9a5e97235f3c389ecf63c81433c6350"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 40960,
++        "fd_bytes": 40960,
++        "original_sha256": "3837574578a4f85cd24a2cd0642918f8533a519e6db1655960a6a8f3da0fc393",
++        "fd_sha256": "3837574578a4f85cd24a2cd0642918f8533a519e6db1655960a6a8f3da0fc393",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "d15db2f3-f775-4e81-a423-6a1b324a70c9",
++      "ui": [
++        "VermeerKeyInputDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerKeyInputDxe/VermeerKeyInputDxe/OUTPUT/VermeerKeyInputDxe.efi",
++      "source_identity": {
++        "guid": "d15db2f3-f775-4e81-a423-6a1b324a70c9",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerKeyInputDxe/VermeerKeyInputDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "2f47e9d6c16deefb603f9406793c3b2025cf0cc8176cd30515c7374ee426f20f"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 24576,
++        "fd_bytes": 24576,
++        "original_sha256": "8105c1b9595a4b553d363f393525bbf76a0c482b7fdf9f41b5e1680eef69783f",
++        "fd_sha256": "8105c1b9595a4b553d363f393525bbf76a0c482b7fdf9f41b5e1680eef69783f",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "cccb0c28-4b24-11d5-9a5a-0090273fc14d",
++      "ui": [
++        "GraphicsConsoleDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe/OUTPUT/GraphicsConsoleDxe.efi",
++      "source_identity": {
++        "guid": "cccb0c28-4b24-11d5-9a5a-0090273fc14d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "b57f168fd434011627d0890508bd632aecdd520d5676122f282d6410aff4a722"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 35840,
++        "fd_bytes": 35840,
++        "original_sha256": "fd815734865fa2439089c57c4cbf4f091829f8eeb6e6ddc6e90d3ac5333ca6cb",
++        "fd_sha256": "fd815734865fa2439089c57c4cbf4f091829f8eeb6e6ddc6e90d3ac5333ca6cb",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "3a9c51d7-6e24-4b08-9f31-58d7a2e6c4b9",
++      "ui": [
++        "VermeerChineseUiDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUiDxe/OUTPUT/VermeerChineseUiDxe.efi",
++      "source_identity": {
++        "guid": "3a9c51d7-6e24-4b08-9f31-58d7a2e6c4b9",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUiDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "aff21aac4f6f2e449045951305c31c04da26d6967bf98cdc2776a9d6ab300e47"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 26112,
++        "fd_bytes": 26112,
++        "original_sha256": "59bfc230fc75386ebc205de3efa49181212bc8095b8fd32aef87db466fc5f5d5",
++        "fd_sha256": "59bfc230fc75386ebc205de3efa49181212bc8095b8fd32aef87db466fc5f5d5",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "dcfd1e6d-788d-4ffc-8e1b-ca2f75651a92",
++      "ui": [
++        "SimpleFbDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFbDxe/OUTPUT/SimpleFbDxe.efi",
++      "source_identity": {
++        "guid": "dcfd1e6d-788d-4ffc-8e1b-ca2f75651a92",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFbDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "a684efa37016d02e17db6b82cd7f0ffe178e2e82356a270c6df8d8178b4dff9a"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 26112,
++        "fd_bytes": 26112,
++        "original_sha256": "9123c6fe79b6ada0ab1093e2acb06a57b5483dde6bf58c36cd287deffc0c870d",
++        "fd_sha256": "9123c6fe79b6ada0ab1093e2acb06a57b5483dde6bf58c36cd287deffc0c870d",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "240612b7-a063-11d4-9a3a-0090273fc14d",
++      "ui": [
++        "UsbBusDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe/OUTPUT/UsbBusDxe.efi",
++      "source_identity": {
++        "guid": "240612b7-a063-11d4-9a3a-0090273fc14d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "83103247fe14ad9a82f72e500a3f541b5b2a0987f44cb48936287db4873b35a4"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 55296,
++        "fd_bytes": 55296,
++        "original_sha256": "189cbe3e81a92414014c657e68694e553a1b1f8f7b9cf4f91ec7c905dd2abb7a",
++        "fd_sha256": "189cbe3e81a92414014c657e68694e553a1b1f8f7b9cf4f91ec7c905dd2abb7a",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "2d2e62cf-9ecf-43b7-8219-94e7fc713dfe",
++      "ui": [
++        "UsbKbDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe/OUTPUT/UsbKbDxe.efi",
++      "source_identity": {
++        "guid": "2d2e62cf-9ecf-43b7-8219-94e7fc713dfe",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "138e3ea395226bf92da6153d89a9fdc8f79eb5810126823e92f2afc370f7f173"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 37376,
++        "fd_bytes": 37376,
++        "original_sha256": "d62c849e83df61bec15cd7e3a589eedd84fcee7cf142bc82ce65b183238ae578",
++        "fd_sha256": "d62c849e83df61bec15cd7e3a589eedd84fcee7cf142bc82ce65b183238ae578",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "9fb4b4a7-42c0-4bcd-8540-9bcc6711f83e",
++      "ui": [
++        "UsbMassStorageDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe/OUTPUT/UsbMassStorageDxe.efi",
++      "source_identity": {
++        "guid": "9fb4b4a7-42c0-4bcd-8540-9bcc6711f83e",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "db6fcff5351d5d5833581f4b0722d97d82d6cc6838a63226ec557bcf404a16ff"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 37376,
++        "fd_bytes": 37376,
++        "original_sha256": "00bd83488f560371177d374ddbc631126fe2b2c156ebc2dfb57720a709c847d3",
++        "fd_sha256": "00bd83488f560371177d374ddbc631126fe2b2c156ebc2dfb57720a709c847d3",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "f9d88642-0737-49bc-81b5-6889cd57d9ea",
++      "ui": [
++        "SmbiosDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe/OUTPUT/SmbiosDxe.efi",
++      "source_identity": {
++        "guid": "f9d88642-0737-49bc-81b5-6889cd57d9ea",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "afbf4beb805a0788c8b5702476b501163e1f4a09227c75553618ad8cff2bf5e6"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 32768,
++        "fd_bytes": 32768,
++        "original_sha256": "cfc92cfe83881ca2207ab9111a58a48ae991d16118da57b4cc16e2cd38786a7a",
++        "fd_sha256": "cfc92cfe83881ca2207ab9111a58a48ae991d16118da57b4cc16e2cd38786a7a",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "50a15b6f-e3a9-4192-9640-369cb367c4de",
++      "ui": [
++        "SmBiosTableDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SmBiosTableDxe/SmBiosTableDxe/OUTPUT/SmBiosTableDxe.efi",
++      "source_identity": {
++        "guid": "50a15b6f-e3a9-4192-9640-369cb367c4de",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Drivers/SmBiosTableDxe/SmBiosTableDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "77b40c0c011cafd7b490fe5a2966c38ddbaf28657d7a4bca5b106daf5e2500ee"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 28672,
++        "fd_bytes": 28672,
++        "original_sha256": "fa997923200a23b8fbc747456e2bd3b589cd89ec8634e9f2d5a805177c88cd2e",
++        "fd_sha256": "fa997923200a23b8fbc747456e2bd3b589cd89ec8634e9f2d5a805177c88cd2e",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "9b665204-a133-47a2-9396-9e2b370a4e25",
++      "ui": [
++        "UniXNU"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Application/UniXNU/UniXNU/OUTPUT/UniXNU.efi",
++      "source_identity": {
++        "guid": "9b665204-a133-47a2-9396-9e2b370a4e25",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Application/UniXNU/UniXNU/DEBUG/AutoGen.c",
++        "autogen_sha256": "73041260b9051e759ed7260815bfb3d0142ccf7722ac244051a31c74e721f077"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 107520,
++        "fd_bytes": 107520,
++        "original_sha256": "f6e61ae14452eed81cf44385ba3b5e0547bc6e7a51d678cced3a452fb99cf4a5",
++        "fd_sha256": "f6e61ae14452eed81cf44385ba3b5e0547bc6e7a51d678cced3a452fb99cf4a5",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "29b950cf-586d-49ea-9d71-f88645ccdaf6",
++      "ui": [
++        "UniXNUDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe/OUTPUT/UniXNUDxe.efi",
++      "source_identity": {
++        "guid": "29b950cf-586d-49ea-9d71-f88645ccdaf6",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "2a528e81c07ba61101058a9ae5eb266a88ba6672034e3335fad4c30b63144d95"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 25600,
++        "fd_bytes": 25600,
++        "original_sha256": "238f085b376ca4bed08ea8c664e4b847d13f3ee26ae7c2c038d9218b55e05f79",
++        "fd_sha256": "238f085b376ca4bed08ea8c664e4b847d13f3ee26ae7c2c038d9218b55e05f79",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "7e2b4c61-9a35-4f8d-b1e7-3c5a90d24f18",
++      "ui": [
++        "VermeerChineseUi"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUi/OUTPUT/VermeerChineseUi.efi",
++      "source_identity": {
++        "guid": "7e2b4c61-9a35-4f8d-b1e7-3c5a90d24f18",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/vermeerPkg/Drivers/VermeerChineseUi/VermeerChineseUi/DEBUG/AutoGen.c",
++        "autogen_sha256": "a513a11b9a4883f0e1cf0f95f201bb52093129086e9b180c74e16e465168b6f9"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 27136,
++        "fd_bytes": 27136,
++        "original_sha256": "f623fcd80e7df2227d6142cee3ef5617475dfa3575ce6d706c4d443ea2273358",
++        "fd_sha256": "f623fcd80e7df2227d6142cee3ef5617475dfa3575ce6d706c4d443ea2273358",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "17f55a7f-ddb8-4152-a280-e3984b6eea94",
++      "ui": [
++        "IortDtDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Drivers/IortDtDxe/IortDtDxe/OUTPUT/IortDtDxe.efi",
++      "source_identity": {
++        "guid": "17f55a7f-ddb8-4152-a280-e3984b6eea94",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Drivers/IortDtDxe/IortDtDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "7dcad95d4299a4991a76b17f3cef387f2f6eda977a7e5bb39a891ec0a09f7786"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 26112,
++        "fd_bytes": 26112,
++        "original_sha256": "124d1cbfc0ad11999d2128e1a1cc225a99738e7e416354275490a78bf4993940",
++        "fd_sha256": "124d1cbfc0ad11999d2128e1a1cc225a99738e7e416354275490a78bf4993940",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "fb14ecd8-9432-48b8-a692-ae4bc19d568b",
++      "ui": [
++        "MassStorage"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Applications/MassStorage/MassStorage/OUTPUT/MassStorage.efi",
++      "source_identity": {
++        "guid": "fb14ecd8-9432-48b8-a692-ae4bc19d568b",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/QcomPkg/Applications/MassStorage/MassStorage/DEBUG/AutoGen.c",
++        "autogen_sha256": "fce205d67b8accf5b864b756fcaa83bab8e6b01f57b921fc536e25ec7ed2daed"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 297984,
++        "fd_bytes": 297984,
++        "original_sha256": "8c690f64abf085481ace5217c19b4053f97e42cd7fe50b6bb3e9b0b1738e6e60",
++        "fd_sha256": "8c690f64abf085481ace5217c19b4053f97e42cd7fe50b6bb3e9b0b1738e6e60",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "b8e62775-bb0a-43f0-a843-5be8b14f8ccd",
++      "ui": [
++        "BootGraphicsResourceTableDxe"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe/OUTPUT/BootGraphicsResourceTableDxe.efi",
++      "source_identity": {
++        "guid": "b8e62775-bb0a-43f0-a843-5be8b14f8ccd",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "5d8330bf446588d8efc469ebb8f6f986b81587e3387b04924584a1d2c27fd74d"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 23552,
++        "fd_bytes": 23552,
++        "original_sha256": "217c60c0c16ea0cecce03b76fc5f495ae72ee7a55261f1141814ceb81541f956",
++        "fd_sha256": "217c60c0c16ea0cecce03b76fc5f495ae72ee7a55261f1141814ceb81541f956",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "ebf342fe-b1d3-4ef8-957c-8048606ff671",
++      "ui": [
++        "SetupBrowser"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe/OUTPUT/SetupBrowser.efi",
++      "source_identity": {
++        "guid": "ebf342fe-b1d3-4ef8-957c-8048606ff671",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe/DEBUG/AutoGen.c",
++        "autogen_sha256": "f8978c0da7dd84e8c2f0fc8f4d222055c3c669299a1acf0d53d525106630d361"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 112128,
++        "fd_bytes": 112128,
++        "original_sha256": "b6ad165fd38eae9e3979f2a1a1c11ec7f71bd73aca0e1d21331bf7f7e1316b3e",
++        "fd_sha256": "b6ad165fd38eae9e3979f2a1a1c11ec7f71bd73aca0e1d21331bf7f7e1316b3e",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "eec25bdc-67f2-4d95-b1d5-f81b2039d11d",
++      "ui": [
++        "BootManagerMenuApp"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp/OUTPUT/BootManagerMenuApp.efi",
++      "source_identity": {
++        "guid": "eec25bdc-67f2-4d95-b1d5-f81b2039d11d",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp/DEBUG/AutoGen.c",
++        "autogen_sha256": "d0783af9a8c9e32a4b3fd70e6b3a153030e73bedc05eb3a1590f821d92045cab"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 98304,
++        "fd_bytes": 98304,
++        "original_sha256": "0467210a8ca30fe5214b1cd213cde2856c8d5a8d5efa1d568f6782090d25f2d4",
++        "fd_sha256": "0467210a8ca30fe5214b1cd213cde2856c8d5a8d5efa1d568f6782090d25f2d4",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "50670071-478f-4be7-ad13-8754f379c62f",
++      "ui": [
++        "MsBootPolicy"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/PcBdsPkg/MsBootPolicy/MsBootPolicy/OUTPUT/MsBootPolicy.efi",
++      "source_identity": {
++        "guid": "50670071-478f-4be7-ad13-8754f379c62f",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/PcBdsPkg/MsBootPolicy/MsBootPolicy/DEBUG/AutoGen.c",
++        "autogen_sha256": "632d7aa203cd063e2f7ec978ad0120e02587f132193c8334d2844e7c30f11647"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 357888,
++        "fd_bytes": 357888,
++        "original_sha256": "3f67bfe4e395526623b353dbcb61db9400a08cb92e961d38f4ac978580252fa2",
++        "fd_sha256": "3f67bfe4e395526623b353dbcb61db9400a08cb92e961d38f4ac978580252fa2",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    },
++    {
++      "guid": "cc680c97-94ce-4c09-a377-4bed5e6e9cb9",
++      "ui": [
++        "UFPLoader"
++      ],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Applications/UFPLoader/UFPLoader/OUTPUT/UFPLoader.efi",
++      "source_identity": {
++        "guid": "cc680c97-94ce-4c09-a377-4bed5e6e9cb9",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Applications/UFPLoader/UFPLoader/DEBUG/AutoGen.c",
++        "autogen_sha256": "182bad971cabe6c5a0f1399f20c464e549f6312b441264276cf9952bc4d24818"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "pe": {
++        "original_bytes": 23040,
++        "fd_bytes": 23040,
++        "original_sha256": "be0cf361d922bb11b611210f7c7bf8e872677850f58821827c72419617f7f7e1",
++        "fd_sha256": "be0cf361d922bb11b611210f7c7bf8e872677850f58821827c72419617f7f7e1",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      }
++    }
++  ],
++  "source_sec_checks": [
++    {
++      "guid": "9affb503-e643-4141-8b90-17e8588b1d35",
++      "ui": [],
++      "output_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Sec/Sec/OUTPUT/Sec.efi",
++      "source_identity": {
++        "guid": "9affb503-e643-4141-8b90-17e8588b1d35",
++        "autogen_path": "/root/k70-clean-20261104/uefi/Build/vermeerBoot05/DEBUG_CLANGPDB/AARCH64/SiliciumPkg/Sec/Sec/DEBUG/AutoGen.c",
++        "autogen_sha256": "69e59054a759d07f7401849e0f43a1db9e97b3d9c767e37f815c114f0a6fa6a9"
++      },
++      "output_reused_from_prior_incremental_step": true,
++      "equal": true,
++      "conversion": {
++        "source_output_pe_sha256": "83ab9823e018289b8fa0f1e0443b24b2dd588bfd0b9436576dd55ea64c94b749",
++        "original_imagebase": "0x0",
++        "requested_imagebase": "0xa7100000",
++        "rebase_delta": "0xa7100000",
++        "regenerated_te_sha256": "b39dda76a6d6395b3ea5012407a19263f921b1fd59c65f7751145e47089ec5de",
++        "transform": "current GenFw -l (SEC RELOCS_STRIPPED rule), then GenFw -t; optional source PE base relocations applied before stripping"
++      },
++      "fd_te_sha256": "b39dda76a6d6395b3ea5012407a19263f921b1fd59c65f7751145e47089ec5de"
++    }
++  ],
++  "inherited_binary_only_application_checks": [
++    {
++      "guid": "643d4788-63c8-40d2-bd7a-6842e66850d1",
++      "ui": [
++        "ufpdevicefw"
++      ],
++      "ffs_type": "APPLICATION",
++      "inf_path": "/root/k70-clean-20261104/uefi/Silicon/Silicium/SiliciumPkg/Applications/UFP/ufpdevicefw.inf",
++      "inf_sha256": "24e8a29179fd40f48dbf0c02b28dede757cd2c2fe1fd25bc8411dc0010bb337c",
++      "pe_path": "/root/k70-clean-20261104/uefi/Silicon/Silicium/SiliciumPkg/Applications/UFP/ufpdevicefw.efi",
++      "pe": {
++        "original_bytes": 443904,
++        "fd_bytes": 443904,
++        "original_sha256": "72de25543341ba515be3872749b5fe7501468019acb6d8d997ae4a5bb19493fa",
++        "fd_sha256": "72de25543341ba515be3872749b5fe7501468019acb6d8d997ae4a5bb19493fa",
++        "equal": true,
++        "method": "byte_exact",
++        "machine": "0xaa64"
++      },
++      "source_output_absent_expected": true,
++      "reason": "Inherited baseline Extra.fdf binary-only UEFI application; not rebuilt from source in this project."
++    }
++  ],
++  "module_inventory": [
++    {
++      "guid": "9affb503-e643-4141-8b90-17e8588b1d35",
++      "ui": [],
++      "type": "SECURITY_CORE",
++      "path": "FD/fv-00000000/file-00000048-9affb503-e643-4141-8b90-17e8588b1d35"
++    },
++    {
++      "guid": "9e21fd93-9c72-4c15-8c4b-e77f1db2d792",
++      "ui": [],
++      "type": "FV_IMAGE",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792"
++    },
++    {
++      "guid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
++      "ui": [],
++      "type": "PAD",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00000048-ffffffff-ffff-ffff-ffff-ffffffffffff"
++    },
++    {
++      "guid": "fc510ee7-ffdc-11d4-bd41-0080c73c8881",
++      "ui": [],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00000078-fc510ee7-ffdc-11d4-bd41-0080c73c8881"
++    },
++    {
++      "guid": "d6a2cb7f-6a18-4e2f-b43b-9920a733700a",
++      "ui": [
++        "DxeCore"
++      ],
++      "type": "DXE_CORE",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00000298-d6a2cb7f-6a18-4e2f-b43b-9920a733700a"
++    },
++    {
++      "guid": "80cf7257-87ab-47f9-a3fe-d50b76d89541",
++      "ui": [
++        "PcdDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00029cc8-80cf7257-87ab-47f9-a3fe-d50b76d89541"
++    },
++    {
++      "guid": "d93ce3d8-a7eb-4730-8c8e-cc466a9ecc3c",
++      "ui": [
++        "ReportStatusCodeRouterRuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-000335e8-d93ce3d8-a7eb-4730-8c8e-cc466a9ecc3c"
++    },
++    {
++      "guid": "6c2004ef-4e0e-4be4-b14c-340eb4aa5891",
++      "ui": [
++        "StatusCodeHandlerRuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00035a68-6c2004ef-4e0e-4be4-b14c-340eb4aa5891"
++    },
++    {
++      "guid": "b8d9777e-d72a-451f-9bdb-bafb52a68415",
++      "ui": [
++        "ArmCpuDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0003b2e8-b8d9777e-d72a-451f-9bdb-bafb52a68415"
++    },
++    {
++      "guid": "b601f8c4-43b7-4784-95b1-f4226cb40cee",
++      "ui": [
++        "RuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00046d38-b601f8c4-43b7-4784-95b1-f4226cb40cee"
++    },
++    {
++      "guid": "f80697e9-7fd6-4665-8646-88e33ef71dfc",
++      "ui": [
++        "SecurityStubDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0004c988-f80697e9-7fd6-4665-8646-88e33ef71dfc"
++    },
++    {
++      "guid": "f099d67f-71ae-4c36-b2a3-dceb0eb2b7d8",
++      "ui": [
++        "WatchdogTimer"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-001359e0-f099d67f-71ae-4c36-b2a3-dceb0eb2b7d8"
++    },
++    {
++      "guid": "42857f0a-13f2-4b21-8a23-53d3f714b840",
++      "ui": [
++        "CapsuleRuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0013ac48-42857f0a-13f2-4b21-8a23-53d3f714b840"
++    },
++    {
++      "guid": "cbd2e4d5-7068-4ff5-b462-9822b4ad8d60",
++      "ui": [
++        "VariableRuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-001404b8-cbd2e4d5-7068-4ff5-b462-9822b4ad8d60"
++    },
++    {
++      "guid": "fcabe6a7-7953-4a84-b7ec-d29e89b62e87",
++      "ui": [
++        "EmbeddedMonotonicCounter"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0022e518-fcabe6a7-7953-4a84-b7ec-d29e89b62e87"
++    },
++    {
++      "guid": "4b28e4c7-ff36-4e10-93cf-a82159e777c5",
++      "ui": [
++        "ResetSystemRuntimeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00233388-4b28e4c7-ff36-4e10-93cf-a82159e777c5"
++    },
++    {
++      "guid": "b336f62d-4135-4a55-ae4e-4971bbf0885d",
++      "ui": [
++        "RealTimeClock"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-002395f0-b336f62d-4135-4a55-ae4e-4971bbf0885d"
++    },
++    {
++      "guid": "4c6e0267-c77d-410d-8100-1495911a989d",
++      "ui": [
++        "MetronomeDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0023ea58-4c6e0267-c77d-410d-8100-1495911a989d"
++    },
++    {
++      "guid": "348c4d62-bfbd-4882-9ece-c80bb1c4783b",
++      "ui": [
++        "HiiDatabase"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00243ab0-348c4d62-bfbd-4882-9ece-c80bb1c4783b"
++    },
++    {
++      "guid": "de371f7c-dec4-4d21-adf1-593abcc15882",
++      "ui": [
++        "ArmGicDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00262900-de371f7c-dec4-4d21-adf1-593abcc15882"
++    },
++    {
++      "guid": "49ea041e-6752-42ca-b0b1-7344fe2546b7",
++      "ui": [
++        "ArmTimerDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0026a360-49ea041e-6752-42ca-b0b1-7344fe2546b7"
++    },
++    {
++      "guid": "9b680fce-ad6b-4f3a-b60b-f59899003443",
++      "ui": [
++        "DevicePathDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0026f7c0-9b680fce-ad6b-4f3a-b60b-f59899003443"
++    },
++    {
++      "guid": "75ca63ad-fbae-4a06-92a0-f937c671251d",
++      "ui": [
++        "UniXNURamDiskDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0027f418-75ca63ad-fbae-4a06-92a0-f937c671251d"
++    },
++    {
++      "guid": "1b64af87-8415-4b57-9b16-680d70913b9f",
++      "ui": [
++        "DarwinBoot"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00285a78-1b64af87-8415-4b57-9b16-680d70913b9f"
++    },
++    {
++      "guid": "6b38f7b4-ad98-40e9-9093-aca2b5a253c4",
++      "ui": [
++        "DiskIoDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-002960b0-6b38f7b4-ad98-40e9-9093-aca2b5a253c4"
++    },
++    {
++      "guid": "1fa1f39e-feff-4aae-bd7b-38a070a3b609",
++      "ui": [
++        "PartitionDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0029dae8-1fa1f39e-feff-4aae-bd7b-38a070a3b609"
++    },
++    {
++      "guid": "961578fe-b6b7-44c3-af35-6bc705cd2b1f",
++      "ui": [
++        "Fat"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-002a7328-961578fe-b6b7-44c3-af35-6bc705cd2b1f"
++    },
++    {
++      "guid": "cd3bafb6-50fb-4fe8-8e4e-ab74d2c1a600",
++      "ui": [
++        "EnglishDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-002b4d50-cd3bafb6-50fb-4fe8-8e4e-ab74d2c1a600"
++    },
++    {
++      "guid": "6d33944a-ec75-4855-a54d-809c75241f6c",
++      "ui": [
++        "BdsDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-002ba188-6d33944a-ec75-4855-a54d-809c75241f6c"
++    },
++    {
++      "guid": "6696936d-3637-467c-87cb-14ea8248948c",
++      "ui": [
++        "SimpleTextInOutSerial"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0031d618-6696936d-3637-467c-87cb-14ea8248948c"
++    },
++    {
++      "guid": "79e4a61c-ed73-4312-94fe-e3e7563362a9",
++      "ui": [
++        "PrintDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00322e80-79e4a61c-ed73-4312-94fe-e3e7563362a9"
++    },
++    {
++      "guid": "51ccf399-4fdf-4e55-a45b-e123f84d456a",
++      "ui": [
++        "ConPlatformDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003290d0-51ccf399-4fdf-4e55-a45b-e123f84d456a"
++    },
++    {
++      "guid": "408edcec-cf6d-477c-a5a8-b4844e3de281",
++      "ui": [
++        "ConSplitterDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00330d10-408edcec-cf6d-477c-a5a8-b4844e3de281"
++    },
++    {
++      "guid": "d15db2f3-f775-4e81-a423-6a1b324a70c9",
++      "ui": [
++        "VermeerKeyInputDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0033ad50-d15db2f3-f775-4e81-a423-6a1b324a70c9"
++    },
++    {
++      "guid": "cccb0c28-4b24-11d5-9a5a-0090273fc14d",
++      "ui": [
++        "GraphicsConsoleDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00340de8-cccb0c28-4b24-11d5-9a5a-0090273fc14d"
++    },
++    {
++      "guid": "3a9c51d7-6e24-4b08-9f31-58d7a2e6c4b9",
++      "ui": [
++        "VermeerChineseUiDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00349a30-3a9c51d7-6e24-4b08-9f31-58d7a2e6c4b9"
++    },
++    {
++      "guid": "dcfd1e6d-788d-4ffc-8e1b-ca2f75651a92",
++      "ui": [
++        "SimpleFbDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003500b8-dcfd1e6d-788d-4ffc-8e1b-ca2f75651a92"
++    },
++    {
++      "guid": "240612b7-a063-11d4-9a3a-0090273fc14d",
++      "ui": [
++        "UsbBusDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00356708-240612b7-a063-11d4-9a3a-0090273fc14d"
++    },
++    {
++      "guid": "2d2e62cf-9ecf-43b7-8219-94e7fc713dfe",
++      "ui": [
++        "UsbKbDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00363f40-2d2e62cf-9ecf-43b7-8219-94e7fc713dfe"
++    },
++    {
++      "guid": "9fb4b4a7-42c0-4bcd-8540-9bcc6711f83e",
++      "ui": [
++        "UsbMassStorageDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0036d178-9fb4b4a7-42c0-4bcd-8540-9bcc6711f83e"
++    },
++    {
++      "guid": "a1e235de-e825-4591-9623-c43175811826",
++      "ui": [
++        "SecParti.cfg"
++      ],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003763c0-a1e235de-e825-4591-9623-c43175811826"
++    },
++    {
++      "guid": "f9d88642-0737-49bc-81b5-6889cd57d9ea",
++      "ui": [
++        "SmbiosDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00377820-f9d88642-0737-49bc-81b5-6889cd57d9ea"
++    },
++    {
++      "guid": "50a15b6f-e3a9-4192-9640-369cb367c4de",
++      "ui": [
++        "SmBiosTableDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0037f870-50a15b6f-e3a9-4192-9640-369cb367c4de"
++    },
++    {
++      "guid": "9b665204-a133-47a2-9396-9e2b370a4e25",
++      "ui": [
++        "UniXNU"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003868c8-9b665204-a133-47a2-9396-9e2b370a4e25"
++    },
++    {
++      "guid": "29b950cf-586d-49ea-9d71-f88645ccdaf6",
++      "ui": [
++        "UniXNUDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003a0cf8-29b950cf-586d-49ea-9d71-f88645ccdaf6"
++    },
++    {
++      "guid": "7e2b4c61-9a35-4f8d-b1e7-3c5a90d24f18",
++      "ui": [
++        "VermeerChineseUi"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003a7168-7e2b4c61-9a35-4f8d-b1e7-3c5a90d24f18"
++    },
++    {
++      "guid": "17f55a7f-ddb8-4152-a280-e3984b6eea94",
++      "ui": [
++        "IortDtDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003adbb0-17f55a7f-ddb8-4152-a280-e3984b6eea94"
++    },
++    {
++      "guid": "fb14ecd8-9432-48b8-a692-ae4bc19d568b",
++      "ui": [
++        "MassStorage"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003b4200-fb14ecd8-9432-48b8-a692-ae4bc19d568b"
++    },
++    {
++      "guid": "b8e62775-bb0a-43f0-a843-5be8b14f8ccd",
++      "ui": [
++        "BootGraphicsResourceTableDxe"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-003fce38-b8e62775-bb0a-43f0-a843-5be8b14f8ccd"
++    },
++    {
++      "guid": "ebf342fe-b1d3-4ef8-957c-8048606ff671",
++      "ui": [
++        "SetupBrowser"
++      ],
++      "type": "DRIVER",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00402a98-ebf342fe-b1d3-4ef8-957c-8048606ff671"
++    },
++    {
++      "guid": "eec25bdc-67f2-4d95-b1d5-f81b2039d11d",
++      "ui": [
++        "BootManagerMenuApp"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0041e120-eec25bdc-67f2-4d95-b1d5-f81b2039d11d"
++    },
++    {
++      "guid": "50670071-478f-4be7-ad13-8754f379c62f",
++      "ui": [
++        "MsBootPolicy"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00436188-50670071-478f-4be7-ad13-8754f379c62f"
++    },
++    {
++      "guid": "cc680c97-94ce-4c09-a377-4bed5e6e9cb9",
++      "ui": [
++        "UFPLoader"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0048d7c8-cc680c97-94ce-4c09-a377-4bed5e6e9cb9"
++    },
++    {
++      "guid": "643d4788-63c8-40d2-bd7a-6842e66850d1",
++      "ui": [
++        "ufpdevicefw"
++      ],
++      "type": "APPLICATION",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00493200-643d4788-63c8-40d2-bd7a-6842e66850d1"
++    },
++    {
++      "guid": "d27f103e-e939-eb4a-8060-871209ff7707",
++      "ui": [
++        "SiPolicy.p7b"
++      ],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-004ff848-d27f103e-e939-eb4a-8060-871209ff7707"
++    },
++    {
++      "guid": "7bb28b99-61bb-11d5-9a5d-0090273fc14d",
++      "ui": [
++        "BootLogo.bmp"
++      ],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00501a40-7bb28b99-61bb-11d5-9a5d-0090273fc14d"
++    },
++    {
++      "guid": "1554fbbe-a3e6-7c40-97b3-9daf603a0250",
++      "ui": [
++        "NoBootOS.bmp"
++      ],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-00517e48-1554fbbe-a3e6-7c40-97b3-9daf603a0250"
++    },
++    {
++      "guid": "1201f964-e3d0-c840-aed1-c46c3391dc43",
++      "ui": [
++        "MassStorage.bmp"
++      ],
++      "type": "FREEFORM",
++      "path": "FD/fv-00000000/file-00010000-9e21fd93-9c72-4c15-8c4b-e77f1db2d792/section-00-00000000-GUID_DEFINED/section-01-00000004-FV_IMAGE/fv-00000000/file-0052e250-1201f964-e3d0-c840-aed1-c46c3391dc43"
++    }
++  ],
++  "reviewed_helper_sha256": "023cf5439499609d97dd821df0e7374688b4e8511e4f1395eb2734f14d3c1caf",
++  "bounded_parser_sha256": "2d2183b7937fd300a31907c15035dcde089be9036f4a96d3700f86d8b490dab4",
++  "genfw_sha256": "745d62b9f9bb14eaabae3df8e124ca9d136dbc668c15ca16fead60eac4f72760"
++}
+diff --git a/research/boot-chain-05/r4/firmware-verification.json b/research/boot-chain-05/r4/firmware-verification.json
+new file mode 100644
+index 0000000..50cda58
+--- /dev/null
++++ b/research/boot-chain-05/r4/firmware-verification.json
+@@ -0,0 +1,12 @@
++{
++  "schema": "k70-r4-firmware-only-v1",
++  "fd_sha256": "2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a",
++  "fd_bytes": 3145728,
++  "fd_audit_sha256": "c758cca322d99ca03b9a5236a4dd4da72589654bd7748236612b4a2202f712d5",
++  "immutable_matching_audit": true,
++  "runtime_tested": false,
++  "boot_image_packaged_by_this_script": false,
++  "device_io": false,
++  "change": "handoff self-code PoC/identity and staged SCTLR probes only; no payload or userdata change",
++  "build_mode": "DarwinBoot module-only + FDS"
++}
+diff --git a/research/boot-chain-05/r4/storage-r3-handoff-layout.json b/research/boot-chain-05/r4/storage-r3-handoff-layout.json
+new file mode 100644
+index 0000000..294557c
+--- /dev/null
++++ b/research/boot-chain-05/r4/storage-r3-handoff-layout.json
+@@ -0,0 +1,402 @@
++{
++  "schema": "k70-r3-yellow-only-layout-v1",
++  "baseline": {
++    "path": "/mnt/e/K70-UniXNU-20261104/artifacts/boot-chain-05r3/readback-xhys_u6f/kernel.macho",
++    "sha256": "4559b64843cab506d9d2781172143e13ddb4c546f7b73e3298d5e23ee62906bd",
++    "file_bytes": 51171328,
++    "kernel_base": "0xfffffff00427c000",
++    "kernel_end": "0xfffffff0082ca000",
++    "kernel_vm_span": "0x404e000",
++    "thread_entry_va": "0xfffffff00741e488",
++    "thread_entry_file_offset": "0x41a488",
++    "expected_entry_pa": "0x8c321e488",
++    "entry_first_8_words": [
++      "0x1400001e",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0"
++    ],
++    "expected_args_pa": "0x8c40cc000",
++    "tree_pa": "0x8c40cd000",
++    "ramdisk_pa": "0x8c40d1000",
++    "trust_pa": "0x8c40d1000",
++    "used_bytes": "0x4058000",
++    "used_end_pa": "0x8c40d4000",
++    "kernel_layout_does_not_cover_low_loader_or_fb": true,
++    "segments": [
++      {
++        "name": "__TEXT",
++        "vm": "0xfffffff007004000",
++        "vm_end": "0xfffffff007160000",
++        "file_offset": "0x0",
++        "file_bytes": "0x15c000",
++        "physical": "0x8c2e04000",
++        "physical_end": "0x8c2f60000",
++        "protection": 1
++      },
++      {
++        "name": "__DATA_CONST",
++        "vm": "0xfffffff007160000",
++        "vm_end": "0xfffffff00723c000",
++        "file_offset": "0x15c000",
++        "file_bytes": "0xdc000",
++        "physical": "0x8c2f60000",
++        "physical_end": "0x8c303c000",
++        "protection": 1
++      },
++      {
++        "name": "__TEXT_EXEC",
++        "vm": "0xfffffff00723c000",
++        "vm_end": "0xfffffff0079f4000",
++        "file_offset": "0x238000",
++        "file_bytes": "0x7b8000",
++        "physical": "0x8c303c000",
++        "physical_end": "0x8c37f4000",
++        "protection": 5
++      },
++      {
++        "name": "__KLD",
++        "vm": "0xfffffff0079f4000",
++        "vm_end": "0xfffffff0079f8000",
++        "file_offset": "0x9f0000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c37f4000",
++        "physical_end": "0x8c37f8000",
++        "protection": 5
++      },
++      {
++        "name": "__LASTDATA_CONST",
++        "vm": "0xfffffff0079f8000",
++        "vm_end": "0xfffffff0079fc000",
++        "file_offset": "0x9f4000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c37f8000",
++        "physical_end": "0x8c37fc000",
++        "protection": 1
++      },
++      {
++        "name": "__KLDDATA",
++        "vm": "0xfffffff0079fc000",
++        "vm_end": "0xfffffff007a00000",
++        "file_offset": "0x9f8000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c37fc000",
++        "physical_end": "0x8c3800000",
++        "protection": 3
++      },
++      {
++        "name": "__DATA",
++        "vm": "0xfffffff007a00000",
++        "vm_end": "0xfffffff007b1c000",
++        "file_offset": "0x9fc000",
++        "file_bytes": "0x44000",
++        "physical": "0x8c3800000",
++        "physical_end": "0x8c391c000",
++        "protection": 3
++      },
++      {
++        "name": "__BOOTDATA",
++        "vm": "0xfffffff007b1c000",
++        "vm_end": "0xfffffff007ba8000",
++        "file_offset": "0xa44000",
++        "file_bytes": "0x8c000",
++        "physical": "0x8c391c000",
++        "physical_end": "0x8c39a8000",
++        "protection": 3
++      },
++      {
++        "name": "__PRELINK_TEXT",
++        "vm": "0xfffffff00427c000",
++        "vm_end": "0xfffffff004920000",
++        "file_offset": "0x117b000",
++        "file_bytes": "0x6a4000",
++        "physical": "0x8c007c000",
++        "physical_end": "0x8c0720000",
++        "protection": 1
++      },
++      {
++        "name": "__PRELINK_INFO",
++        "vm": "0xfffffff008254000",
++        "vm_end": "0xfffffff0082ca000",
++        "file_offset": "0x3057000",
++        "file_bytes": "0x76000",
++        "physical": "0x8c4054000",
++        "physical_end": "0x8c40ca000",
++        "protection": 3
++      },
++      {
++        "name": "__PLK_TEXT_EXEC",
++        "vm": "0xfffffff004920000",
++        "vm_end": "0xfffffff005ca0000",
++        "file_offset": "0x181f000",
++        "file_bytes": "0x1380000",
++        "physical": "0x8c0720000",
++        "physical_end": "0x8c1aa0000",
++        "protection": 5
++      },
++      {
++        "name": "__PRELINK_DATA",
++        "vm": "0xfffffff006adc000",
++        "vm_end": "0xfffffff006c30000",
++        "file_offset": "0x2f03000",
++        "file_bytes": "0x154000",
++        "physical": "0x8c28dc000",
++        "physical_end": "0x8c2a30000",
++        "protection": 3
++      },
++      {
++        "name": "__PLK_DATA_CONST",
++        "vm": "0xfffffff005ca0000",
++        "vm_end": "0xfffffff006004000",
++        "file_offset": "0x2b9f000",
++        "file_bytes": "0x364000",
++        "physical": "0x8c1aa0000",
++        "physical_end": "0x8c1e04000",
++        "protection": 1
++      },
++      {
++        "name": "__LINKINFO",
++        "vm": "0xfffffff007ba8000",
++        "vm_end": "0xfffffff007bec000",
++        "file_offset": "0xad0000",
++        "file_bytes": "0x44000",
++        "physical": "0x8c39a8000",
++        "physical_end": "0x8c39ec000",
++        "protection": 1
++      },
++      {
++        "name": "__LINKEDIT",
++        "vm": "0xfffffff007bec000",
++        "vm_end": "0xfffffff008254000",
++        "file_offset": "0xb14000",
++        "file_bytes": "0x6664f8",
++        "physical": "0x8c39ec000",
++        "physical_end": "0x8c4054000",
++        "protection": 1
++      }
++    ],
++    "first_branch": {
++      "target_va": "0xfffffff00741e500",
++      "target_pa": "0x8c321e500",
++      "target_file_offset": "0x41a500",
++      "target_first_8_words": [
++        "0xd2928001",
++        "0xf2b70221",
++        "0xd2928002",
++        "0xf2a00222",
++        "0x52801fe6",
++        "0x72bfe006",
++        "0x28811826",
++        "0xf1002042"
++      ]
++    }
++  },
++  "full_storage": {
++    "path": "/root/k70-clean-20261104/storage-candidate-20261104/payload-readback/EFI/UniXNU/Payloads/kernel.macho",
++    "sha256": "962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5",
++    "file_bytes": 124669952,
++    "kernel_base": "0xfffffff00427c000",
++    "kernel_end": "0xfffffff00c90a000",
++    "kernel_vm_span": "0x868e000",
++    "thread_entry_va": "0xfffffff00ba12488",
++    "thread_entry_file_offset": "0x4a0e488",
++    "expected_entry_pa": "0x8c7812488",
++    "entry_first_8_words": [
++      "0x1400001e",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0",
++      "0x0"
++    ],
++    "expected_args_pa": "0x8c870c000",
++    "tree_pa": "0x8c870d000",
++    "ramdisk_pa": "0x8c8711000",
++    "trust_pa": "0x8c8869000",
++    "used_bytes": "0x87fc000",
++    "used_end_pa": "0x8c8878000",
++    "kernel_layout_does_not_cover_low_loader_or_fb": true,
++    "segments": [
++      {
++        "name": "__TEXT",
++        "vm": "0xfffffff007004000",
++        "vm_end": "0xfffffff007168000",
++        "file_offset": "0x0",
++        "file_bytes": "0x164000",
++        "physical": "0x8c2e04000",
++        "physical_end": "0x8c2f68000",
++        "protection": 1
++      },
++      {
++        "name": "__DATA_CONST",
++        "vm": "0xfffffff007168000",
++        "vm_end": "0xfffffff00b830000",
++        "file_offset": "0x164000",
++        "file_bytes": "0x46c8000",
++        "physical": "0x8c2f68000",
++        "physical_end": "0x8c7630000",
++        "protection": 1
++      },
++      {
++        "name": "__TEXT_EXEC",
++        "vm": "0xfffffff00b830000",
++        "vm_end": "0xfffffff00bffc000",
++        "file_offset": "0x482c000",
++        "file_bytes": "0x7cc000",
++        "physical": "0x8c7630000",
++        "physical_end": "0x8c7dfc000",
++        "protection": 5
++      },
++      {
++        "name": "__KLD",
++        "vm": "0xfffffff00bffc000",
++        "vm_end": "0xfffffff00c000000",
++        "file_offset": "0x4ff8000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c7dfc000",
++        "physical_end": "0x8c7e00000",
++        "protection": 5
++      },
++      {
++        "name": "__LASTDATA_CONST",
++        "vm": "0xfffffff00c000000",
++        "vm_end": "0xfffffff00c004000",
++        "file_offset": "0x4ffc000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c7e00000",
++        "physical_end": "0x8c7e04000",
++        "protection": 1
++      },
++      {
++        "name": "__KLDDATA",
++        "vm": "0xfffffff00c004000",
++        "vm_end": "0xfffffff00c008000",
++        "file_offset": "0x5000000",
++        "file_bytes": "0x4000",
++        "physical": "0x8c7e04000",
++        "physical_end": "0x8c7e08000",
++        "protection": 3
++      },
++      {
++        "name": "__DATA",
++        "vm": "0xfffffff00c008000",
++        "vm_end": "0xfffffff00c14c000",
++        "file_offset": "0x5004000",
++        "file_bytes": "0x44000",
++        "physical": "0x8c7e08000",
++        "physical_end": "0x8c7f4c000",
++        "protection": 3
++      },
++      {
++        "name": "__BOOTDATA",
++        "vm": "0xfffffff00c14c000",
++        "vm_end": "0xfffffff00c1d8000",
++        "file_offset": "0x504c000",
++        "file_bytes": "0x8c000",
++        "physical": "0x8c7f4c000",
++        "physical_end": "0x8c7fd8000",
++        "protection": 3
++      },
++      {
++        "name": "__PRELINK_TEXT",
++        "vm": "0xfffffff00427c000",
++        "vm_end": "0xfffffff004920000",
++        "file_offset": "0x5793000",
++        "file_bytes": "0x6a4000",
++        "physical": "0x8c007c000",
++        "physical_end": "0x8c0720000",
++        "protection": 1
++      },
++      {
++        "name": "__PRELINK_INFO",
++        "vm": "0xfffffff00c894000",
++        "vm_end": "0xfffffff00c90a000",
++        "file_offset": "0x766f000",
++        "file_bytes": "0x76000",
++        "physical": "0x8c8694000",
++        "physical_end": "0x8c870a000",
++        "protection": 3
++      },
++      {
++        "name": "__PLK_TEXT_EXEC",
++        "vm": "0xfffffff004920000",
++        "vm_end": "0xfffffff005ca0000",
++        "file_offset": "0x5e37000",
++        "file_bytes": "0x1380000",
++        "physical": "0x8c0720000",
++        "physical_end": "0x8c1aa0000",
++        "protection": 5
++      },
++      {
++        "name": "__PRELINK_DATA",
++        "vm": "0xfffffff006adc000",
++        "vm_end": "0xfffffff006c30000",
++        "file_offset": "0x751b000",
++        "file_bytes": "0x154000",
++        "physical": "0x8c28dc000",
++        "physical_end": "0x8c2a30000",
++        "protection": 3
++      },
++      {
++        "name": "__PLK_DATA_CONST",
++        "vm": "0xfffffff005ca0000",
++        "vm_end": "0xfffffff006004000",
++        "file_offset": "0x71b7000",
++        "file_bytes": "0x364000",
++        "physical": "0x8c1aa0000",
++        "physical_end": "0x8c1e04000",
++        "protection": 1
++      },
++      {
++        "name": "__LINKINFO",
++        "vm": "0xfffffff00c1d8000",
++        "vm_end": "0xfffffff00c21c000",
++        "file_offset": "0x50d8000",
++        "file_bytes": "0x44000",
++        "physical": "0x8c7fd8000",
++        "physical_end": "0x8c801c000",
++        "protection": 1
++      },
++      {
++        "name": "__LINKEDIT",
++        "vm": "0xfffffff00c21c000",
++        "vm_end": "0xfffffff00c894000",
++        "file_offset": "0x511c000",
++        "file_bytes": "0x6768f0",
++        "physical": "0x8c801c000",
++        "physical_end": "0x8c8694000",
++        "protection": 1
++      }
++    ],
++    "first_branch": {
++      "target_va": "0xfffffff00ba12500",
++      "target_pa": "0x8c7812500",
++      "target_file_offset": "0x4a0e500",
++      "target_first_8_words": [
++        "0xf9401401",
++        "0xf9401c02",
++        "0xf9402403",
++        "0x9b037c42",
++        "0xd344fc42",
++        "0x927df042",
++        "0xd2800024",
++        "0x9b047c45"
++      ]
++    }
++  },
++  "phone_arena_pa": "0x8c007c000",
++  "phone_arena_bytes": "0x20000000",
++  "cache_end_exclusive": "0x8e007c000",
++  "phone_loader_va": "0xc65b6c58",
++  "phone_framebuffer_pa": "0xb8000000",
++  "yellow_before_cyan_means_failure_precedes_kernel_branch": true,
++  "physical_window_and_kernel_copy_do_not_cover_loader_or_fb": true,
++  "actual_kernel_or_root_modified": false,
++  "no_phone_io": true
++}
+diff --git a/research/boot-chain-05/r4/storage-verification.json b/research/boot-chain-05/r4/storage-verification.json
+new file mode 100644
+index 0000000..f306c2a
+--- /dev/null
++++ b/research/boot-chain-05/r4/storage-verification.json
+@@ -0,0 +1,50 @@
++{
++  "schema": "k70-storage-fullboot-offline-v2",
++  "offline_container_verified": true,
++  "image": "/mnt/e/K70-UniXNU-20261104/artifacts/storage-native-03-r4/boot.img",
++  "image_sha256": "b7b24c58eadfed82450066389700ecb7806fbcc813b412fbc0a6304084a1a1a5",
++  "image_bytes": 135774208,
++  "boot_header_version": 0,
++  "boot_page_bytes": 4096,
++  "boot_b_capacity_bytes": 201326592,
++  "fits_boot_b": true,
++  "remaining_partition_bytes": 65552384,
++  "explicit_fd_input": "/mnt/e/K70-UniXNU-20261104/artifacts/boot-chain-05r4/SILICIUM_UEFI.fd",
++  "captured_fd_snapshot": "/mnt/e/K70-UniXNU-20261104/artifacts/storage-native-03-r4/inputs/SILICIUM_UEFI.fd",
++  "fd_sha256": "2eb9d57346a7184b240d836c9cdfc25072c8f6eda80a5cc9256f3be40860732a",
++  "fd_bytes": 3145728,
++  "fd_audit": "/mnt/e/K70-UniXNU-20261104/artifacts/storage-native-03-r4/inputs/firmware-audit.json",
++  "fd_audit_sha256": "c758cca322d99ca03b9a5236a4dd4da72589654bd7748236612b4a2202f712d5",
++  "original_firmware_audit_input": "/mnt/e/K70-UniXNU-20261104/artifacts/boot-chain-05r4/fd-audit.json",
++  "fd_input_read_once": true,
++  "firmware_audit_input_read_once": true,
++  "build_and_unpack_use_captured_fd_bytes": true,
++  "firmware_audit_snapshot_saved": true,
++  "packager_sha256": "371794bd73ff93be94d9aff4e5fa190d97cdb77a3dad86552fa46c8a99e22cc4",
++  "fd_bytes_read_back_equal": true,
++  "fat_payload_sha256": "f02a97df12648541b0fe1cb4ad337ecf8206fcd67e33a9fc052adc0eafcdfc64",
++  "fat_payload_read_back_equal": true,
++  "stock_v2_dtb_input_sha256": "1d0daa058e0b964b57c2c5e53b037c569d5437ed334a32e8fdea9be5be239c88",
++  "appended_dtb_sha256": "3e612d00cdffed1e02cf9a14926aca7be215b1d0042ee43ac428a13935609377",
++  "stock_splash_roundtrip": true,
++  "header_load_addresses": {
++    "kernel": "0x8000",
++    "ramdisk": "0x1000000",
++    "tags": "0x1e00000"
++  },
++  "shim_bytes": 192,
++  "shim_sha256": "f7ee5e091c70ece86710bcc99256974a66b41134b5b07d77ceea2cfa9f758d16",
++  "bootshim_source_sha256": "e3c053fe31bda28780c048b7144cdd407576234bd344bcc2f405f6a985aeb552",
++  "device_boot_config_sha256": "dd50cbf859b5529fa2ca3420e257b701e50c8c624b5aad8446bd4b443026f5eb",
++  "mkbootimg_script_sha256": "55037fd1a6d6cd861add76c2083d5d4321373bf714acae3f6a40deb004c27d47",
++  "payload_kernel_sha256": "962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5",
++  "payload_readback_proof_sha256": "036122489dd6ac79a13c7e1813f5c59c988b10724258170b0cecea6ca2c57b30",
++  "required_owned_window_bytes": 536870912,
++  "actual_ram512_window_proven": false,
++  "actual_ufs_io_qualified": false,
++  "hardware_tested": false,
++  "no_phone_io": true,
++  "userdata_written": false,
++  "private_apple_kernel_trustcache_and_oem_firmware_binary_not_for_git": true,
++  "limitation": "Offline container only. RAM512 runtime qualification, actual UFS media and root mount remain unverified."
++}
+diff --git a/research/memory-next/prepare-r4-handoff.py b/research/memory-next/prepare-r4-handoff.py
+new file mode 100644
+index 0000000..5935c5b
+--- /dev/null
++++ b/research/memory-next/prepare-r4-handoff.py
+@@ -0,0 +1,147 @@
++#!/usr/bin/env python3
++"""Prepare bounded identity/code-coherency handoff repair and stage bands."""
++import hashlib
++from pathlib import Path
++
++W=Path(__file__).resolve().parent.parent/'boot-chain-05'
++D=W/'darwinboot/DarwinBootPkg/Driver'
++snapshot=W/'source-snapshots/r3-verified-845d1790'
++for name in ['Entry.S','DarwinBoot.c']:
++    assert (D/name).read_bytes()==(snapshot/'darwinboot/DarwinBootPkg/Driver'/name).read_bytes()
++p=D/'Entry.S';s=p.read_text().replace('ASM_FUNC(DarwinEnter)','ASM_FUNC_ALIGN(DarwinEnter, 64)')
++old='''  dsb sy
++  ic iallu
++  dsb sy
++  isb
++  // Yellow: owned-window cache maintenance completed.
++  HANDOFF_BAND 13, 0xFF00, 0xFFFF'''
++new='''  dsb sy
++  // Yellow: the entire owned window is clean, before self-code maintenance.
++  HANDOFF_BAND 13, 0xFF00, 0xFFFF
++
++  // ExitBootServices may have run callbacks since the C-side identity check.
++  // Recheck EVERY instruction page at the actual point of MMU shutdown.
++  // No candidate address is dereferenced by AT; PAR faults refuse the handoff.
++  adr x8, ASM_PFX(DarwinEnter)
++  bic x8, x8, #0xfff
++  adr x9, ASM_PFX(DarwinEnterEnd)
++  add x9, x9, #0xfff
++  bic x9, x9, #0xfff
++5:
++  at s1e1r, x8
++  isb
++  mrs x10, par_el1
++  tbnz x10, #0, 7f
++  and x10, x10, #0x000ffffffffff000
++  cmp x10, x8
++  b.ne 7f
++  add x8, x8, #0x1000
++  cmp x8, x9
++  b.lo 5b
++
++  // The PE loader's relocation/code writes are outside the XNU owned window.
++  // Clean our ENTIRE instruction span to PoC before switching instruction
++  // fetch from the cacheable identity mapping to MMU/cache-off physical fetch.
++  // x6=line length and x7=line mask still hold from the window loop above.
++  adr x4, ASM_PFX(DarwinEnter)
++  bic x4, x4, x7
++  adr x5, ASM_PFX(DarwinEnterEnd)
++6:
++  dc cvac, x4
++  add x4, x4, x6
++  cmp x4, x5
++  b.lo 6b
++  dsb sy
++  ic iallu
++  dsb sy
++  isb
++  // White: self identity and instruction bytes are ready for physical fetch.
++  HANDOFF_BAND 12, 0xFFFF, 0xFFFF
++  // Red: next system-register transition is SCTLR_EL1.
++  HANDOFF_BAND 11, 0x0000, 0xFFFF'''
++assert s.count(old)==1;s=s.replace(old,new)
++old='''  msr sctlr_el1, x4
++  isb
++  tlbi vmalle1'''
++new='''  msr sctlr_el1, x4
++  isb
++  // Magenta: actual instruction fetch survived the SCTLR write + ISB.
++  HANDOFF_BAND 15, 0x00FF, 0xFFFF
++  tlbi vmalle1'''
++assert s.count(old)==1;s=s.replace(old,new)
++s+='''
++  // No stack, boot services, exception-vector dependency, or guessed PA.
++  // Orange means code identity changed after ExitBootServices; MMU stays on.
++7:
++  HANDOFF_BAND 10, 0x8000, 0xFFFF
++8:
++  wfe
++  b 8b
++.global ASM_PFX(DarwinEnterEnd)
++ASM_PFX(DarwinEnterEnd):
++'''
++p.write_text(s)
++p=D/'DarwinBoot.c';s=p.read_text();s=s.replace('UINT64 EFIAPI DarwinCurrentEl (VOID);', 'STATIC UINT64 mSelfCodeVa, mSelfCodePa, mSelfCodePar;\nextern UINT8 DarwinEnterEnd[];\nUINT64 EFIAPI DarwinCurrentEl (VOID);')
++helper=r'''
++// Read current EL1 translation metadata for the complete handoff instruction
++// span. This does not read/write unknown RAM and does not alter page tables.
++STATIC EFI_STATUS
++CheckHandoffIdentity (VOID)
++{
++  UINT64 Start = (UINT64)(UINTN)DarwinEnter;
++  UINT64 End = (UINT64)(UINTN)DarwinEnterEnd;
++  UINT64 Page, Top, Par, SavedPar;
++  EFI_STATUS Status = EFI_SUCCESS;
++  mSelfCodeVa = Start; mSelfCodePa = 0; mSelfCodePar = 0;
++  if (End <= Start || End - Start > EFI_PAGE_SIZE || End > MAX_UINT64 - EFI_PAGE_MASK) {
++    return EFI_COMPROMISED_DATA;
++  }
++  __asm__ volatile ("mrs %0, par_el1" : "=r" (SavedPar));
++  Top = ALIGN_VALUE (End, EFI_PAGE_SIZE);
++  for (Page = Start & ~((UINT64)EFI_PAGE_MASK); Page < Top; Page += EFI_PAGE_SIZE) {
++    __asm__ volatile ("at s1e1r, %1\n\tisb\n\tmrs %0, par_el1"
++                      : "=r" (Par) : "r" (Page) : "memory");
++    mSelfCodeVa = Page; mSelfCodePar = Par;
++    mSelfCodePa = Par & 0x000FFFFFFFFFF000ULL;
++    if ((Par & 1) != 0 || mSelfCodePa != Page) { Status = EFI_UNSUPPORTED; break; }
++  }
++  __asm__ volatile ("msr par_el1, %0" :: "r" (SavedPar) : "memory");
++  if (!EFI_ERROR (Status)) { mSelfCodeVa = Start; mSelfCodePa = Start; }
++  Print (L"HANDOFF SELF: VA %lx PA %lx PAR %lx SIZE %lx STATUS %r\n",
++         mSelfCodeVa, mSelfCodePa, mSelfCodePar, End - Start, Status);
++  return Status;
++}
++
++'''
++anchor='STATIC\nEFI_STATUS\nK70CheckEntryInputs (VOID)\n{'
++assert s.count(anchor)==1;s=s.replace(anchor,helper+anchor)
++anchor='  // The only metadata re-read above is the already coverage-validated FDT.'
++assert s.count(anchor)==1
++s=s.replace(anchor,'''  if (StrCmp (Detail, L"handoff code identity mapping") == 0) {
++    UnicodeSPrint (Line, sizeof (Line), L"SELF VA %lx PA %lx PAR %lx", mSelfCodeVa, mSelfCodePa, mSelfCodePar);
++    DiagDraw (Line, 13);
++  }
++'''+anchor)
++anchor='  Stage = L"final EFI memory map preparation";';assert s.count(anchor)==1
++s=s.replace(anchor,'''  Stage = L"handoff code identity mapping";
++  Status = CheckHandoffIdentity ();
++  if (EFI_ERROR (Status)) { goto Fail; }
++'''+anchor)
++s=s.replace('K70 boot05 FDT512 - NO OS ROOT','K70 RAM512 - XNU PAYLOAD')
++old='''    DiagDraw (L"BOTTOM YELLOW=CACHE DONE", 4);
++    DiagDraw (L"BOTTOM CYAN=MMU OFF", 5);
++    DiagDraw (L"TOP BLUE=XNU ENTRY", 6);'''
++new='''    UnicodeSPrint (Line, sizeof (Line), L"USED %lx RD %lx POL %lx", Used, RamdiskBytes, PolicySize);
++    DiagDraw (Line, 4);
++    DiagDraw (L"YELLOW13=WINDOW DC WHITE12=SELF READY", 5);
++    DiagDraw (L"RED11=PRE SCTLR MAGENTA15=POST SCTLR", 6);
++    DiagDraw (L"CYAN14=TLBI DONE TOP BLUE=XNU ENTRY", 7);
++    DiagDraw (L"ORANGE10=SELF IDENTITY REFUSED", 8);'''
++assert s.count(old)==1;s=s.replace(old,new);p.write_text(s)
++# Runtime/config from the original completed full build stays exact except
++# the specifically reviewed port changes, now including the handoff assembly.
++p=W/'incremental-ui.py';s=p.read_text();start=s.index('        allowed=');end=s.index('\n        assert sha(',start)
++allowed={str(p.relative_to(W)):hashlib.sha256(p.read_bytes()).hexdigest() for p in
++         (D/'MeasuredRam.c',D/'DarwinBoot.inf',D/'FdtRamPlan.c',D/'FdtRamPlan.h',D/'Entry.S')}
++s=s[:start]+'        allowed='+repr(allowed)+s[end:];p.write_text(s)
++print('Prepared r4 self-code PoC maintenance, real identity guards and staged SCTLR bands; no device I/O')
