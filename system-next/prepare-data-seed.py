@@ -19,6 +19,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import tomllib
+from types import SimpleNamespace
 import uuid
 
 sys.dont_write_bytecode = True
@@ -30,6 +32,8 @@ OS_BYTES = 5157406069
 OS_SHA256 = '3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d'
 VERSION = '17.7.11'
 BUILD = '21H461'
+OS_URL = ('https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/'
+          'DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw')
 
 
 def require(condition, message):
@@ -67,6 +71,23 @@ def validate_sources(core):
     require(actual == git_bytes(db, DARWINBOOT_REVISION, relative), 'modified packed-ramdisk source')
     records.append(dict(path='drivers/DarwinBoot/' + relative, sha256=hashlib.sha256(actual).hexdigest()))
     return records
+
+
+def open_os_source(core, device, cache):
+    """Use the pinned IPSW reader without loading unrelated build/SoC feeds."""
+    config = tomllib.loads((device / 'board.toml').read_text(encoding='utf-8')).get('ipsw')
+    require(isinstance(config, dict), 'device board has no [ipsw]')
+    expected = dict(product='iPad7,1', version=VERSION, build=BUILD, device_class='j120ap',
+                    chip_id=0x8011, board_id=12, url=OS_URL)
+    for name, value in expected.items():
+        require(config.get(name) == value, 'board selected a different IPSW ' + name)
+    require(config.get('sha256', {}).get(OS_MEMBER) == OS_SHA256, 'board OS SHA-256 differs from pin')
+    sys.path.insert(0, str(core / 'scripts'))
+    from unixnu.ipsw import Ipsw
+    # Ipsw needs only board.ipsw and out_root when spec is explicit. A full
+    # Context also resolves feeds/profiles and fails on a fresh seed-only job.
+    ctx = SimpleNamespace(board={'ipsw': config}, out_root=cache)
+    return Ipsw(ctx, spec=OS_URL)
 
 
 def find_readonly_existing_attachment(info, image):
@@ -267,12 +288,7 @@ def main():
     image = args.os_image
     if image is None:
         require(args.fetch_os, 'provide --os-image or explicitly allow --fetch-os')
-        sys.path.insert(0, str(args.core / 'scripts'))
-        from unixnu.cli import parser as core_parser
-        from unixnu.config import Context
-        from unixnu.ipsw import Ipsw
-        ctx = Context(core_parser().parse_args(['ipsw', 'info', '-D', str(args.device), '--out', str(args.out / 'cache')]))
-        source = Ipsw(ctx)
+        source = open_os_source(args.core, args.device, args.out / 'cache')
         require((source.config['product'], source.config['version'], source.config['build']) ==
                 ('iPad7,1', VERSION, BUILD), 'board selected a different target')
         member, size, _ = source.info('OS')
