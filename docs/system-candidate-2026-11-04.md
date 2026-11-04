@@ -3,8 +3,16 @@
 本轮在电脑上生成了 iPad7,1 iPadOS 17.7.11（21H461）的 OS/SystemOS
 双卷 SHNGROOT v1 镜像，9,382,658,048 字节。2026-11-04 10:16（UTC+8），
 该镜像已通过 fastboot 写入本机 userdata，17/17 稀疏分块发送和写入均为
-OKAY；配套 storage-native-02-r3 boot_b 及重启也为 OKAY。真实 UFS 读取、
-根卷挂载和用户空间结果仍待确认，不能把刷写应答当成桌面启动成功。
+OKAY；配套 storage-native-02-r3 boot_b 及重启也为 OKAY。首次完整 payload
+实机照片随后停在加载器交接画面：顶部绿色和底部黄色可见，没有可见的青色、
+蓝色或 XNU 日志。当前不能确认该完整内核已执行，也没有真实 UFS 读取、
+根卷挂载或用户空间成功证据。
+
+画面记录 PA=`8C007C000`、SIZE=`20000000`、ENTRY=`8C7812488`、
+ARGS=`8C870C000`、LOADER=`C65B6C58`、FB=`B8000000`。黄色标记位于
+拥有窗口的缓存维护之后；接下来的 MMU/缓存关闭交接需要继续定位。保留的
+`NO OS ROOT` 是通用加载器里未更新的调试字符串，不能用它判断实际 payload
+身份。已写入的 userdata 保持不动，后续先修正启动交接并只替换 boot。
 
 双卷镜像本身不包含 Data 种子、根策略或 GPU addon。当前配套 boot payload
 携带修正后的 packed Data 种子，storage 内核嵌入两卷的已验证认证策略。
