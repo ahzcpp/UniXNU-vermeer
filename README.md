@@ -26,8 +26,8 @@ Start with these records for the current phone and build:
 | [Heap-only entry experiment](docs/boot04-2026-11-04.md) | boot04 reached XNU/BSD initialization; root device mount failed |
 | [Measured RAM experiment](docs/boot05-memory-2026-11-04.md) | boot05r1 parsed 8 RAM banks but found no eligible 514 MiB contiguous GCD region |
 | [Actual RAM ranges](docs/boot05r2-memory-2026-11-04.md) | boot05r2 exposed dynamic allocation constraints incorrectly treated as occupied RAM |
-| [Dynamic request correction](docs/boot05r3-memory-2026-11-04.md) | boot05r3 fixes the 17 reviewed uninstantiated requests; full image qualified offline, hardware result pending |
-| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no hardware root mount claim |
+| [Dynamic request correction](docs/boot05r3-memory-2026-11-04.md) | boot05r3 reached XNU/BSD through its mandatory 512 MiB window; root device remains absent in this baseline |
+| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Root/storage boot writes all OKAY; full payload currently stops at loader handoff, before confirmed XNU/UFS execution |
 | [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 | [UEFI USB diagnostics](docs/uefi-usb-diagnostics-2026-11-04.md) | Source design, verified OEM inputs, build checks and transport limits |
@@ -62,9 +62,20 @@ constraints as occupied reservations, excluding the entire candidate address
 space. This is a loader parser error, not evidence of insufficient physical RAM.
 Boot05r3 corrects the known, uninstantiated Linux dynamic requests while preserving
 fixed reservations, existing firmware ownership and all four placeholder HOBs.
-Its compile, serial FDS, full FD audit and image unpacking passed; its actual
-512 MiB/XNU result is pending. Boot04 remains the known XNU/BSD rollback image,
-and no userdata image has been written.
+Its compile, serial FDS, full FD audit and image unpacking passed. The r3 handset
+photographs now show XNU/BSD through `setconf`, then the expected missing-root
+device panic. The screen reports `pages=0x1b83c`, `free=0x1aec1` (about 430.75 MiB
+free). Combined with the frozen loader's mandatory 512 MiB allocation and no
+fallback, this qualifies the larger window for entry; it does not establish a
+full RAM stress test or show the arena physical address. Boot04 remains an older
+XNU/BSD rollback image. The subsequent full-system test has now replaced userdata
+with the verified OS/SystemOS image and boot_b with the matching storage-enabled
+candidate: all 17 sparse chunks, boot_b and reboot reported OKAY. The first
+full-payload photo retains the green top and yellow cache-maintenance band,
+without a visible cyan/blue band or XNU log. The handoff is under investigation;
+this full kernel has not yet demonstrated XNU execution or any UFS/root access.
+The loader's old `NO OS ROOT` text is a stale diagnostic label, not proof that
+the newly written root/payload is absent. Follow-up work will preserve userdata.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
@@ -115,9 +126,11 @@ linked, and its final original-storage code, 16 bindings and 190 method slots
 passed the final binary checks. The five-file FAT payload has been integrated
 and read back, including both complete authentication tables and the corrected
 packed Data seed. A full storage boot containing the r3 firmware is also packaged
-and independently unpacked; it still requires actual RAM512, UFS I/O and root/Data
-mount qualification. No root/userdata image has been written to the phone, and its
-existing modified userdata is uninspected.
+and independently unpacked; the matching firmware's RAM512 entry passed with the
+baseline kernel, while this full kernel, UFS I/O and root/Data mounts still require
+their own hardware test. The verified root candidate has now replaced the prior
+modified userdata; that earlier content was not inspected. Fastboot acknowledged
+all writes, but this is not a device readback or a successful root mount claim.
 Storage, userland and device drivers remain work to verify. The handoff record
 retains image hashes and exact displayed addresses. A high-RAM, XPU or capsule
 failure has not been proved.
