@@ -1,0 +1,55 @@
+{
+  "status": "existing_corrected_seed_independently_verified_readonly",
+  "run_id": 41751537169,
+  "original_seed_run_id": 41748394139,
+  "encoded_bytes": 1405072,
+  "encoded_sha256": "5f9a61d9788d03d1b81dd9571129c610a5e4a40949f1d426cc8e99c05034ce65",
+  "logical_bytes": 3221225472,
+  "sparse_seed_identity": "ae2e5588ae439fbc60f7a18921bce3a06127b225a4dbe2187045e3fb85084f39",
+  "decoded_nxsb_present": true,
+  "source_template_owner_mode_entries_verified": 206,
+  "total_active_apfs_inode_entries_verified": 221,
+  "all_cloud_report_owners_modes_match_independent_apfs_parser": true,
+  "exact_same_data_volume_uuid": true,
+  "original_seed_preserved": true,
+  "source_seed_modified": false,
+  "corrected_seed_modified": false,
+  "content_stability_verified_by_cloud_readonly_remount": true,
+  "content_manifest_sha256": "10e576c7303abf19b9db63a6be73bfdac11b8d0c7c03fa03c9f8f522671f7943",
+  "per_volume_no_log_present": true,
+  "hex_named_event_logs_absent": true,
+  "event_uuid_file_present": true,
+  "selected_owner_facts": {
+    "/": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 493
+    },
+    "mobile": {
+      "uid": 501,
+      "gid": 501,
+      "mode": 457
+    },
+    "root": {
+      "uid": 0,
+      "gid": 0,
+      "mode": 488
+    },
+    "run": {
+      "uid": 0,
+      "gid": 1,
+      "mode": 509
+    },
+    "db/diagnostics": {
+      "uid": 272,
+      "gid": 272,
+      "mode": 489
+    }
+  },
+  "report_sha256": "841d4e6fd825f08fd16b405644cb1a51b44cbd07767b307c1304b1845cba35e4",
+  "apfs_auditor_sha256": "bdb6a0ba16e1f56a5b41fefb9413933ee8ecc34ff3692d3dd2015e2bc146c8ea",
+  "parser_revision": "66b86bd525e8cb90f9012543be89b1f092b75cf3",
+  "phone_written": false,
+  "data_mounted_by_xnu": false,
+  "desktop_boot_verified": false
+}
