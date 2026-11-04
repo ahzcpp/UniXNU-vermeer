@@ -5,12 +5,20 @@ on:
     branches: [research/clean-vermeer-20261104]
     paths-ignore: ['docs/**']
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Choose normal build or a new first-install Data seed (preserve the resulting exact seed). '
+        type: choice
+        required: true
+        default: baseline
+        options: [baseline, data-seed]
 
 permissions:
   contents: read
 
 jobs:
   kernel-linux:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
@@ -53,6 +61,7 @@ jobs:
           if-no-files-found: error
 
   firmware:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -95,6 +104,7 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
 
   bootimg:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
     runs-on: ubuntu-24.04
     needs: [kernel-linux, firmware]
     timeout-minutes: 60
@@ -147,3 +157,41 @@ jobs:
         with:
           name: clean-vermeer-packaging-logs
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
+
+  data-seed:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed' }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          path: unixnu
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check out only the pinned packed-seed helper
+        run: git -C unixnu submodule update --init drivers/DarwinBoot
+      - name: Create and verify first-install Data seed from exact Apple OS template
+        run: |
+          python3 device/system-next/prepare-data-seed.py \
+            --core "$GITHUB_WORKSPACE/unixnu" --device "$GITHUB_WORKSPACE/device" \
+            --fetch-os --out "$GITHUB_WORKSPACE/data-seed-output" --first-install --gib 3
+      - name: Retain exact seed and installation identity for local use
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-first-install-data-seed-21H461-${{ github.run_id }}
+          path: |
+            data-seed-output/data.dbr
+            data-seed-output/data-seed-report.json
+            data-seed-output/data-seed-public.json
+          retention-days: 1
+          compression-level: 6
+          if-no-files-found: error
