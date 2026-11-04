@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   kernel-linux:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
+    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
@@ -61,7 +61,7 @@ jobs:
           if-no-files-found: error
 
   firmware:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
+    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -104,7 +104,7 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
 
   bootimg:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation != 'data-seed' }}
+    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
     runs-on: ubuntu-24.04
     needs: [kernel-linux, firmware]
     timeout-minutes: 60
@@ -159,7 +159,7 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
 
   data-seed:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]')) }}
     runs-on: macos-15
     timeout-minutes: 60
     permissions:
