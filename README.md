@@ -27,8 +27,8 @@ Start with these records for the current phone and build:
 | [Measured RAM experiment](docs/boot05-memory-2026-11-04.md) | boot05r1 parsed 8 RAM banks but found no eligible 514 MiB contiguous GCD region |
 | [Actual RAM ranges](docs/boot05r2-memory-2026-11-04.md) | boot05r2 exposed dynamic allocation constraints incorrectly treated as occupied RAM |
 | [Dynamic request correction](docs/boot05r3-memory-2026-11-04.md) | boot05r3 reached XNU/BSD through its mandatory 512 MiB window; root device remains absent in this baseline |
-| [Handoff code writeback](docs/boot05r4-handoff-2026-11-04.md) | r4 adds identity checks, self-code cache writeback and finer MMU markers; boot-only follow-up flashed, result pending |
-| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Root/storage boot writes all OKAY; full payload currently stops at loader handoff, before confirmed XNU/UFS execution |
+| [Handoff code writeback](docs/boot05r4-handoff-2026-11-04.md) | r4 reaches root/SystemOS/Data and launchd/SpringBoard exec; final watchdogd SIGTRAP, desktop unverified |
+| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Root/storage writes all OKAY; r4 now reaches user-space services, with a watchdogd SIGTRAP under investigation |
 | [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 | [UEFI USB diagnostics](docs/uefi-usb-diagnostics-2026-11-04.md) | Source design, verified OEM inputs, build checks and transport limits |
@@ -40,6 +40,13 @@ The two photographs originally supplied with the request are references; the
 latest connected-session photograph is the current screen evidence.
 
 ## Current result
+
+Latest r4 hardware photographs confirm root mount/authentication decision,
+SystemOS/Data preparation, and launchd followed by SpringBoard exec signature
+acceptance. The run ends at watchdogd PID 134 with OS_REASON_SIGNAL / SIGTRAP,
+with about 2.37 MiB free memory. The graphical desktop is not yet observed.
+See [the r4 evidence](docs/boot05r4-handoff-2026-11-04.md); historical stages below
+remain recorded for reproducibility.
 
 The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. The
 supplied original `vendor_boot_b` remains restored. Boot04 in `boot_b` reached
@@ -74,11 +81,11 @@ with the verified OS/SystemOS image and boot_b with the matching storage-enabled
 candidate: all 17 sparse chunks, boot_b and reboot reported OKAY. The first
 full-payload photo retains the green top and yellow cache-maintenance band,
 without a visible cyan/blue band or XNU log. The handoff is under investigation;
-this full kernel has not yet demonstrated XNU execution or any UFS/root access.
+this was the r3 full-payload result, subsequently superseded by r4 below.
 The loader's old `NO OS ROOT` text is a stale diagnostic label, not proof that
 the newly written root/payload is absent. The r4 boot-only follow-up adds explicit
 handoff-code cache writeback, identity checks and finer transition markers; it has
-been flashed and rebooted with OKAY, preserving userdata. Its screen result is pending.
+been flashed and rebooted with OKAY, preserving userdata. Its subsequent screen result reaches root/SystemOS/Data preparation, launchd and SpringBoard exec; watchdogd then exits with SIGTRAP. Desktop display remains unverified.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
