@@ -1,0 +1,54 @@
+K70 storage packager v2, 2026-11-04
+
+This is a narrow repeated-use fix. It does not invalidate the already checked
+storage-native-01 boot container, and it changes no kernel, payload, firmware,
+phone partition, original v1 script, original verification report, or frozen
+source-only ZIP.
+
+Problem fixed
+
+The v1 script checked an explicit FD SHA and later reopened that source path
+for building/unpacking/reporting. Replacing the source file during that interval
+could detach the bytes actually used from the explicit input identity. Its report
+also referred to boot-chain-05/fd-audit.json, which a later firmware audit replaces.
+
+package-storage-boot-v2.py reads each original FD/audit input once, verifies their
+matching identity, and writes those exact captured bytes to a fresh artifact's
+inputs/SILICIUM_UEFI.fd and inputs/firmware-audit.json. The builder receives the
+captured FD snapshot. Independent unpacking compares the container with the
+captured in-memory FD bytes, and the report references the saved audit snapshot.
+The original paths are retained only as provenance. Inputs/FD and boot binaries
+remain private; they must not be included in a public source bundle.
+
+Source change
+
+package-storage-boot-v2.py
+SHA256 371794bd73ff93be94d9aff4e5fa190d97cdb77a3dad86552fa46c8a99e22cc4
+k70-storage-packager-v2.patch
+SHA256 cbb150a632da38a136f71117cdd75d987278f7bce3a8cc4f3004da7d23cfe5c6
+
+Targeted validation
+
+test-packager-v2.py and packager-v2-targeted-tests.json cover the actual archived
+r1 FD/audit, mutation of both original paths after capture, refusal of an FD with
+the wrong explicit hash, and refusal of an otherwise successful audit naming a
+different FD. This is not a new runtime or storage qualification.
+
+A full stable-input test used only the archived r1 FD 3947586d...ed1f2 and its
+matching original audit b91f6fc1...fc05 in a fresh output:
+E:/K70-UniXNU-20261104/artifacts/storage-native-01-v2-stable-test/
+
+The generated boot is byte-identical to the frozen original:
+135,774,208 bytes
+SHA256 55f0424e70d536eca8d708f8a5c57a08451b942fc4ae72c5a7498aca3a104b3e
+The new verification.json names its own saved audit. RAM512, UFS I/O and root/Data
+mounts remain unverified. No r2 firmware was combined and no phone was operated.
+
+The frozen original artifact gained only this matching small sidecar:
+artifacts/storage-native-01/firmware-audit-r1.snapshot.json
+SHA256 b91f6fc1d6171b848c9cf563106264af8dd48209ec16a35f0da93bbc4f05fc05
+Its old verification.json and boot.img were not replaced.
+
+The original source ZIP remains:
+SHA256 6e3a75e217666dea94dd3b6bd1bda2aaa8780b7e0ab066cc1518f9b37a265d98
+The v2 files are intentionally separate, ready for a later small source update.

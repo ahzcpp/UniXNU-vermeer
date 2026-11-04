@@ -1,0 +1,17 @@
+{
+  "schema": "k70-packager-v2-targeted-tests-v1",
+  "success": true,
+  "checks": [
+    "actual archived r1 FD and original matching audit captured",
+    "original FD/audit changed after capture cannot alter build snapshot",
+    "changed FD refused against explicit SHA",
+    "successful audit for another FD refused"
+  ],
+  "actual_r1_fd_sha256": "3947586d054aaecea3f622d5e2c6f04fa71f8532cbc157b8f4aaf82c5daed1f2",
+  "matched_r1_audit_sha256": "b91f6fc1d6171b848c9cf563106264af8dd48209ec16a35f0da93bbc4f05fc05",
+  "original_artifact_audit_sidecar_added": "/mnt/e/K70-UniXNU-20261104/artifacts/storage-native-01/firmware-audit-r1.snapshot.json",
+  "frozen_v1_boot_zip_and_script_byte_identical": true,
+  "no_phone_io": true,
+  "v2_source_sha256": "371794bd73ff93be94d9aff4e5fa190d97cdb77a3dad86552fa46c8a99e22cc4",
+  "patch_sha256": "cbb150a632da38a136f71117cdd75d987278f7bce3a8cc4f3004da7d23cfe5c6"
+}

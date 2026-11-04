@@ -1,0 +1,50 @@
+{
+  "schema": "k70-storage-payload-readback-v1",
+  "all_fat_file_bytes_match": true,
+  "files": {
+    "EFI/UniXNU/unixnu.toml": {
+      "bytes": 540,
+      "sha256": "e8fdea7c46dc3f4cc3013ae779cf2c14dc4a611678129bbe19a3ceae44a9f2f2"
+    },
+    "EFI/UniXNU/Payloads/scratch-data.img": {
+      "bytes": 1405072,
+      "sha256": "5f9a61d9788d03d1b81dd9571129c610a5e4a40949f1d426cc8e99c05034ce65"
+    },
+    "EFI/UniXNU/Payloads/kernel.macho.adt": {
+      "bytes": 14488,
+      "sha256": "57ff97fa803e39fe4de1e2595760478a34b9934f8fe0fee441196806a6db506e"
+    },
+    "EFI/UniXNU/Payloads/kernel.macho.trustcache": {
+      "bytes": 61356,
+      "sha256": "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"
+    },
+    "EFI/UniXNU/Payloads/kernel.macho": {
+      "bytes": 124669952,
+      "sha256": "962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5"
+    }
+  },
+  "fat_sha256": "f02a97df12648541b0fe1cb4ad337ecf8206fcd67e33a9fc052adc0eafcdfc64",
+  "fat_bytes": 134217728,
+  "payload_image": "/root/k70-clean-20261104/storage-candidate-20261104/out/vermeer/ipados-17.7.11-21H461/vermeer/payload/payload.img",
+  "payload_kernel_sha256": "962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5",
+  "payload_original_storage_16_aliases_and_190_slots_pass": true,
+  "full_two_volume_policy_bytes_match_c_verified_inputs": true,
+  "original_static_and_system_trust_modules_unchanged": true,
+  "real_corrected_seed_bytes_match": true,
+  "packed_data_mapping_only": true,
+  "no_3gib_expansion": true,
+  "kernel_has_no_undefined_symbols": true,
+  "kernel_os_systemos_data_uuid_strings_present": true,
+  "actual_kern_exec_recipe_owner_data_enabled": true,
+  "data_prepare_helper_symbol_present": false,
+  "data_prepare_helper_missing_symbol_reason": "Static helper is optimized into load_init_program; actual final machine calls prove typed seed lookup, mount, and real policy execution remain",
+  "data_prepare_inlining_proved_by_final_machine_calls": true,
+  "data_callsite_proof_sha256": "4af45e0986cb00d0afe1150badf71e237100e165a184876fb5d707302a5d9b2a",
+  "required_owned_window_bytes": 536870912,
+  "actual_ram512_window_proven": false,
+  "actual_ufs_io_qualified": false,
+  "hardware_tested": false,
+  "no_phone_io": true,
+  "boot_image_created": false,
+  "limitation": "Requires independently qualified RAM512 firmware and real LUN/queue/DMA/SMMU/root-media evidence; not a boot success claim"
+}
