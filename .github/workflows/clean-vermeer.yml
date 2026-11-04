@@ -11,14 +11,14 @@ on:
         type: choice
         required: true
         default: baseline
-        options: [baseline, data-seed]
+        options: [baseline, data-seed, data-fix]
 
 permissions:
   contents: read
 
 jobs:
   kernel-linux:
-    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
+    if: ${{ !(((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) || ((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]')))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
@@ -61,7 +61,7 @@ jobs:
           if-no-files-found: error
 
   firmware:
-    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
+    if: ${{ !(((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) || ((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]')))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -104,7 +104,7 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
 
   bootimg:
-    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) }}
+    if: ${{ !(((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) || ((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]')))) }}
     runs-on: ubuntu-24.04
     needs: [kernel-linux, firmware]
     timeout-minutes: 60
@@ -159,7 +159,7 @@ jobs:
           path: out/vermeer/ipados-17.7.11-21H461/vermeer/logs/
 
   data-seed:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]')) }}
+    if: ${{ ((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-seed') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-seed]'))) && !((github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]'))) }}
     runs-on: macos-15
     timeout-minutes: 60
     permissions:
@@ -192,6 +192,54 @@ jobs:
             data-seed-output/data.dbr
             data-seed-output/data-seed-report.json
             data-seed-output/data-seed-public.json
+          retention-days: 1
+          compression-level: 6
+          if-no-files-found: error
+
+  data-fix:
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]')) }}
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: device
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          path: unixnu
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check out only the pinned packed-seed helper
+        run: git -C unixnu submodule update --init drivers/DarwinBoot
+      - name: Reuse the exact successful first-install seed
+        uses: actions/download-artifact@v4
+        with:
+          name: vermeer-first-install-data-seed-21H461-41748394139
+          run-id: 41748394139
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: original-data-seed
+      - name: Preserve source owners on a new copy without recreating its UUID
+        run: |
+          sudo "$(command -v python3)" device/system-next/preserve-data-seed-owners.py \
+            --core "$GITHUB_WORKSPACE/unixnu" \
+            --seed "$GITHUB_WORKSPACE/original-data-seed/data.dbr" \
+            --seed-report "$GITHUB_WORKSPACE/original-data-seed/data-seed-report.json" \
+            --owner-plan "$GITHUB_WORKSPACE/device/system-next/source-data-owners.json" \
+            --out "$GITHUB_WORKSPACE/fixed-data-seed" --pre-first-boot
+      - name: Retain corrected first-install seed and complete verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-data-owners-fixed-21H461-${{ github.run_id }}
+          path: |
+            fixed-data-seed/data-owners-fixed.dbr
+            fixed-data-seed/data-owners-fixed-report.json
           retention-days: 1
           compression-level: 6
           if-no-files-found: error
