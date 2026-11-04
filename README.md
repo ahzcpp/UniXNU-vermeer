@@ -24,7 +24,8 @@ Start with these records for the current phone and build:
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
 | [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
 | [Heap-only entry experiment](docs/boot04-2026-11-04.md) | boot04 reached XNU/BSD initialization; root device mount failed |
-| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no Data seed or hardware boot claim |
+| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no hardware root mount claim |
+| [Verified Data seed](system-next/data-seed-status-public-2026-11-04.txt) | Successful macOS build and independent read-only APFS ownership checks |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 | [UEFI USB diagnostics](docs/uefi-usb-diagnostics-2026-11-04.md) | Source design, verified OEM inputs, build checks and transport limits |
 
@@ -37,13 +38,20 @@ latest connected-session photograph is the current screen evidence.
 ## Current result
 
 The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. The
-supplied original `vendor_boot_b` remains restored. The latest write placed
-boot04 in `boot_b`; sending, writing and reboot reported `OKAY`. The user's
-subsequent two photographs show XNU reaching BSD initialization and
+supplied original `vendor_boot_b` remains restored. Boot04 in `boot_b` reached
+XNU/BSD initialization; sending, writing and reboot reported `OKAY`. The user's
+two boot04 photographs show
 `159 bsd_init: calling setconf?`, followed by
 `failed to mount root device @IOKitBSDInit.cpp:984`. This is the first confirmed
 XNU execution on this phone in this session. Root mount and userland remain
-unverified; the clean kernel still disables native UFS/root publication.
+unverified; that diagnostic kernel disables native UFS/root publication.
+
+The subsequent boot05 measured-RAM experiment was also written to `boot_b`
+successfully. Its actual handset photograph shows the entry returning
+`Compromised Data` to the UniXNU menu. The menu hides the detailed rejection
+reason; this does not establish a corrupt system image or a working 512 MiB
+window. A display-only follow-up is being prepared. Boot04 remains the known
+XNU/BSD rollback image, and no userdata image has been written.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
@@ -64,7 +72,7 @@ no HELLO/log transfer occurred. The user then paused USB work and requested
 continued XNU/system bring-up. Boot-services logging does not imply a live
 USB channel after XNU takes control.
 
-The next non-USB entry experiment, boot04, has passed a complete EDK build,
+The non-USB entry experiment boot04 passed a complete EDK build,
 FD/source/data audits and Android boot unpacking. It restricts allocations to
 the stock DXE Heap, uses an explicit 128 MiB entry window and rejects unsafe
 FDT/initrd overlap. Its trace02 kernel bytes are unchanged. The complete image
@@ -80,9 +88,20 @@ and [CI 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681
 Original OS/SystemOS inputs match the board's size and SHA-256 pins. A
 9,382,658,048-byte offline SHNGROOT two-window candidate has now passed full
 independent readback, SHA-256, GPT CRC and APFS container metadata checks.
-It has no Data seed or root policies; the clean kernel still disables native
-UFS/root publication and owner Data/SystemOS union. No root/userdata image has
-been written to the phone, and its existing modified userdata is uninspected.
+That two-window image remains unchanged. A separate first-install Data seed
+has now been created and corrected in [CI 41751537169](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41751537169),
+preserving its original volume identity. The 1,405,072-byte packed seed has
+3 GiB logical capacity. All 221 active inode owners/modes were independently
+read back, including 206 source-template entries; file contents and symlink
+targets were checked after a read-only remount. This does not establish a
+Data mount or userland boot on the phone.
+
+Both OS/SystemOS authentication policies have been built and checked against
+all 2,290,185 source blocks. A separate storage-enabled native kernel has
+linked, and its final original-storage code, 16 bindings and 190 method slots
+passed the final binary checks. Payload integration and sufficient live RAM
+remain required. No root/userdata image has been written to the phone, and its
+existing modified userdata is uninspected.
 Storage, userland and device drivers remain work to verify. The handoff record
 retains image hashes and exact displayed addresses. A high-RAM, XPU or capsule
 failure has not been proved.
