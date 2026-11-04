@@ -23,6 +23,8 @@ Start with these records for the current phone and build:
 | --- | --- |
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
 | [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
+| [Heap-only entry experiment](docs/boot04-2026-11-04.md) | Complete boot04 image, offline verification and pending handset test |
+| [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no Data seed or hardware boot claim |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 | [UEFI USB diagnostics](docs/uefi-usb-diagnostics-2026-11-04.md) | Source design, verified OEM inputs, build checks and transport limits |
 
@@ -34,10 +36,10 @@ latest connected-session photograph is the current screen evidence.
 
 ## Current result
 
-The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. It has
-been restored to the supplied original `vendor_boot_b` and the known trace02
-UniXNU `boot_b`. Both writes and reboot reported `OKAY`; the user confirmed
-the UniXNU menu or handoff screen returned.
+The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. The
+supplied original `vendor_boot_b` remains restored. The latest write placed
+the separate UEFI USB diagnostic image in `boot_b`; sending, writing and
+reboot reported `OKAY`. Its handset screen state is not confirmed.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
@@ -48,20 +50,35 @@ an Apple logo, userland, or a working operating system on this phone.
 
 A separate minimal Linux reader was tested, did not enumerate USB, and stayed
 at the Redmi/Xiaomi logo. It was then removed by the restoration above. At the
-user's request, current logging work targets USB inside UniXNU/UEFI. The PC
+user's request, the next logging experiment targeted USB inside UniXNU/UEFI. The PC
 collector passes offline mocks. The final03 complete firmware and Android
 boot image have passed build, module/source audits and independent unpacking;
-the image is 1,699,840 bytes. It has not yet been flashed. Real USB
-enumeration/log transfer remain unverified. Boot-services logging
-does not imply a live USB channel after XNU takes control.
+the image is 1,699,840 bytes. After flashing, a 61.9-second watch with 15
+successful bounded host inventory probes found no diagnostic identity, and
+no HELLO/log transfer occurred. The user then paused USB work and requested
+continued XNU/system bring-up. Boot-services logging does not imply a live
+USB channel after XNU takes control.
+
+The next non-USB entry experiment, boot04, has passed a complete EDK build,
+FD/source/data audits and Android boot unpacking. It restricts allocations to
+the stock DXE Heap, uses an explicit 128 MiB entry window and rejects unsafe
+FDT/initrd overlap. Its trace02 kernel bytes are unchanged. The complete image
+is 68,657,152 bytes, SHA-256
+`9912e2e7980d64bf32137ee00682b6463036ef0dc95c473081ced135a9da2302`.
+It has not been flashed. This small window is an entry diagnostic, not a
+full-system memory configuration.
 
 All three host jobs succeeded in [CI 41680341472](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41680341472)
 and [CI 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681910792).
-Original OS/SystemOS inputs match the board's size and SHA-256 pins. This
-session has not created or written a root/userdata image; the user's existing
-modified userdata has not been inspected. Storage, userland and device drivers
-remain work to verify. The handoff record retains image hashes and exact
-displayed addresses. A high-RAM, XPU or capsule failure has not been proved.
+Original OS/SystemOS inputs match the board's size and SHA-256 pins. A
+9,382,658,048-byte offline SHNGROOT two-window candidate has now passed full
+independent readback, SHA-256, GPT CRC and APFS container metadata checks.
+It has no Data seed or root policies; the clean kernel still disables native
+UFS/root publication and owner Data/SystemOS union. No root/userdata image has
+been written to the phone, and its existing modified userdata is uninspected.
+Storage, userland and device drivers remain work to verify. The handoff record
+retains image hashes and exact displayed addresses. A high-RAM, XPU or capsule
+failure has not been proved.
 
 ## Source baseline and build
 
@@ -85,6 +102,14 @@ applying, read that package's `Tools/README.md` and
 `Tools/README-build-firmware.md` to prepare the exact OEM inputs and build the
 separate diagnostic profile. The patch includes no OEM or Apple binaries.
 The baseline workflow does not automatically apply or build this experiment.
+
+The separate non-USB entry and system-disk tools are supplied in
+[boot04-system-source.patch](boot04-system-source.patch) with its
+[manifest](boot04-system-source.manifest.json). Check/apply this patch from
+the repository root; it creates 46 text files under `research/boot-chain-04`
+and `research/system-build`. Read their README files for pinned workspace
+dependencies and offline checks. It includes source, tests and audit helpers,
+without Apple/OEM binaries. It does not change the baseline CI configuration.
 
 Official references: [documentation](https://unixnu.com),
 [device page](https://unixnu.com/devices/vermeer-ahzcpp),

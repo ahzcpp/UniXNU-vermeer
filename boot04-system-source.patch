@@ -1,9 +1,9 @@
 diff --git a/research/boot-chain-04/README.md b/research/boot-chain-04/README.md
 new file mode 100644
-index 0000000..4c1939b
+index 0000000..8eb3c6d
 --- /dev/null
 +++ b/research/boot-chain-04/README.md
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,55 @@
 +# K70 boot04：仅使用原厂 DXE Heap 的入口实验
 +
 +本配置以已在本机会进入 UniXNU 菜单的 trace02 为对照，继续排查 XNU 入口。
@@ -48,6 +48,8 @@ index 0000000..4c1939b
 +
 +完整 EDK 输出使用 `Build/vermeerBoot04`，与基线及 USB 实验分开。
 +构建器核对运行时源快照；FD 审计按 FFS/PE/TE 和实际编译数据核对模块。
++继承的 binary-only `ufpdevicefw` 不是本轮从源码编译的模块；审计按其
++固定 INF、PE 哈希及最终 FFS 字节单独核对，不把它归入源码 PE 证明。
 +包装器只改 FAT 内启动项标题及 ADT 的窗口大小，并独立解包比较完整
 +Android boot 镜像。不运行 `fastboot`，也不写 userdata。
 +
@@ -640,10 +642,10 @@ index 0000000..d07178e
 +if __name__=='__main__': raise SystemExit(main())
 diff --git a/research/boot-chain-04/audit-fd.py b/research/boot-chain-04/audit-fd.py
 new file mode 100644
-index 0000000..bc93d7f
+index 0000000..f5445fe
 --- /dev/null
 +++ b/research/boot-chain-04/audit-fd.py
-@@ -0,0 +1,290 @@
+@@ -0,0 +1,324 @@
 +#!/usr/bin/env python3
 +"""Read-only audit of the exact boot-04 FD and its own completed build outputs.
 +
@@ -680,6 +682,18 @@ index 0000000..bc93d7f
 +    '37cf646d-1729-4afd-998f-285df8864211': 'VermeerBootMemoryDxe',
 +    '6c561b72-e945-4fcf-8cd9-ab763ceb493c': 'K70UsbDiagDxe',
 +    '0a43774a-8887-4b61-8aa1-9cdaef4a3c69': 'K70LogRingDxe',
++}
++# The unchanged baseline Extra.fdf.inc includes this binary-only application.
++# It has no compiler OUTPUT or AutoGen.c. Accept only this exact reviewed INF
++# and PE original, with its original FFS identity/type and fully checked bytes.
++PREBUILT = {
++    '643d4788-63c8-40d2-bd7a-6842e66850d1': {
++        'ui': 'ufpdevicefw', 'type': 9,
++        'inf': 'Silicon/Silicium/SiliciumPkg/Applications/UFP/ufpdevicefw.inf',
++        'inf_sha256': '24e8a29179fd40f48dbf0c02b28dede757cd2c2fe1fd25bc8411dc0010bb337c',
++        'pe': 'Silicon/Silicium/SiliciumPkg/Applications/UFP/ufpdevicefw.efi',
++        'pe_sha256': '72de25543341ba515be3872749b5fe7501468019acb6d8d997ae4a5bb19493fa',
++    },
 +}
 +LZMA_GUID = 'ee4e5898-3914-4259-9d6e-dc7bd79403cf'
 +EXEC_TYPES = {3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15}
@@ -875,14 +889,35 @@ index 0000000..bc93d7f
 +        for p in (args.build_root / 'AARCH64').rglob('OUTPUT/*.efi'):
 +            identity = helper.source_caller_guid(p)
 +            outputs[identity['guid']].append((p, identity))
-+        pe_checks, te_checks = [], []
++        pe_checks, te_checks, prebuilt_checks = [], [], []
 +        sec_pe, sec_te = None, None
 +        for f in executable:
 +            candidates = outputs.get(f['guid'], [])
-+            require(len(candidates) == 1, 'Cannot bind exactly one own-build OUTPUT to FFS ' + f['guid'])
-+            p, identity = candidates[0]
 +            pes = [s for s in f['sections'] if s['type'] == 0x10]
 +            tes = [s for s in f['sections'] if s['type'] == 0x12]
++            if f['guid'] in PREBUILT:
++                pin = PREBUILT[f['guid']]
++                require(not candidates and f['ui'] == [pin['ui']] and f['type'] == pin['type']
++                        and len(pes) == 1 and not tes, 'Prebuilt application has unexpected identity/sections/source OUTPUT')
++                inf_path, pe_path = UEFI / pin['inf'], UEFI / pin['pe']
++                inf_data, original_pe = inf_path.read_bytes(), pe_path.read_bytes()
++                require(sha(inf_data) == pin['inf_sha256'] and sha(original_pe) == pin['pe_sha256'],
++                        'Exact reviewed prebuilt application INF/PE original changed')
++                defs = helper.source_inf_defines(inf_path)
++                require(defs['FILE_GUID'].lower() == f['guid'] and defs['BASE_NAME'] == pin['ui']
++                        and defs['MODULE_TYPE'] == 'UEFI_APPLICATION'
++                        and re.search(r'^\s*PE32\|ufpdevicefw\.efi\|\*\s*$', inf_data.decode(), re.M),
++                        'Prebuilt INF does not name exact reviewed binary application')
++                actual_pe = audit.memory[pes[0]['payload']['path']]
++                comparison = helper.compare_pe(original_pe, actual_pe)
++                require(comparison['equal'], 'Reviewed binary-only application differs from original without an exact PE explanation')
++                prebuilt_checks.append({'guid': f['guid'], 'ui': f['ui'], 'ffs_type': f['type_name'],
++                    'inf_path': str(inf_path), 'inf_sha256': sha(inf_data), 'pe_path': str(pe_path),
++                    'pe': comparison, 'source_output_absent_expected': True,
++                    'reason': 'Inherited baseline Extra.fdf binary-only UEFI application; not rebuilt from source in this project.'})
++                continue
++            require(len(candidates) == 1, 'Cannot bind exactly one own-build OUTPUT to FFS ' + f['guid'])
++            p, identity = candidates[0]
 +            check = {'guid': f['guid'], 'ui': f['ui'], 'output_path': str(p), 'source_identity': identity,
 +                     'output_reused_from_prior_incremental_step': p.stat().st_mtime < started.timestamp()}
 +            if tes:
@@ -917,6 +952,7 @@ index 0000000..bc93d7f
 +        report.update(fv_count=len(audit.fvs), ffs_count=len(audit.files), lzma_sections=len(guided),
 +                      required_modules=REQUIRED, forbidden_modules_absent=FORBIDDEN,
 +                      source_pe_checks=pe_checks, source_sec_checks=te_checks,
++                      inherited_binary_only_application_checks=prebuilt_checks,
 +                      module_inventory=[{'guid': f['guid'], 'ui': f['ui'], 'type': f['type_name'], 'path': f['path']} for f in audit.files],
 +                      reviewed_helper_sha256=HELPER_SHA, bounded_parser_sha256=helper.PARSER_SHA,
 +                      genfw_sha256=sha(args.genfw.read_bytes()))

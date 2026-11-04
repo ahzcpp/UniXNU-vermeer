@@ -2,8 +2,8 @@
   "format": "new-source-files-git-patch",
   "files": {
     "research/boot-chain-04/README.md": {
-      "bytes": 3182,
-      "sha256": "9fbdfb07728f0d60e77db707c49ed6d25f0b97767b666214bd72713d492b8439"
+      "bytes": 3362,
+      "sha256": "ec3e7e1722786cb19fc45cfcef4d6979354d02b6a33edd80608a7f76b6357656"
     },
     "research/boot-chain-04/audit-deps/bounded_fv.py": {
       "bytes": 16954,
@@ -14,8 +14,8 @@
       "sha256": "023cf5439499609d97dd821df0e7374688b4e8511e4f1395eb2734f14d3c1caf"
     },
     "research/boot-chain-04/audit-fd.py": {
-      "bytes": 17539,
-      "sha256": "a83f8a267aa6d352ac9274e3e03c0c7bd80f6ce00e016098188f57368530ab6c"
+      "bytes": 20098,
+      "sha256": "187d1f6c82f2a96928ee3e66d48a8d38045d0d5abf33dca87263ec9a67d7afda"
     },
     "research/boot-chain-04/build.py": {
       "bytes": 3775,
@@ -187,8 +187,8 @@
     }
   },
   "file_count": 46,
-  "patch_bytes": 291610,
-  "patch_sha256": "a1f6d62ce6d81b065f114bf06bb3e67c4315e47b1214aa5a670de3cb871da65c",
+  "patch_bytes": 294385,
+  "patch_sha256": "8db8ee945b3af22c8e2740a2bcc4b962b052b2505a05d6438ba5d83cd0575c2b",
   "clean_repository_apply_and_exact_readback": true,
   "contains_apple_or_oem_binaries": false
 }
