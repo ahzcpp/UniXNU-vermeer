@@ -5,6 +5,8 @@ macOS/root only. No new APFS volume is created. The source seed and source OS
 are never mounted writable or modified. Only a fresh reconstructed sparse copy
 is attached writable, and its actual UUID must match the original report before
 and after. Source inode metadata is pinned separately from owners-ignored stat.
+The copy also receives a per-volume no_log marker and narrowly scoped cleanup
+of host-generated hex-named event logs, with an exact declared content delta.
 """
 import argparse
 import collections
@@ -16,6 +18,7 @@ import os
 from pathlib import Path, PurePosixPath
 import platform
 import plistlib
+import re
 import stat
 import subprocess
 import sys
@@ -202,6 +205,71 @@ def verify_contents_unchanged(before, after, diff_path=None):
                 symlinks=sum(row['kind'] == 'symlink' for row in after.values()))
 
 
+def is_macos_event_log(path):
+    return re.fullmatch(r'\.fseventsd/[0-9a-f]{16}', path) is not None
+
+
+def expected_without_host_logs(original, source):
+    """Declare the exact build-time content policy; do not ignore differences.
+
+Apple documents .fseventsd/no_log as the per-volume storage-disable marker.
+Only hex-named regular event logs are removed. All Apple template paths and
+every other original file/link remain in the exact expected content manifest.
+"""
+    require('.fseventsd' in original and original['.fseventsd']['kind'] == 'directory',
+            'the pinned input seed lacks its expected macOS event directory')
+    require('.fseventsd/fseventsd-uuid' in original and
+            original['.fseventsd/fseventsd-uuid']['kind'] == 'file',
+            'the pinned input seed lacks its expected event UUID file')
+    require(not any(path == '.fseventsd' or path.startswith('.fseventsd/') for path in source),
+            'source template owns an event path; cleanup policy must be reviewed')
+    require('.fseventsd/no_log' not in original, 'input already has a no_log marker; inspect its policy')
+    expected, removed = {}, []
+    for path, row in original.items():
+        if is_macos_event_log(path):
+            require(row['kind'] == 'file', 'event-log-shaped source path is not a regular file')
+            removed.append(dict(path=path, facts=content_manifest({path: row})[path]))
+        else:
+            expected[path] = dict(row)
+    expected['.fseventsd/no_log'] = dict(kind='file', mode=0o600, uid=0, gid=0,
+                                       file_bytes=0, content_sha256=hashlib.sha256(b'').hexdigest())
+    return expected, removed
+
+
+def install_volume_no_log(mount):
+    root_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        with safe_parent_fd(root_fd, '.fseventsd/no_log') as (parent, leaf):
+            fd = os.open(leaf, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=parent)
+            try:
+                require(os.fstat(fd).st_size == 0, 'new no_log marker is not empty')
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+    finally:
+        os.close(root_fd)
+
+
+def cleanup_macos_event_logs(mount, rows, source):
+    """Unlink only explicitly recognized generated logs in the scratch copy."""
+    removed = []
+    root_fd = os.open(mount, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for path, row in rows.items():
+            if not is_macos_event_log(path):
+                continue
+            require(path not in source and row['kind'] == 'file', 'refuse to clean a protected or nonregular event path')
+            with safe_parent_fd(root_fd, path) as (parent, leaf):
+                s = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
+                require(stat.S_ISREG(s.st_mode), 'event path changed kind before unlink')
+                os.unlink(leaf, dir_fd=parent)
+            removed.append(dict(path=path, facts=content_manifest({path: row})[path]))
+    finally:
+        os.close(root_fd)
+    return removed
+
+
 def expected_targets(actual, source):
     require(all(path in actual and actual[path]['kind'] == row['kind'] for path, row in source.items()),
             'new seed is missing or has changed source template path kinds')
@@ -339,9 +407,22 @@ def main():
                 target.write(data)
         mount = scratch / 'mount'
         mount.mkdir()
+        # Record the exact original payload before any writable mount. Then
+        # install the documented per-volume guard and remount, so the host event
+        # daemon observes it before the ownership transaction starts.
+        with attached_copy(raw, mount, True, original_uuid):
+            original_contents = inventory(mount)
+            save_snapshot(args.out / 'owner-fix-original-ro.json', original_contents)
+        expected_contents, original_host_logs = expected_without_host_logs(original_contents, source)
         with attached_copy(raw, mount, False, original_uuid):
+            install_volume_no_log(mount)
+        with attached_copy(raw, mount, False, original_uuid):
+            before_cleanup = inventory(mount)
+            save_snapshot(args.out / 'owner-fix-before-log-cleanup-rw.json', before_cleanup)
+            removed_host_logs = cleanup_macos_event_logs(mount, before_cleanup, source)
             before = inventory(mount)
             save_snapshot(args.out / 'owner-fix-before-rw.json', before)
+            verify_contents_unchanged(expected_contents, before, args.out / 'owner-fix-guard-content-diff.json')
             targets = expected_targets(before, source)
             apply_metadata(mount, targets)
             verify_metadata(mount, targets)
@@ -353,6 +434,8 @@ def main():
             after = inventory(mount)
             save_snapshot(args.out / 'owner-fix-after-remount-ro.json', after)
             content_check = verify_contents_unchanged(before, after, args.out / 'owner-fix-content-diff.json')
+            original_payload_check = verify_contents_unchanged(
+                expected_contents, after, args.out / 'owner-fix-original-payload-diff.json')
             checked = verify_metadata(mount, targets)
         packed = packer.pack(raw, output)
     require(digest(args.seed) == INPUT_SEED_SHA, 'original seed changed unexpectedly')
@@ -364,13 +447,23 @@ def main():
                   hardware_tested=False, desktop_boot_verified=False,
                   exact_source_template_entries=206, total_verified_entries=len(checked),
                   contents_and_symlink_targets=content_check,
+                  original_payload_content_check=original_payload_check,
+                  macos_event_storage_policy=dict(
+                      no_log_marker='.fseventsd/no_log', marker_bytes=0,
+                      per_volume_only=True, global_daemon_changed=False,
+                      source_template_contents_changed=False,
+                      original_generated_event_logs=original_host_logs,
+                      generated_logs_removed_from_scratch_copy=removed_host_logs,
+                      cleanup_name_rule=r'\.fseventsd/[0-9a-f]{16}',
+                      event_uuid_file_preserved=True,
+                      documentation='https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/FileSystemEventSecurity/FileSystemEventSecurity.html'),
                   file_content_facts={path: row for path, row in content_manifest(after).items()
                                       if row['kind'] in ('file', 'symlink')},
                   generated_entry_policy='UID/GID inherit nearest actual source directory; modes retained for added entries',
                   seed_identity_changed=packed['sha256'] != report['seed']['sha256'],
                   preserve_corrected_seed_as_first_install_input=True,
                   entries=checked,
-                  limitations=['POSIX ownership and mode restoration only; ACLs/xattrs/BSD flags/data protection are not qualified.',
+                  limitations=['POSIX ownership and mode restoration plus declared per-volume host event-log cleanup; ACLs/xattrs/BSD flags/data protection are not qualified.',
                                'Generated-entry owner inheritance is explicit policy, not an original Apple inode fact.',
                                'Use only before this seed is first used on a device. An existing persistent overlay must not be reset.',
                                'A successful Data metadata fix does not establish root-device publication or userland boot.'])
