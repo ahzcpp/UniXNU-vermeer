@@ -1,0 +1,36 @@
+{
+  "experiment": "K70 boot04 heap128",
+  "hardware_tested": false,
+  "phone_written_this_iteration": false,
+  "usb_detection_enabled": false,
+  "contains_os_root": false,
+  "firmware_build_exit_code": 0,
+  "runtime_source_snapshot_unchanged": true,
+  "fd_structural_audit_passed": true,
+  "fd_audit_sha256": "e848256d4b2376e577da85ec5a12e3c3882cea0974bc5a23bb78d4193e7d1f8b",
+  "source_patch_sha256": "8db8ee945b3af22c8e2740a2bcc4b962b052b2505a05d6438ba5d83cd0575c2b",
+  "source_patch_files": 46,
+  "boot_image_sha256": "9912e2e7980d64bf32137ee00682b6463036ef0dc95c473081ced135a9da2302",
+  "boot_image_bytes": 68657152,
+  "firmware_sha256": "b79728738c4b284b46813f75703f9b5c071c10bbd976725210ca92c3322d7bc5",
+  "kernel_sha256": "4559b64843cab506d9d2781172143e13ddb4c546f7b73e3298d5e23ee62906bd",
+  "adt_sha256": "8f684bddfd7293b785283acfc91c19b510361c961d0dfb6b49ae1c741a31a022",
+  "requested_window_bytes": 134217728,
+  "allowed_kernel_window": {
+    "base": "0xBAB00000",
+    "end_exclusive": "0xC7CC0000"
+  },
+  "menu_title": "K70 boot04 heap128 XNU entry - NO OS ROOT",
+  "limitation": "128 MiB entry experiment only; not a usable full OS memory budget. Allocation may refuse if the real heap is fragmented or exhausted.",
+  "host_checks": [
+    "actual allocator and RunEnd with ASan/UBSan and 163840 reference cases",
+    "actual HOB/FDT/initrd guard with bundled libfdt and ASan/UBSan",
+    "AArch64 COFF policy compile",
+    "complete AArch64 EDK build",
+    "complete driver compile with actual EDK parameters/headers (LTO and AArch64 COFF)",
+    "FD modules and compiled MemoryMap data bound to final SEC",
+    "complete Android boot unpack and byte comparison",
+    "new-source patch clean apply and all-file readback"
+  ],
+  "scope": "Offline entry experiment; no XNU entry, root mount, userland or desktop claimed."
+}
