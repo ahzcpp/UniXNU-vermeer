@@ -23,7 +23,7 @@ Start with these records for the current phone and build:
 | --- | --- |
 | [Clean source build](docs/clean-start-2026-11-04.md) | Fixed source versions, build commands, verified inputs and remaining work |
 | [Current loader handoff](docs/handoff-trace-2026-11-04.md) | Verified images, actual screen evidence and restoration state |
-| [Heap-only entry experiment](docs/boot04-2026-11-04.md) | Complete boot04 image, offline verification and pending handset test |
+| [Heap-only entry experiment](docs/boot04-2026-11-04.md) | boot04 reached XNU/BSD initialization; root device mount failed |
 | [iPadOS disk candidate](docs/system-candidate-2026-11-04.md) | Verified OS/SystemOS windows; no Data seed or hardware boot claim |
 | [UEFI USB collector](scripts/capture-k70-uefi.ps1) | Bounded read-only PC collector; real USB transfer is not yet verified |
 | [UEFI USB diagnostics](docs/uefi-usb-diagnostics-2026-11-04.md) | Source design, verified OEM inputs, build checks and transport limits |
@@ -38,15 +38,20 @@ latest connected-session photograph is the current screen evidence.
 
 The phone is `vermeer`, hardware revision `20000`, slot `b`, unlocked. The
 supplied original `vendor_boot_b` remains restored. The latest write placed
-the separate UEFI USB diagnostic image in `boot_b`; sending, writing and
-reboot reported `OKAY`. Its handset screen state is not confirmed.
+boot04 in `boot_b`; sending, writing and reboot reported `OKAY`. The user's
+subsequent two photographs show XNU reaching BSD initialization and
+`159 bsd_init: calling setconf?`, followed by
+`failed to mount root device @IOKitBSDInit.cpp:984`. This is the first confirmed
+XNU execution on this phone in this session. Root mount and userland remain
+unverified; the clean kernel still disables native UFS/root publication.
 
 The trace01 photograph shows the green handoff bar and yellow/cyan checkpoints:
 the loader completed cache maintenance and its MMU-off sequence. Trace02's
 fixed-address entry probe still produced no blue bar. Trace03's 256 MiB
 allocation control instead reached a UEFI synchronous external read abort
 (`ESR=0x96000010`, `FAR=0xE687C000`). None of these establishes XNU entry,
-an Apple logo, userland, or a working operating system on this phone.
+an Apple logo, userland, or a working operating system on this phone. The later
+boot04 result above supersedes the earlier lack of evidence for XNU execution.
 
 A separate minimal Linux reader was tested, did not enumerate USB, and stayed
 at the Redmi/Xiaomi logo. It was then removed by the restoration above. At the
@@ -65,8 +70,10 @@ the stock DXE Heap, uses an explicit 128 MiB entry window and rejects unsafe
 FDT/initrd overlap. Its trace02 kernel bytes are unchanged. The complete image
 is 68,657,152 bytes, SHA-256
 `9912e2e7980d64bf32137ee00682b6463036ef0dc95c473081ced135a9da2302`.
-It has not been flashed. This small window is an entry diagnostic, not a
-full-system memory configuration.
+It has now reached XNU/BSD initialization on the handset. This small window is
+an entry diagnostic, not a full-system memory configuration. Its observed free
+`0x3736` pages are about 55.2 MiB; the current storage implementation alone
+needs about 69.9 MiB for the two authenticated block-hash tables.
 
 All three host jobs succeeded in [CI 41680341472](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41680341472)
 and [CI 41681910792](https://github.com/ahzcpp/UniXNU-vermeer/actions/runs/41681910792).
