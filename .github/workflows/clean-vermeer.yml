@@ -196,6 +196,7 @@ jobs:
           compression-level: 6
           if-no-files-found: error
 
+
   data-fix:
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'data-fix') || (github.event_name == 'push' && github.ref == 'refs/heads/research/clean-vermeer-20261104' && contains(github.event.head_commit.message, '[data-fix]')) }}
     runs-on: macos-15
@@ -243,3 +244,11 @@ jobs:
           retention-days: 1
           compression-level: 6
           if-no-files-found: error
+      - name: Retain bounded metadata diagnostics even when strict verification refuses output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vermeer-data-owner-diagnostics-${{ github.run_id }}
+          path: fixed-data-seed/owner-fix-*.json
+          retention-days: 1
+          if-no-files-found: warn
