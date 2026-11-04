@@ -1,8 +1,13 @@
 # iPadOS 17.7.11 双卷候选
 
 本轮在电脑上生成了 iPad7,1 iPadOS 17.7.11（21H461）的 OS/SystemOS
-双卷 SHNGROOT v1 镜像，9,382,658,048 字节。没有写入手机；它不包含
-Data 种子、根策略或 GPU addon，不是已验证可刷入并进入桌面的系统。
+双卷 SHNGROOT v1 镜像，9,382,658,048 字节。2026-11-04 10:16（UTC+8），
+该镜像已通过 fastboot 写入本机 userdata，17/17 稀疏分块发送和写入均为
+OKAY；配套 storage-native-02-r3 boot_b 及重启也为 OKAY。真实 UFS 读取、
+根卷挂载和用户空间结果仍待确认，不能把刷写应答当成桌面启动成功。
+
+双卷镜像本身不包含 Data 种子、根策略或 GPU addon。当前配套 boot payload
+携带修正后的 packed Data 种子，storage 内核嵌入两卷的已验证认证策略。
 
 镜像 SHA-256：
 `fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093`。
@@ -29,10 +34,25 @@ Data 种子、根策略或 GPU addon，不是已验证可刷入并进入桌面�
 编造 userdata 的绝对 LBA；OS 窗口内的 Apple GPT 不属于手机 GPT。
 原生存储驱动仍需在本机成功读取真实分区、发布窗口并匹配根卷。
 
-当前 clean kernel 关闭原生 UFS、原生 RAM block、owner Data mount 和
-SystemOS union。Linux/WSL 上本轮也没有创建 APFS Data 种子。因此这份
-双卷封装不能替代 XNU 入口、存储、Data、系统卷整合和驱动适配。
+早期 clean 诊断内核关闭原生 UFS、原生 RAM block、owner Data mount 和
+SystemOS union。随后已构建另一个 storage 内核，接入这些功能并完成离线
+ABI、认证表和最终 payload 回读。macOS CI 制作并修正的 Data 种子保留原卷
+身份，221 项活动 inode 的所有权/模式已独立检查；详见
+[Data 记录](../system-next/data-seed-status-public-2026-11-04.txt)。这些检查仍
+不能替代真实硬件启动。
+
+当前实际刷入的配套 boot：135,774,208 字节，SHA-256
+`db4e96a673612be1f0b48e1602dd3d46dac383aad0269cb9d9136433a104eb9c`。
+它使用 FD `845d1790c4eda640435a17858cfbd4df4d91258e3fdcd904b453b78565631b9a`；
+同一 FD 已由 boot05r3 基线在强制 512 MiB 窗口下运行到 XNU/BSD，约 430.75 MiB
+空闲。当前完整 storage 内核 `962381af05f3eee0c41cd08708ffba34299693388220cc994598fb63728f70d5`
+仍需单独验证 UFS、SystemOS/OS 发布、根认证、Data mount 和 launchd。
+
+菜单标题保留 `K70 storage01 RAM512 authenticated UFS + packed Data - UNTESTED`，
+默认 3 秒后启动；编号来自未改动的 FAT payload，不表示用了旧 FD。当前编译的
+BootProgressMin 接管文字诊断显示，不能靠删除 `-v` 或 `boot-progress=2` 自动
+得到苹果 LOGO。系统进度呈现还需正确连接图形控制台及相关初始化路径。
 
 工具随 `boot04-system-source.patch` 提供；应用后见
-`research/system-build/README.md`。完整 Apple 数据仅保存在本地 WSL，
-没有提交到 Git。
+`research/system-build/README.md`。完整 Apple 镜像保存在本地构建/交付目录，
+本轮已写入获授权的手机，没有提交到 Git。

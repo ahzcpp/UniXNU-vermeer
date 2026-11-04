@@ -1,0 +1,19 @@
+{
+  "updated": "2026-11-04T10:16:45.0922409+08:00",
+  "artifact": "storage-native-02-r3",
+  "root_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "boot_sha256": "db4e96a673612be1f0b48e1602dd3d46dac383aad0269cb9d9136433a104eb9c",
+  "userdata_sparse_chunks": 17,
+  "all_chunks_sent_okay": true,
+  "all_userdata_writes_okay": true,
+  "boot_sent_okay": true,
+  "boot_written_okay": true,
+  "reboot_okay": true,
+  "host_script_exit_code": 0,
+  "device_partition_readback_performed": false,
+  "actual_ufs_kernel_io_verified": false,
+  "actual_root_mount_verified": false,
+  "actual_userland_verified": false,
+  "log_sha256": "6904bed4be1b50ee56a57c5b837ec4763a751ae90b4ddd292da20cb182f0398f",
+  "state": "All fastboot operations OKAY; awaiting actual full-system boot screen"
+}
