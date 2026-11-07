@@ -1,0 +1,185 @@
+{
+  "linux_revision": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "source_sha256": {
+    "drivers/gpu/drm/msm/adreno/a6xx_gmu.c": "0e9080435b24841812d1b153960d0a04c3ae4f5eea9a76e1b4ff64d7bd4a53ac",
+    "drivers/gpu/drm/msm/adreno/a6xx_gmu.h": "cfc3372ee52b9aac1cee1818a1f4d6fdd5e5bc7e091bf500422a70f834648b02",
+    "drivers/gpu/drm/msm/adreno/a6xx_gpu.c": "833ec17decd679d0ae7738fa71843e009cb33012e138071cb7bb2c1a42ffe6d1",
+    "drivers/gpu/drm/msm/adreno/a6xx_gpu.h": "d37cbe3919f9d31b217d21a5a1985c3fded2534bb762c407a541fce465c85be5",
+    "drivers/gpu/drm/msm/adreno/a6xx_catalog.c": "ff1abc1b7735d6bd6aa07d5df776e2549be2ee70ffcc02ff24aac646dfd6a3c7",
+    "drivers/gpu/drm/msm/registers/adreno/a6xx.xml": "1776505dbdb01d0355c9a828b857eaec61b286802d3509a33d6ced9e6ce54000",
+    "drivers/gpu/drm/msm/registers/adreno/a6xx_gmu.xml": "9c97dfd68dcc47d8bc959baff0d4ae313ba2802ad2a37a9d4d54fc910dd5cf6a"
+  },
+  "compiled_dtb_sha256": "a7692126574844872c3f71a6f3bed41aeca14500ac3823cd47fc8b61d5047db1",
+  "registers": {
+    "REG_GMU_CM3_ITCM_START": 111616,
+    "REG_GMU_CM3_DTCM_START": 115712,
+    "REG_GMU_CM3_SYSRESET": 129024,
+    "REG_GMU_CM3_BOOT_CONFIG": 129025,
+    "REG_GMU_CM3_FW_INIT_RESULT": 129052,
+    "REG_GMU_CM3_CFG": 129069,
+    "REG_GMU_HFI_QTBL_ADDR": 129413,
+    "REG_GMU_HFI_QTBL_INFO": 129412,
+    "REG_GMU_HFI_CTRL_INIT": 129414,
+    "REG_GMU_HFI_CTRL_STATUS": 129408,
+    "REG_GMU_HOST2GMU_INTR_SET": 129428,
+    "REG_GMU_SYS_BUS_CONFIG": 128015,
+    "REG_GMU_ICACHE_CONFIG": 128000,
+    "REG_GMU_DCACHE_CONFIG": 128001,
+    "REG_GMU_AHB_FENCE_RANGE_0": 146193,
+    "REG_GMU_GMU2HOST_INTR_INFO": 129426,
+    "REG_GMU_AO_HOST_INTERRUPT_STATUS": 146181,
+    "REG_GPU_GMU_CX_GMU_CX_FALNEXT_INTF": 129265,
+    "REG_GPU_GMU_CX_GMU_CX_FAL_INTF": 129264,
+    "REG_GMU_GENERAL_8": 129485,
+    "REG_GMU_GENERAL_9": 129486,
+    "REG_GMU_GENERAL_10": 129487,
+    "REG_GPU_RSCC_RSC_STATUS0_DRV0": 4,
+    "REG_RSCC_PDC_SLAVE_ID_DRV0": 11,
+    "REG_RSCC_HIDDEN_TCS_CMD0_ADDR": 13,
+    "REG_RSCC_HIDDEN_TCS_CMD0_DATA": 14,
+    "REG_RSCC_OVERRIDE_START_ADDR": 256,
+    "REG_RSCC_PDC_SEQ_START_ADDR": 8,
+    "REG_RSCC_PDC_MATCH_VALUE_LO": 9,
+    "REG_RSCC_PDC_MATCH_VALUE_HI": 10,
+    "REG_RSCC_SEQ_BUSY_DRV0": 257,
+    "REG_RSCC_SEQ_MEM_0_DRV0_A740": 340,
+    "REG_CX_MISC_TCM_RET_CNTL": 57,
+    "REG_GBIF_QSB_SIDE0": 15363,
+    "REG_PDC_GPU_SEQ_START_ADDR": 4424,
+    "REG_PDC_GPU_ENABLE_PDC": 4416
+  },
+  "window_names": [
+    "gmu",
+    "rscc",
+    "gmu_pdc",
+    "kgsl_3d0_reg_memory",
+    "cx_mem"
+  ],
+  "windows": [
+    {
+      "base": 64397312,
+      "bytes": 217088
+    },
+    {
+      "base": 64290816,
+      "bytes": 65536
+    },
+    {
+      "base": 187170816,
+      "bytes": 65536
+    },
+    {
+      "base": 63963136,
+      "bytes": 262144
+    },
+    {
+      "base": 64610304,
+      "bytes": 4096
+    }
+  ],
+  "rsc_setup": [
+    [
+      1,
+      16,
+      16777216
+    ],
+    [
+      1,
+      44,
+      1
+    ],
+    [
+      1,
+      56,
+      0
+    ],
+    [
+      1,
+      52,
+      0
+    ],
+    [
+      1,
+      64,
+      0
+    ],
+    [
+      1,
+      60,
+      0
+    ],
+    [
+      1,
+      72,
+      2147483681
+    ],
+    [
+      1,
+      68,
+      0
+    ],
+    [
+      1,
+      1024,
+      0
+    ],
+    [
+      1,
+      32,
+      17696
+    ],
+    [
+      1,
+      36,
+      17680
+    ],
+    [
+      1,
+      40,
+      17684
+    ],
+    [
+      1,
+      1360,
+      3937068448
+    ],
+    [
+      1,
+      1364,
+      3785485227
+    ],
+    [
+      1,
+      1368,
+      2732631425
+    ],
+    [
+      1,
+      1372,
+      3970728674
+    ],
+    [
+      1,
+      1376,
+      2157997
+    ],
+    [
+      2,
+      17696,
+      0
+    ],
+    [
+      2,
+      17664,
+      2147483649
+    ]
+  ],
+  "gmu_firmware_chip_id": 117571840,
+  "firmware_policy": {
+    "bytes": 66844,
+    "sha256": "1a2a419c39046d3141fc5fed5aa7f971de2db40cc7a1d89693c3e26fad64dd98"
+  },
+  "generated_header_sha256": "fe2e077acaf57ea0475ca63592901ea3e96b887e1648e05cd44d3c140e8be9e0",
+  "source_analysis_only": true,
+  "hardware_registers_observed": false
+}

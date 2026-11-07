@@ -1,0 +1,13 @@
+# Apple / Qualcomm / Xiaomi binaries never enter this folder's history.
+*.mbn
+*.mdt
+*.b0[0-9]
+*.fw
+*.bin
+*.elf
+*.img
+*.a
+*.o
+*.macho
+firmware/
+private/

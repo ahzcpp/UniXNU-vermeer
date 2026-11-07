@@ -1,0 +1,142 @@
+{
+  "schema": "k70-r32-thp-kernel/1",
+  "status": "compiled_prelinked_probed_storage_verified_not_device_tested",
+  "steps": [
+    {
+      "name": "compile-observer-r32",
+      "exit_code": 0,
+      "seconds": 3.18,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-observer-r32.log"
+    },
+    {
+      "name": "archive-observer-r32",
+      "exit_code": 0,
+      "seconds": 0.01,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/archive-observer-r32.log"
+    },
+    {
+      "name": "compile-osfmk_arm_arm_init",
+      "exit_code": 0,
+      "seconds": 1.7,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-osfmk_arm_arm_init.log"
+    },
+    {
+      "name": "compile-pexpert_arm_pe_serial",
+      "exit_code": 0,
+      "seconds": 2.78,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-pexpert_arm_pe_serial.log"
+    },
+    {
+      "name": "compile-pexpert_arm_pe_kprintf",
+      "exit_code": 0,
+      "seconds": 0.47,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-pexpert_arm_pe_kprintf.log"
+    },
+    {
+      "name": "compile-osfmk_console_serial_console",
+      "exit_code": 0,
+      "seconds": 1.44,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-osfmk_console_serial_console.log"
+    },
+    {
+      "name": "compile-osfmk_kern_startup",
+      "exit_code": 0,
+      "seconds": 1.56,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-osfmk_kern_startup.log"
+    },
+    {
+      "name": "compile-bsd_kern_bsd_init",
+      "exit_code": 0,
+      "seconds": 2.82,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-bsd_kern_bsd_init.log"
+    },
+    {
+      "name": "compile-bsd_kern_kern_exec",
+      "exit_code": 0,
+      "seconds": 5.25,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-bsd_kern_kern_exec.log"
+    },
+    {
+      "name": "compile-k70-display-provider",
+      "exit_code": 0,
+      "seconds": 1.77,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-k70-display-provider.log"
+    },
+    {
+      "name": "compile-native-keystore-events",
+      "exit_code": 0,
+      "seconds": 1.53,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-native-keystore-events.log"
+    },
+    {
+      "name": "compile-keystore-probe",
+      "exit_code": 0,
+      "seconds": 1.23,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-keystore-probe.log"
+    },
+    {
+      "name": "compile-k70-touch",
+      "exit_code": 0,
+      "seconds": 3.49,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-k70-touch.log"
+    },
+    {
+      "name": "archive-k70-display",
+      "exit_code": 0,
+      "seconds": 0.02,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/archive-k70-display.log"
+    },
+    {
+      "name": "compile-gpu-absent",
+      "exit_code": 0,
+      "seconds": 0.04,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/compile-gpu-absent.log"
+    },
+    {
+      "name": "link-r32-native",
+      "exit_code": 0,
+      "seconds": 2.09,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/link-r32-native.log"
+    },
+    {
+      "name": "prelink-r32",
+      "exit_code": 0,
+      "seconds": 9.82,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/prelink-r32.log"
+    },
+    {
+      "name": "patch-entry-and-panic",
+      "exit_code": 0,
+      "seconds": 2.49,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/patch-entry-and-panic.log"
+    },
+    {
+      "name": "final-storage-hard-gate",
+      "exit_code": 0,
+      "seconds": 2.69,
+      "log": "/root/k70-gpu-work/kernel-r32-gpu/final-storage-hard-gate.log"
+    }
+  ],
+  "device_tested": false,
+  "patched_sources": {
+    "osfmk/arm/arm_init.c": "dbf1983731aa5c02299e1aecb17a3df451bd1e93358c96d3e5ecfdd7c1ab08b2",
+    "pexpert/arm/pe_serial.c": "60bbff1c75087c642612146a0854c4ceb8fb9fccce496a1b622c119df81b4238",
+    "pexpert/arm/pe_kprintf.c": "b324c4d3a4df10fea620b5bea634547def982e9af8007942a60515a286a7fabe",
+    "osfmk/console/serial_console.c": "1936df7d32c499d9787c1be3f525bfffc5d82b7106d752faa0ec30d6121ddd34",
+    "osfmk/kern/startup.c": "d5474a11ed95da2f83f9d41e858effa007a438fd408ac1a390747764860a779a",
+    "bsd/kern/bsd_init.c": "c9000123b87d8f5969577206fbd8a28ced656e7e41d38450d8500c7138f5460b",
+    "bsd/kern/kern_exec.c": "c04ae771258239ddede4043bf568738233d624131cf91bc7e21b0dbbf6557d9e"
+  },
+  "display_archive_sha256": "4fa31ce273dcc2b469ec492282624cff379cbfc4e69bdd6cb3e8ac028b1d0b97",
+  "native": {
+    "path": "/root/k70-gpu-work/kernel-r32-gpu/mach.r32-thp.unstripped.noctf",
+    "sha256": "b516514be2c865f2a30b056bd4b503d8e5b78c88ee79a5f07c03285ec01e975f"
+  },
+  "kernel": {
+    "path": "/root/k70-gpu-work/kernel-r32-gpu/kernel-payload.macho",
+    "sha256": "1b45e633c2dc90650e0247f88983bd2510c6e05f4560b8e54a9d7312af871342",
+    "bytes": 125501440
+  },
+  "all_undefined_resolved": true,
+  "apple_components_match_r5_plan": true
+}

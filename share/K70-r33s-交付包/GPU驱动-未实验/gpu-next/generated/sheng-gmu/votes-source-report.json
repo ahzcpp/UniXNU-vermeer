@@ -1,0 +1,133 @@
+{
+  "linux_revision": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "board_revision": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "dtb_sha256": "a7692126574844872c3f71a6f3bed41aeca14500ac3823cd47fc8b61d5047db1",
+  "catalog_sha256": "ff1abc1b7735d6bd6aa07d5df776e2549be2ee70ffcc02ff24aac646dfd6a3c7",
+  "command_db_base": 2177236992,
+  "command_db_bytes": 131072,
+  "command_db_header_sha256": "d5a27e57cc2b84f24f062404dc3892a9d41d98b8641e670334b6ba9cd7d8f1d7",
+  "opps": {
+    "gpu": [
+      {
+        "hz": 0,
+        "level": 0,
+        "kbps": 0,
+        "acd_present": false,
+        "acd": 0
+      },
+      {
+        "hz": 220000000,
+        "level": 52,
+        "kbps": 2136718,
+        "acd_present": true,
+        "acd": 3224330237
+      },
+      {
+        "hz": 295000000,
+        "level": 56,
+        "kbps": 6074218,
+        "acd_present": true,
+        "acd": 3761070077
+      },
+      {
+        "hz": 348000000,
+        "level": 60,
+        "kbps": 6074218,
+        "acd_present": true,
+        "acd": 3760939005
+      },
+      {
+        "hz": 401000000,
+        "level": 64,
+        "kbps": 6074218,
+        "acd_present": true,
+        "acd": 3224002557
+      },
+      {
+        "hz": 475000000,
+        "level": 80,
+        "kbps": 6074218,
+        "acd_present": true,
+        "acd": 3760742397
+      },
+      {
+        "hz": 550000000,
+        "level": 128,
+        "kbps": 10687500,
+        "acd_present": true,
+        "acd": 3760742397
+      },
+      {
+        "hz": 615000000,
+        "level": 144,
+        "kbps": 12449218,
+        "acd_present": true,
+        "acd": 2821677053
+      },
+      {
+        "hz": 680000000,
+        "level": 192,
+        "kbps": 16500000,
+        "acd_present": true,
+        "acd": 2284740605
+      }
+    ],
+    "gmu": [
+      {
+        "hz": 0,
+        "level": 0,
+        "kbps": 0,
+        "acd_present": false,
+        "acd": 0
+      },
+      {
+        "hz": 200000000,
+        "level": 64,
+        "kbps": 0,
+        "acd_present": false,
+        "acd": 0
+      },
+      {
+        "hz": 500000000,
+        "level": 128,
+        "kbps": 0,
+        "acd_present": false,
+        "acd": 0
+      }
+    ]
+  },
+  "bandwidths_kbps": [
+    0,
+    2136718,
+    6074218,
+    10687500,
+    12449218,
+    16500000
+  ],
+  "bcms": [
+    {
+      "name": "SH0",
+      "buswidth": 16,
+      "fixed": 0,
+      "perfmode": 0,
+      "perfmode_kbps": 0
+    },
+    {
+      "name": "MC0",
+      "buswidth": 4,
+      "fixed": 0,
+      "perfmode": 0,
+      "perfmode_kbps": 0
+    },
+    {
+      "name": "ACV",
+      "buswidth": 0,
+      "fixed": 1,
+      "perfmode": 8,
+      "perfmode_kbps": 16500000
+    }
+  ],
+  "generated_header_sha256": "d8a2cfc890653ae55c587ada9ad3768357757b8bd036e2e2497ba7b4acd0d4e5",
+  "actual_command_db_available": false,
+  "hardware_ready": false
+}

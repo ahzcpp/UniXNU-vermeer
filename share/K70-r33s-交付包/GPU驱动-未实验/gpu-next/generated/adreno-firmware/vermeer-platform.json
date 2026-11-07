@@ -1,0 +1,75 @@
+{
+  "linux_commit": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "board_commit": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "compiled_dtb_sha256": "a7692126574844872c3f71a6f3bed41aeca14500ac3823cd47fc8b61d5047db1",
+  "resources": {
+    "gpu": {
+      "node": "/soc/gpu@3d00000",
+      "compatible": "qcom,adreno-43050a01 qcom,adreno",
+      "ranges": [
+        {
+          "base": 63963136,
+          "bytes": 262144
+        },
+        {
+          "base": 64610304,
+          "bytes": 4096
+        },
+        {
+          "base": 64360448,
+          "bytes": 2048
+        }
+      ]
+    },
+    "gmu": {
+      "node": "/soc/gmu@3d6a000",
+      "compatible": "qcom,adreno-gmu-740.1 qcom,adreno-gmu",
+      "ranges": [
+        {
+          "base": 64397312,
+          "bytes": 217088
+        },
+        {
+          "base": 64290816,
+          "bytes": 65536
+        },
+        {
+          "base": 187170816,
+          "bytes": 65536
+        }
+      ]
+    },
+    "smmu": {
+      "node": "/soc/iommu@3da0000",
+      "compatible": "qcom,sm8550-smmu-500 qcom,adreno-smmu qcom,smmu-500 arm,mmu-500",
+      "ranges": [
+        {
+          "base": 64618496,
+          "bytes": 262144
+        }
+      ]
+    },
+    "gpucc": {
+      "node": "/soc/clock-controller@3d90000",
+      "compatible": "qcom,sm8550-gpucc",
+      "ranges": [
+        {
+          "base": 64552960,
+          "bytes": 40960
+        }
+      ]
+    }
+  },
+  "gpu_streams": [
+    0,
+    1
+  ],
+  "gmu_stream": 5,
+  "zap_reserved_bytes": 8192,
+  "static_only": true,
+  "hardware_registers_observed": false,
+  "smmu_page_geometry_qualified": false,
+  "gmu_started": false,
+  "gpu_submission_qualified": false,
+  "metal_qualified": false
+}

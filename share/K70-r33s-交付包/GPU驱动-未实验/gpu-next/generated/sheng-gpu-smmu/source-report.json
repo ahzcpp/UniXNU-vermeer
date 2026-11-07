@@ -1,0 +1,19 @@
+{
+  "linux_revision": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "board_revision": "42f3b40c702abbc37c3a04c95af008cd283aeaf3",
+  "platform_report_sha256": "6f2ecbf76a77292f308d9134d6c4528bf2f6bd1dfbe61075e31f9ed08b51760a",
+  "qcom_source_sha256": "ab248190c83bc5af9a1526a88a6bc4ecb9adf88cf1fb9faa601aa3bd96e03254",
+  "header_sha256": "3b1ae03701ee6744928b03af2a436a0f45131f9244fab78fc2cb889ad44fe682",
+  "gpu_context_bank": 0,
+  "gmu_context_bank_min": 1,
+  "gpu_sids": [
+    0,
+    1
+  ],
+  "gmu_sid": 5,
+  "register_range": {
+    "base": 64618496,
+    "bytes": 262144
+  },
+  "hardware_observed": false
+}

@@ -1,0 +1,548 @@
+{
+  "stock_dts": "/root/k70dt/stock.dts",
+  "compared": 18,
+  "mismatches": [],
+  "checks": [
+    {
+      "name": "GPU core registers",
+      "ok": true,
+      "stock": [
+        "0x3d00000",
+        "0x40000"
+      ],
+      "mainline": [
+        "0x3d00000",
+        "0x40000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "CX misc (cx_mem)",
+      "ok": true,
+      "stock": [
+        "0x3d9e000",
+        "0x1000"
+      ],
+      "mainline": [
+        "0x3d9e000",
+        "0x1000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "CX debug (cx_dbgc)",
+      "ok": true,
+      "stock": [
+        "0x3d61000",
+        "0x800"
+      ],
+      "mainline": [
+        "0x3d61000",
+        "0x800"
+      ],
+      "note": ""
+    },
+    {
+      "name": "RSCC",
+      "ok": true,
+      "stock": [
+        "0x3d50000",
+        "0x10000"
+      ],
+      "mainline": [
+        "0x3d50000",
+        "0x10000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "GMU PDC",
+      "ok": true,
+      "stock": [
+        "0xb280000",
+        "0x10000"
+      ],
+      "mainline": [
+        "0xb280000",
+        "0x10000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "GMU window (same block, different DT start)",
+      "ok": true,
+      "stock": [
+        "0x3d68000",
+        "0x37000"
+      ],
+      "mainline": [
+        "0x3d6a000",
+        "0x35000"
+      ],
+      "note": "kgsl maps from 0x3d68000 (0x37000); mainline from 0x3d6a000 (0x35000); both end at 0x3d9f000. Register offsets in the generated header are relative to the mainline start, so the absolute addresses are identical; the K70 needs no different GMU window."
+    },
+    {
+      "name": "GMU core->GPU delta used by ShengGmu",
+      "ok": true,
+      "stock": "0x6a000",
+      "mainline": "0x6a000",
+      "note": ""
+    },
+    {
+      "name": "GPU IRQ (SPI)",
+      "ok": true,
+      "stock": 300,
+      "mainline": 300,
+      "note": ""
+    },
+    {
+      "name": "GMU HFI/GMU IRQs (SPI)",
+      "ok": true,
+      "stock": [
+        304,
+        305
+      ],
+      "mainline": [
+        304,
+        305
+      ],
+      "note": ""
+    },
+    {
+      "name": "Adreno SMMU base",
+      "ok": true,
+      "stock": [
+        "0x3da0000",
+        "0x40000"
+      ],
+      "mainline": [
+        "0x3da0000",
+        "0x40000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "GPU stream IDs",
+      "ok": true,
+      "stock": [
+        0,
+        1
+      ],
+      "mainline": [
+        0,
+        1
+      ],
+      "note": "kgsl gfx3d_user=0, gfx3d_lpac=1; gfx3d_secure=2 is unused"
+    },
+    {
+      "name": "GMU stream ID",
+      "ok": true,
+      "stock": 5,
+      "mainline": 5,
+      "note": ""
+    },
+    {
+      "name": "ZAP reservation",
+      "ok": true,
+      "stock": [
+        "0x9b09a000",
+        "0x2000"
+      ],
+      "mainline": [
+        "0x9b09a000",
+        "0x2000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Command DB reservation",
+      "ok": true,
+      "stock": [
+        "0x81c60000",
+        "0x20000"
+      ],
+      "mainline": [
+        "0x81c60000",
+        "0x20000"
+      ],
+      "note": ""
+    },
+    {
+      "name": "GPU OPPs (freq, RPMh level, ACD) within stock qcom,gpu-pwrlevels-0",
+      "ok": true,
+      "stock": [
+        [
+          220000000,
+          52,
+          3224330237
+        ],
+        [
+          295000000,
+          56,
+          3761070077
+        ],
+        [
+          348000000,
+          60,
+          3760939005
+        ],
+        [
+          401000000,
+          64,
+          3224002557
+        ],
+        [
+          475000000,
+          80,
+          3760742397
+        ],
+        [
+          550000000,
+          128,
+          3760742397
+        ],
+        [
+          615000000,
+          144,
+          2821677053
+        ],
+        [
+          680000000,
+          192,
+          2284740605
+        ],
+        [
+          719000000,
+          224,
+          2284740605
+        ]
+      ],
+      "mainline": [
+        [
+          220000000,
+          52,
+          3224330237
+        ],
+        [
+          295000000,
+          56,
+          3761070077
+        ],
+        [
+          348000000,
+          60,
+          3760939005
+        ],
+        [
+          401000000,
+          64,
+          3224002557
+        ],
+        [
+          475000000,
+          80,
+          3760742397
+        ],
+        [
+          550000000,
+          128,
+          3760742397
+        ],
+        [
+          615000000,
+          144,
+          2821677053
+        ],
+        [
+          680000000,
+          192,
+          2284740605
+        ]
+      ],
+      "note": "sku codes 0x3 0x6 0x300f1 0x300f3 0x500f1 0x500f3 0x700f1 0x700f2 0x700fe 0x700ff; stock adds 719 MHz @ SVS_L2 for these parts"
+    },
+    {
+      "name": "GPU OPPs (freq, RPMh level, ACD) within stock qcom,gpu-pwrlevels-1",
+      "ok": true,
+      "stock": [
+        [
+          220000000,
+          52,
+          3224330237
+        ],
+        [
+          295000000,
+          56,
+          3761070077
+        ],
+        [
+          348000000,
+          60,
+          3760939005
+        ],
+        [
+          401000000,
+          64,
+          3224002557
+        ],
+        [
+          475000000,
+          80,
+          3760742397
+        ],
+        [
+          550000000,
+          128,
+          3760742397
+        ],
+        [
+          615000000,
+          144,
+          2821677053
+        ],
+        [
+          680000000,
+          192,
+          2284740605
+        ]
+      ],
+      "mainline": [
+        [
+          220000000,
+          52,
+          3224330237
+        ],
+        [
+          295000000,
+          56,
+          3761070077
+        ],
+        [
+          348000000,
+          60,
+          3760939005
+        ],
+        [
+          401000000,
+          64,
+          3224002557
+        ],
+        [
+          475000000,
+          80,
+          3760742397
+        ],
+        [
+          550000000,
+          128,
+          3760742397
+        ],
+        [
+          615000000,
+          144,
+          2821677053
+        ],
+        [
+          680000000,
+          192,
+          2284740605
+        ]
+      ],
+      "note": "sku codes 0x0"
+    },
+    {
+      "name": "GMU OPPs",
+      "ok": true,
+      "stock": [
+        [
+          220000000,
+          64
+        ],
+        [
+          550000000,
+          128
+        ]
+      ],
+      "mainline": [
+        [
+          200000000,
+          64
+        ],
+        [
+          500000000,
+          128
+        ]
+      ],
+      "note": "informational: mainline (sheng-proven) runs the GMU at 200/500 MHz on LOW_SVS/SVS; kgsl uses 220/550 MHz on the same levels"
+    },
+    {
+      "name": "GPU bandwidth votes",
+      "ok": true,
+      "stock": [
+        0,
+        2136718,
+        3000000,
+        6074218,
+        6671875,
+        8171875,
+        10687500,
+        12449218,
+        14398437,
+        16500000
+      ],
+      "mainline": [
+        2136718,
+        6074218,
+        10687500,
+        12449218,
+        16500000
+      ],
+      "note": "every mainline peak-kBps is an entry of the stock DDR bus table"
+    }
+  ],
+  "stock_bins": {
+    "qcom,gpu-pwrlevels-0": {
+      "sku_codes": [
+        "0x3",
+        "0x6",
+        "0x300f1",
+        "0x300f3",
+        "0x500f1",
+        "0x500f3",
+        "0x700f1",
+        "0x700f2",
+        "0x700fe",
+        "0x700ff"
+      ],
+      "levels": [
+        {
+          "hz": 220000000,
+          "level": 52,
+          "acd": 3224330237,
+          "kbps": 2136718,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 295000000,
+          "level": 56,
+          "acd": 3761070077,
+          "kbps": 6074218,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 348000000,
+          "level": 60,
+          "acd": 3760939005,
+          "kbps": 6074218,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 401000000,
+          "level": 64,
+          "acd": 3224002557,
+          "kbps": 6074218,
+          "kbps_max": 6671875
+        },
+        {
+          "hz": 475000000,
+          "level": 80,
+          "acd": 3760742397,
+          "kbps": 6074218,
+          "kbps_max": 8171875
+        },
+        {
+          "hz": 550000000,
+          "level": 128,
+          "acd": 3760742397,
+          "kbps": 6074218,
+          "kbps_max": 12449218
+        },
+        {
+          "hz": 615000000,
+          "level": 144,
+          "acd": 2821677053,
+          "kbps": 10687500,
+          "kbps_max": 12449218
+        },
+        {
+          "hz": 680000000,
+          "level": 192,
+          "acd": 2284740605,
+          "kbps": 12449218,
+          "kbps_max": 16500000
+        },
+        {
+          "hz": 719000000,
+          "level": 224,
+          "acd": 2284740605,
+          "kbps": 16500000,
+          "kbps_max": 16500000
+        }
+      ]
+    },
+    "qcom,gpu-pwrlevels-1": {
+      "sku_codes": [
+        "0x0"
+      ],
+      "levels": [
+        {
+          "hz": 220000000,
+          "level": 52,
+          "acd": 3224330237,
+          "kbps": 2136718,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 295000000,
+          "level": 56,
+          "acd": 3761070077,
+          "kbps": 6074218,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 348000000,
+          "level": 60,
+          "acd": 3760939005,
+          "kbps": 6074218,
+          "kbps_max": 6074218
+        },
+        {
+          "hz": 401000000,
+          "level": 64,
+          "acd": 3224002557,
+          "kbps": 6074218,
+          "kbps_max": 6671875
+        },
+        {
+          "hz": 475000000,
+          "level": 80,
+          "acd": 3760742397,
+          "kbps": 6074218,
+          "kbps_max": 8171875
+        },
+        {
+          "hz": 550000000,
+          "level": 128,
+          "acd": 3760742397,
+          "kbps": 6074218,
+          "kbps_max": 12449218
+        },
+        {
+          "hz": 615000000,
+          "level": 144,
+          "acd": 2821677053,
+          "kbps": 10687500,
+          "kbps_max": 16500000
+        },
+        {
+          "hz": 680000000,
+          "level": 192,
+          "acd": 2284740605,
+          "kbps": 16500000,
+          "kbps_max": 16500000
+        }
+      ]
+    }
+  },
+  "conclusion": "K70 GPU hardware inputs equal the pinned mainline SM8550 values used for sheng; only the signed ZAP image is board-specific."
+}

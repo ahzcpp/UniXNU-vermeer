@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Redmi K70 (vermeer): GPU board inputs only, in mainline form, for the UniXNU Adreno740 generators.
+ *
+ * Every GPU, GMU, SMMU, OPP, IRQ, cmd-db and ZAP reservation value comes from the pinned mainline
+ * sm8550.dtsi, exactly as for sheng; check-vermeer-gpu-dt.py verifies each one against the K70 stock DT
+ * (/root/k70dt/stock.dts). The board contributes only the GPU enable and the K70's own signed ZAP image.
+ */
+/dts-v1/;
+
+#include "sm8550.dtsi"
+
+/ {
+	model = "Xiaomi Redmi K70 (GPU inputs)";
+	compatible = "xiaomi,vermeer", "qcom,sm8550";
+	chassis-type = "handset";
+};
+
+&gpu {
+	status = "okay";
+};
+
+&gpu_zap_shader {
+	firmware-name = "qcom/sm8550/vermeer/a740_zap.mbn";
+};

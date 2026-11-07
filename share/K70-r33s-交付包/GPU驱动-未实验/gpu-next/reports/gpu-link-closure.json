@@ -1,0 +1,15 @@
+{
+  "kernel": "/root/k70-clean-20261104/storage-candidate-20261104/r32-thp-20261107/mach.r32-thp.unstripped.noctf",
+  "archives": {
+    "libK70Gpu.a": "/root/k70-gpu-work/tree/build/k70-gpu/libK70Gpu.a",
+    "libAdreno740.a": "/root/k70-gpu-work/tree/build/adreno740/libAdreno740.a"
+  },
+  "unresolved": [],
+  "replaces_cpu_only_stubs": [
+    "_native_adreno_fences",
+    "_native_adreno_fences_detail",
+    "_native_gpu_trace_enabled",
+    "_native_gpu_trace_record"
+  ],
+  "also_defined_in_kernel": []
+}
