@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install llvm ninja glslang bison
+          brew install llvm ninja glslang bison shaderc
           if ! command -v rustup >/dev/null; then brew install rustup; fi
           export PATH="$HOME/.cargo/bin:$(brew --prefix llvm)/bin:$PATH"
           rustup toolchain install 1.98.0 --profile minimal --target aarch64-apple-ios
@@ -72,6 +72,12 @@ jobs:
           (root/'build/ios16-deployment-changes.json').write_text(json.dumps(changes,indent=2)+'\n')
           PY
 
+      - name: Apply and check bounded phone scanout scaling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 gpu16/patch-gpu-scanout-scale.py unixnu
+          python3 gpu16/check-gpu-scanout-ir.py unixnu
       - name: Build Turnip and Metal frontend with genuine SDK and signatures
         shell: bash
         run: |
@@ -140,4 +146,4 @@ jobs:
             unixnu/build/ios16-*.json
             unixnu/build/*-imports.txt
             unixnu/.cache/mesa-tu-ios-*.log
-            unixnu/build/adreno-metal-bridge/ios/build.log
+            unixnu/build/adreno-metal-bridge/build-ios.log
