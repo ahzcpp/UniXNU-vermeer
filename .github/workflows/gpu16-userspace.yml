@@ -26,7 +26,7 @@ jobs:
           git -C unixnu remote add origin https://github.com/UniXNU/UniXNU.git
           git -C unixnu fetch --depth=1 origin c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
           git -C unixnu checkout --detach FETCH_HEAD
-          git -C unixnu submodule update --init --depth=1 drivers/Adreno740 drivers/AdrenoMetal kits/AdrenoPM4
+          git -C unixnu submodule update --init --depth=1 drivers/Adreno740 drivers/AdrenoMetal drivers/GopFramebuffer kits/AdrenoPM4
 
       - name: Install compiler tools
         shell: bash
@@ -51,6 +51,15 @@ jobs:
           import hashlib,json,re
           root=Path('unixnu')
           changes=[]
+          p=root/'drivers/AdrenoMetal/NativeBridgeMetalFrontend.mm'
+          old=p.read_text()
+          anchor='const NSUInteger version=options && options.languageVersion?(NSUInteger)options.languageVersion:(NSUInteger)MTLLanguageVersion3_1;'
+          assert old.count(anchor)==1
+          replacement='''NSUInteger defaultLanguage=(NSUInteger)MTLLanguageVersion3_0;
+           if(@available(iOS 17.0,macOS 14.0,*))defaultLanguage=(NSUInteger)MTLLanguageVersion3_1;
+           const NSUInteger version=options && options.languageVersion?(NSUInteger)options.languageVersion:defaultLanguage;'''
+          p.write_text(old.replace(anchor,replacement))
+          changes.append(dict(file=str(p.relative_to(root)),before=hashlib.sha256(old.encode()).hexdigest(),after=hashlib.sha256(p.read_bytes()).hexdigest(),reason='Use MSL3.0 default on iOS16 and guard the iOS17 constant; explicit caller options preserved'))
           for name in ['build-turnip-darwin.py','build-adreno-metal-plugin.py','build-adreno-metal-bridge.py']:
               p=root/'scripts'/name
               old=p.read_text()
@@ -78,6 +87,15 @@ jobs:
           set -euo pipefail
           python3 gpu16/patch-gpu-scanout-scale.py unixnu
           python3 gpu16/check-gpu-scanout-ir.py unixnu
+      - name: Restore exact Rust bridge build cache
+        id: bridge-cache
+        uses: actions/cache/restore@v4
+        with:
+          key: k70-gpu16-intel-rust198-c1ecc5b7-m2v624bab3-scale-b8750f55-v1
+          path: |
+            unixnu/build/m2v-target
+            unixnu/.cache/gpu-reference/metal2vulkan
+            ~/.cargo/registry
       - name: Build Turnip and Metal frontend with genuine SDK and signatures
         shell: bash
         run: |
@@ -99,6 +117,15 @@ jobs:
           subprocess.run([sys.executable,root/'scripts/make-gpu-addon.py','--publish','--no-daemon',root/'build/gpuaddon-ios16.bin'],check=True)
           PY
 
+      - name: Save only exact-source Rust build outputs
+        if: always() && steps.bridge-cache.outputs.cache-hit != 'true' && hashFiles('unixnu/build/adreno-metal-bridge/ios/libadreno_metal_bridge.a') != ''
+        uses: actions/cache/save@v4
+        with:
+          key: k70-gpu16-intel-rust198-c1ecc5b7-m2v624bab3-scale-b8750f55-v1
+          path: |
+            unixnu/build/m2v-target
+            unixnu/.cache/gpu-reference/metal2vulkan
+            ~/.cargo/registry
       - name: Audit architectures, deployment versions, signatures and imports
         shell: bash
         run: |
