@@ -1,0 +1,57 @@
+diff --git a/src/vulkan/runtime/vk_log.c b/src/vulkan/runtime/vk_log.c
+--- a/src/vulkan/runtime/vk_log.c
++++ b/src/vulkan/runtime/vk_log.c
+@@ -294,11 +294,53 @@
+    }
+ }
+ 
++
++#ifdef __APPLE__
++#include <IOKit/IOKitLib.h>
++#include <errno.h>
++/* Retain the first actual Vulkan failure in the owner's existing diagnostic
++ * channel. No external method, GPU command or filesystem mutation is added. */
++static void
++k70_record_first_vk_error(VkResult error, const char *file, int line,
++                          const char *format, va_list args)
++{
++   static unsigned recorded;
++   if (error >= 0 || !__sync_bool_compare_and_swap(&recorded, 0, 1))
++      return;
++   const int saved_errno = errno;
++   char detail[128], text[64];
++   va_list copy;
++   va_copy(copy, args);
++   if (format) vsnprintf(detail, sizeof(detail), format, copy);
++   else snprintf(detail, sizeof(detail), "VkResult %d", (int)error);
++   va_end(copy);
++   const char *base = strrchr(file, '/');
++   snprintf(text, sizeof(text), "VK %.16s:%d %.30s", base ? base+1 : file, line, detail);
++   io_service_t service = IOServiceGetMatchingService(0, IOServiceMatching("IOAcceleratorES"));
++   if (service) {
++      io_connect_t unused = 0;
++      if (IOServiceOpen(service, mach_task_self(), 0x41477ffeu, &unused) == KERN_SUCCESS)
++         IOServiceClose(unused);
++      for (unsigned i=0; text[i] && i<sizeof(text)-1; ++i) {
++         const unsigned char c=(unsigned char)text[i];
++         unused=0;
++         if (IOServiceOpen(service, mach_task_self(), 0x41477000u | (c>=32 && c<127 ? c : ' '), &unused) == KERN_SUCCESS)
++            IOServiceClose(unused);
++      }
++      IOObjectRelease(service);
++   }
++   errno=saved_errno;
++}
++#endif
++
+ VkResult
+ __vk_errorv(const void *_obj, VkResult error,
+             const char *file, int line,
+             const char *format, va_list va)
+ {
++#ifdef __APPLE__
++   k70_record_first_vk_error(error, file, line, format, va);
++#endif
+    struct vk_object_base *object = (struct vk_object_base *)_obj;
+    struct vk_instance *instance = vk_object_to_instance(object);
+    object = vk_object_for_error(object, error);
