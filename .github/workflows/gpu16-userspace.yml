@@ -1,0 +1,125 @@
+name: GPU userspace for iOS 16.7
+
+on:
+  push:
+    branches: [gpu16-build-20261111]
+    paths: [.github/workflows/gpu16-userspace.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  userspace:
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the exact source used by the K70 kernel ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init unixnu
+          git -C unixnu remote add origin https://github.com/UniXNU/UniXNU.git
+          git -C unixnu fetch --depth=1 origin c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          git -C unixnu checkout --detach FETCH_HEAD
+          git -C unixnu submodule update --init --depth=1 drivers/Adreno740 drivers/AdrenoMetal kits/AdrenoPM4
+
+      - name: Install compiler tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install llvm ninja glslang
+          if ! command -v rustup >/dev/null; then brew install rustup; fi
+          export PATH="$HOME/.cargo/bin:$(brew --prefix llvm)/bin:$PATH"
+          rustup toolchain install 1.98.0 --profile minimal --target aarch64-apple-ios
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Select iOS 16.7 deployment without changing runtime code
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('unixnu')
+          changes=[]
+          for name in ['build-turnip-darwin.py','build-adreno-metal-plugin.py','build-adreno-metal-bridge.py']:
+              p=root/'scripts'/name
+              old=p.read_text()
+              assert '17.0' in old,name
+              new=old.replace('17.0','16.7')
+              p.write_text(new)
+              changes.append(dict(file=name,before=hashlib.sha256(old.encode()).hexdigest(),after=hashlib.sha256(new.encode()).hexdigest()))
+          (root/'build').mkdir(exist_ok=True)
+          (root/'build/ios16-deployment-changes.json').write_text(json.dumps(changes,indent=2)+'\n')
+          PY
+
+      - name: Build Turnip and Metal frontend with genuine SDK and signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import importlib.util,sys,subprocess
+          root=Path('unixnu').resolve()
+          sys.path.insert(0,str(root/'scripts'))
+          spec=importlib.util.spec_from_file_location('runtime_builder',root/'scripts/build-boot-runtime.py')
+          module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+          plugin=module.build_plugin('ios')
+          subprocess.run([sys.executable,root/'scripts/make-gpu-addon.py','--publish','--no-daemon',root/'build/gpuaddon-ios16.bin'],check=True)
+          PY
+
+      - name: Audit architectures, deployment versions, signatures and imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,plistlib,struct,subprocess
+          root=Path('unixnu');bundle=root/'build/adreno-metal-plugin/NativeAdrenoMetal.bundle'
+          report=[]
+          assert plistlib.loads((bundle/'Info.plist').read_bytes())['MinimumOSVersion']=='16.7'
+          for p in [bundle/'NativeAdrenoMetal',bundle/'libvulkan_freedreno.dylib']:
+              data=p.read_bytes()
+              assert struct.unpack_from('<3I',data)==(0xfeedfacf,0x100000c,0),p
+              commands=struct.unpack_from('<I',data,16)[0];at=32;minimums=[]
+              for _ in range(commands):
+                  cmd,size=struct.unpack_from('<II',data,at)
+                  if cmd==0x32:
+                      platform,minimum=struct.unpack_from('<II',data,at+8)
+                      assert platform==2 and minimum<=0x00100700,(p,platform,hex(minimum))
+                      minimums.append(hex(minimum))
+                  if cmd==0x25:
+                      minimum=struct.unpack_from('<I',data,at+8)[0]
+                      assert minimum<=0x00100700,(p,hex(minimum))
+                      minimums.append(hex(minimum))
+                  at+=size
+              assert minimums,p
+              subprocess.run(['codesign','--verify','--strict',p],check=True)
+              imports=subprocess.check_output(['nm','-u',str(p)],text=True)
+              (root/'build'/(p.name+'-imports.txt')).write_text(imports)
+              report.append(dict(file=p.name,sha256=hashlib.sha256(data).hexdigest(),bytes=len(data),minimums=minimums))
+          (root/'build/ios16-artifact-audit.json').write_text(json.dumps(dict(binaries=report,hardware_tested=False,apple_or_oem_binaries_included=False),indent=2)+'\n')
+          PY
+
+      - name: Upload only owner-built userspace output and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k70-gpu-userspace-ios16
+          retention-days: 3
+          if-no-files-found: warn
+          path: |
+            unixnu/build/gpuaddon-ios16.bin
+            unixnu/build/adreno-metal-plugin/trust.json
+            unixnu/build/ios16-*.json
+            unixnu/build/*-imports.txt
+            unixnu/.cache/mesa-tu-ios-*.log
+            unixnu/build/adreno-metal-bridge/ios/build.log
