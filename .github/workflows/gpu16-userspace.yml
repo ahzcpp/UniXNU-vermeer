@@ -107,6 +107,9 @@ jobs:
           pins['patches'].append('patches/mesa/turnip-startup-log.patch')
           p.write_text(json.dumps(pins,indent=2)+'\n')
           PY
+      - name: Match the measured iOS16 Metal base ABI
+        shell: bash
+        run: python3 gpu16/patch-ios16-metal-device.py unixnu
       - name: Restore exact Rust bridge build cache
         id: bridge-cache
         uses: actions/cache/restore@v4
