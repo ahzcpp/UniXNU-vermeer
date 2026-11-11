@@ -60,6 +60,13 @@ jobs:
            const NSUInteger version=options && options.languageVersion?(NSUInteger)options.languageVersion:defaultLanguage;'''
           p.write_text(old.replace(anchor,replacement))
           changes.append(dict(file=str(p.relative_to(root)),before=hashlib.sha256(old.encode()).hexdigest(),after=hashlib.sha256(p.read_bytes()).hexdigest(),reason='Use MSL3.0 default on iOS16 and guard the iOS17 constant; explicit caller options preserved'))
+          p=root/'drivers/AdrenoMetal/NativeAdrenoMetalPlugin.mm'
+          old=p.read_text();new=old
+          for signature in ['static bool writeTask(', 'static unsigned patchFramebufferBranch(']:
+              assert new.count(signature)==1
+              new=new.replace(signature,'[[maybe_unused]] '+signature)
+          p.write_text(new)
+          changes.append(dict(file=str(p.relative_to(root)),before=hashlib.sha256(old.encode()).hexdigest(),after=hashlib.sha256(new.encode()).hexdigest(),reason='Annotate optional hooks unused by the ordinary-arm64 build; retain all compiler errors and runtime code'))
           for name in ['build-turnip-darwin.py','build-adreno-metal-plugin.py','build-adreno-metal-bridge.py']:
               p=root/'scripts'/name
               old=p.read_text()
