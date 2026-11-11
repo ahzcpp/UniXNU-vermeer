@@ -32,12 +32,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install llvm ninja glslang
+          brew install llvm ninja glslang bison
           if ! command -v rustup >/dev/null; then brew install rustup; fi
           export PATH="$HOME/.cargo/bin:$(brew --prefix llvm)/bin:$PATH"
           rustup toolchain install 1.98.0 --profile minimal --target aarch64-apple-ios
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
@@ -82,7 +83,13 @@ jobs:
           sys.path.insert(0,str(root/'scripts'))
           spec=importlib.util.spec_from_file_location('runtime_builder',root/'scripts/build-boot-runtime.py')
           module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-          plugin=module.build_plugin('ios')
+          try:
+              plugin=module.build_plugin('ios')
+          except BaseException:
+              # Surface the actual generator/compiler failure, including hidden cache logs.
+              for log in sorted((root/'.cache').glob('mesa-tu-ios-*.log')):
+                  print('\n==== '+str(log)+' ====\n'+log.read_text(errors='replace')[-18000:],flush=True)
+              raise
           subprocess.run([sys.executable,root/'scripts/make-gpu-addon.py','--publish','--no-daemon',root/'build/gpuaddon-ios16.bin'],check=True)
           PY
 
@@ -125,6 +132,7 @@ jobs:
         with:
           name: k70-gpu-userspace-ios16
           retention-days: 3
+          include-hidden-files: true
           if-no-files-found: warn
           path: |
             unixnu/build/gpuaddon-ios16.bin
