@@ -2,8 +2,8 @@ name: GPU userspace for iOS 16.7
 
 on:
   push:
-    branches: [gpu16-build-20261111]
-    paths: [.github/workflows/gpu16-userspace.yml]
+    branches: [gpu16-client-runtime-20261113]
+    paths: [.github/workflows/gpu16-userspace.yml, gpu16/patch-client-diagnostics.py]
   workflow_dispatch:
 
 permissions:
@@ -110,6 +110,9 @@ jobs:
       - name: Match the measured iOS16 Metal base ABI
         shell: bash
         run: python3 gpu16/patch-ios16-metal-device.py unixnu
+      - name: Add opt-in bounded render-client diagnostics
+        shell: bash
+        run: python3 gpu16/patch-client-diagnostics.py unixnu
       - name: Restore exact Rust bridge build cache
         id: bridge-cache
         uses: actions/cache/restore@v4
