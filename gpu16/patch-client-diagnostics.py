@@ -9,7 +9,8 @@ assert s.count(anchor)==1
 helper=r'''// Diagnostic only. Keep the existing device construction and presentation.
 static void startClientDiagnostics(unsigned port,id device) {
     if(!device || !bootArgSet("k70-gpu-client-diag=1"))return;
-    if(strcmp(getprogname(),"SBRendServer") && strcmp(getprogname(),"backboardd"))return;
+    if(strcmp(getprogname(),"SBRendServer") && strcmp(getprogname(),"backboardd") &&
+       strcmp(getprogname(),"SpringBoard") && strcmp(getprogname(),"Preferences"))return;
     static dispatch_once_t once;
     static dispatch_source_t source;
     dispatch_once(&once,^{
@@ -40,6 +41,10 @@ static void startClientDiagnostics(unsigned port,id device) {
             char identity[96];
             int length=snprintf(identity,sizeof identity,"CLIENT %s pid=%d",getprogname(),getpid());
             if(length>0)send(identity,(size_t)length);
+            char priming[96];
+            length=snprintf(priming,sizeof priming,"PR stage=%u libs=%u/%u made=%u rate=%u",
+                native_prime_compiling,native_prime_libraries_done,native_prime_libraries_total,native_prime_made,native_prime_rate);
+            if(length>0)send(priming,(size_t)length);
             for(char *line=all;*line && row<12;) {
                 char *end=strchr(line,'\n');size_t size=end?(size_t)(end-line):strlen(line);
                 if(!strncmp(line,"MEM ",4) || !strncmp(line,"L inp ",6) || !strncmp(line,"TB ",3) ||
@@ -59,8 +64,24 @@ anchor='''        if (native_bridge_metal_first_problem(problem, sizeof problem)
     return device;'''
 assert s.count(anchor)==1
 s=s.replace(anchor,anchor.replace('    }\n    return device;', '        startClientDiagnostics(port,device);\n    }\n    return device;'))
+anchor='''        gpu->mark(0x6803);
+        return device;'''
+assert s.count(anchor)==1
+s=s.replace(anchor,'''        startClientDiagnostics(port,device);
+'''+anchor)
+# The render server takes deviceForPort's full branch, while ordinary apps
+# take clientDevice. Both paths must use the explicit diagnostic switch.
+anchor='if (bootArgSet("sheng-diag=1") || bootArgSet("sheng-gpu-trace=1"))'
+assert s.count(anchor)==1
+s=s.replace(anchor,'if (bootArgSet("sheng-diag=1") || bootArgSet("sheng-gpu-trace=1") || bootArgSet("k70-gpu-client-diag=1"))')
+# Volatile Data cannot retain the OS-wide prewarm cache across temporary
+# boots. Permit an explicit no-prewarm experiment; normal on-demand shader
+# compilation and default behaviour remain intact.
+anchor='''        pthread_create(&primer, &attributes, [](void *) -> void * {'''
+assert s.count(anchor)==1
+s=s.replace(anchor,'''        if(!bootArgSet("k70-gpu-prime=0")) pthread_create(&primer, &attributes, [](void *) -> void * {''')
 p.write_text(s)
 (root/'build').mkdir(exist_ok=True)
-report={'file':str(p.relative_to(root)),'before_sha256':hashlib.sha256(old.encode()).hexdigest(),'after_sha256':hashlib.sha256(s.encode()).hexdigest(),'opt_in':'k70-gpu-client-diag=1','sample_seconds':10,'maximum_rows':12,'scanout_owner_added':False,'rendering_policy_changed':False,'device_tested':False}
+report={'file':str(p.relative_to(root)),'before_sha256':hashlib.sha256(old.encode()).hexdigest(),'after_sha256':hashlib.sha256(s.encode()).hexdigest(),'opt_in':'k70-gpu-client-diag=1','sample_seconds':10,'maximum_rows':12,'scanout_owner_added':False,'rendering_policy_changed_by_default':False,'shader_priming_disable_opt_in':'k70-gpu-prime=0','render_server_full_branch_sampled':True,'device_tested':False}
 (root/'build/ios16-client-diagnostics.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
