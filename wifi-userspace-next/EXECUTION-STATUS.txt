@@ -1,0 +1,13 @@
+Main-thread review, 2026-11-13
+
+STATUS.txt records the source-only proposal before execution. The main thread
+has reviewed the pinned sources, exact service/permission baseline, minimal
+deployment patch, native compiler selection and real code-signature page
+verification. The active workflow is now prepared on a separate branch with
+a branch-scoped push trigger; it is independent of the GPU branch.
+
+Native SDK compilation is pending. CoreServices/fork portability concerns
+remain real and must be resolved from actual compiler diagnostics. No service
+installation, launchd-cache modification, trust-cache merge, firmware, network
+profile or device write is part of this build. A successful build alone will
+not establish Wi-Fi initialization, authentication or iOS16 integration.

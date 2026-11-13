@@ -1,0 +1,42 @@
+# REVIEW COPY ONLY. No workflow was installed, committed, pushed or dispatched.
+# After review, place this at .github/workflows/wifi-userspace-ios16.yml and
+# place the complete source-only plan at wifi-userspace-next/ in that repository.
+name: Reviewed native WiFi userspace for iOS 16.7
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-supplicant:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: UniXNU/Ath12kWifi
+          ref: 5f7f5a8a9f02f7ab45ed10a2f226e348c519a838
+          path: component
+          persist-credentials: false
+      - name: Validate reviewed plan and public source identities
+        run: python3 -B wifi-userspace-next/ci/validate_plan.py --component component
+      - name: Build with genuine iPhoneOS SDK and sign only the own service
+        run: >-
+          python3 -B wifi-userspace-next/ci/build_native.py
+          --component component
+          --out "${{ runner.temp }}/wifi-userspace-ios16"
+      - name: Retain own binary and audit metadata only
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wifi-userspace-ios16-reviewed
+          path: ${{ runner.temp }}/wifi-userspace-ios16/delivery/
+          if-no-files-found: error
+          include-hidden-files: false
+          retention-days: 7
+# Build failures remain in the job log; do not upload the workspace, SDK,
+# upstream source/examples, native OS files, firmware, logs or signing keys.

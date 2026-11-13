@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "component": {
+    "repository": "UniXNU/Ath12kWifi",
+    "commit": "5f7f5a8a9f02f7ab45ed10a2f226e348c519a838",
+    "files": {
+      "include/nw_abi.h": {
+        "sha256": "7e196cf4a15d60f1ac62db0ffa64b15ab64f3d9aa1cb7842ca81f3edfaaf4a2c",
+        "git_blob": "116684756b1d95f9a6d53b3cb84cd2f8dce86480"
+      },
+      "include/nw_control.h": {
+        "sha256": "c895836cd8792a6844227da30c9eb91e598dd2fe8b865e53c69b9740bb68dab1",
+        "git_blob": "a8f8135cdc97269c1e9cf46ac61a65479e270a23"
+      },
+      "src/nw_control_wire.c": {
+        "sha256": "5296e45b05703da453f41972a21db917b894adf6d133ee85fc676047e0a6f792",
+        "git_blob": "28779b691fc9e4e5f86edc8039abacb99a70552f"
+      },
+      "tools/build-supplicant.py": {
+        "sha256": "53c8ada0293dd4aacbf52ba4bc51a518e8fc4018b655129a20edfdf1313cefa1",
+        "git_blob": "67d0db3f61ca6540ed86102adf540a4f423e6865"
+      },
+      "tools/fetch-sources.py": {
+        "sha256": "6d8dd881a848e09f0cd41660c4b346b99b1d52b379948198ecc7500a4841f2b0",
+        "git_blob": "d3ee17f473fc18e67ed4aaaef58f0fba8e2c89f5"
+      },
+      "tools/prepare-supplicant.py": {
+        "sha256": "5f1866c09d5c747983dc55e6b3af9f4fa03ca4326c4acf7a188f1f737d3d7d70",
+        "git_blob": "f1e07d47d40e60016a4285081f64604af1101744"
+      },
+      "tools/source-lock.json": {
+        "sha256": "f23882695f1c136c27b3f9cb36673bebad9ae1fc2af3fa787a98bd4add76c3c9",
+        "git_blob": "c424b7444b47dd2c76ae4df443235d963282d336"
+      },
+      "userspace/driver_sheng.c": {
+        "sha256": "f9d9e52dceefe2889f69d9a4a1e8f69cc0c2cac74d03a2c3349352301ce64e3e",
+        "git_blob": "ec1598d897b3c8b47f9cd4cfb3dbdc185f3f15db"
+      },
+      "userspace/l2_packet_sheng.c": {
+        "sha256": "f233302ed2f7288c210607974b4cf5eb2983d17c4b0347c4a6d32e675c292b18",
+        "git_blob": "75f16752e2119d44f1a19a10f49c0b5756c6d6b5"
+      },
+      "userspace/linux/types.h": {
+        "sha256": "7613d230b413e267b8b225a17e603bd74bb9675f64508020f41c9b8d0beef95b",
+        "git_blob": "0222e7d4061eefacd27cf6f0ed6524b311054af4"
+      },
+      "userspace/nw_control_client.c": {
+        "sha256": "9443823ce06bed2155e34c314da7ac95fe90a574dabe136b6f758c98dbe6a7ab",
+        "git_blob": "f47229b743bd20fa5668e48ab91e8af3ddabd248"
+      },
+      "userspace/nw_control_client.h": {
+        "sha256": "c6625abe9dcd4353b679dfe794a3eeb57836b30b67a1901b90be923465e0e54e",
+        "git_blob": "944a2c89cf99786abc140bd57d2183b63782b01f"
+      },
+      "userspace/nw_darwin_control.h": {
+        "sha256": "4511a5254617ca0898c9dc47827b07a12c8c2332e3f5b77adb2e62a35ae9e084",
+        "git_blob": "2bd96ded555a432c561ff5779e76ce0242a87db0"
+      },
+      "userspace/nw_supplicant_frontend.c": {
+        "sha256": "2c188b8640c952daadb4e04dd81a580c1fbe3773a8a4ef3481b97cd7a4772ae2",
+        "git_blob": "4c8058a686e721aec6414c3fdf16efae8239fa4f"
+      },
+      "userspace/nw_supplicant_frontend.h": {
+        "sha256": "ec1935eddefcfe06a6addf9fdc701d41fb44c1457eaf11ba957b6f8e3c69706c",
+        "git_blob": "75a5f820603c93e6179a6bf24f3f456a8139ff3f"
+      },
+      "userspace/nw_wireless_event.c": {
+        "sha256": "edcfbca111d2dacc136d075a51e2a96930deeeeb36c2ea80e9e4bb9fccdd15bf",
+        "git_blob": "6a1a37a7fa93cf1cc24ab668f16fa6d70ac86003"
+      },
+      "userspace/supplicant.config": {
+        "sha256": "eeeda650b01ad4bd22e8b75a8ab7de37f9dd2b7ae3e17856cfee80c55f0f2e17",
+        "git_blob": "b2afdf047ac90be23430b2faa34bcb147d5683b7"
+      }
+    }
+  },
+  "supplicant": {
+    "url": "https://w1.fi/releases/wpa_supplicant-2.12.tar.gz",
+    "archive": "wpa_supplicant-2.12.tar.gz",
+    "directory": "wpa_supplicant-2.12",
+    "sha256": "08e23937e16d0155e55cab2b51f51fbe10d80a1aa91c4e15442645059b737ef6",
+    "required": [
+      "wpa_supplicant/wpa_supplicant.c",
+      "src/rsn_supp/wpa.c",
+      "src/drivers/driver.h",
+      "src/crypto/aes-internal.c",
+      "src/crypto/aes-internal-enc.c",
+      "src/crypto/aes-ccm.c",
+      "src/crypto/aes-gcm.c",
+      "src/crypto/aes-omac1.c",
+      "src/crypto/aes-ctr.c",
+      "src/crypto/aes-siv.c",
+      "src/crypto/aes_siv.h",
+      "src/crypto/aes.h",
+      "src/crypto/aes_i.h",
+      "src/crypto/aes_wrap.h",
+      "src/crypto/crypto.h"
+    ]
+  },
+  "consumer_reference": {
+    "repository": "UniXNU/UniXNU-sheng",
+    "commit": "1108068537d5396edb2c63b2f8c6f5b97b0a4bbc",
+    "path": "scripts/build-wifi-userspace.py",
+    "sha256": "9b0dc1ed733431b4a2a9855b68a26c3556da4ab5738f9345e774eaf6bc4f4ff8",
+    "git_blob": "fd87d9c303a624f59544598bdb4c8d2874630e41"
+  },
+  "deployment": {
+    "target": "arm64-apple-ios16.7",
+    "minimum_os": "16.7",
+    "patched_builder_sha256": "08a8fa92363950946cc72b63c38205dc04b7702971fd9e383c7d75b331f9d99b"
+  },
+  "policy": {
+    "identifier": "org.unixnu.wifi.supplicant",
+    "entitlements": {
+      "com.apple.private.security.no-container": true
+    },
+    "code_directory_page_bytes": 4096,
+    "job_label": "org.unixnu.wifi.supplicant"
+  },
+  "actions": {
+    "actions/checkout": {
+      "sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "type": "commit",
+      "url": "https://api.github.com/repos/actions/checkout/git/commits/11d5960a326750d5838078e36cf38b85af677262"
+    },
+    "actions/upload-artifact": {
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "type": "commit",
+      "url": "https://api.github.com/repos/actions/upload-artifact/git/commits/ea165f8d65b6e75b540449e92b4886f43607fa02"
+    }
+  },
+  "not_built": true,
+  "hardware_tested": false
+}

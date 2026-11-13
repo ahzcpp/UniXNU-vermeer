@@ -1,0 +1,87 @@
+{
+  "include/nw_abi.h": {
+    "git_sha256": "7e196cf4a15d60f1ac62db0ffa64b15ab64f3d9aa1cb7842ca81f3edfaaf4a2c",
+    "local_sha256": "eb124dced2effabee89beeaa80d57b5a2b50d1fe71423122179272ad4845f220",
+    "bytes": 6682
+  },
+  "include/nw_control.h": {
+    "git_sha256": "c895836cd8792a6844227da30c9eb91e598dd2fe8b865e53c69b9740bb68dab1",
+    "local_sha256": "f54ac0ce1156332be14ad9017549a6d91c5f435cc6c4a469d51e4d1a5190dd57",
+    "bytes": 5610
+  },
+  "src/nw_control_wire.c": {
+    "git_sha256": "5296e45b05703da453f41972a21db917b894adf6d133ee85fc676047e0a6f792",
+    "local_sha256": "d32c5af158969b89a40cbd6822fe0e9e41bd8e728d6e73cb0cb1fe4d46df58cd",
+    "bytes": 6749
+  },
+  "tools/build-supplicant.py": {
+    "git_sha256": "53c8ada0293dd4aacbf52ba4bc51a518e8fc4018b655129a20edfdf1313cefa1",
+    "local_sha256": "49f3a9d3525ed9598fb606ebfbdca53038e38f209b40a701fb9798c73fce403b",
+    "bytes": 3155
+  },
+  "tools/fetch-sources.py": {
+    "git_sha256": "6d8dd881a848e09f0cd41660c4b346b99b1d52b379948198ecc7500a4841f2b0",
+    "local_sha256": "c018bb32e939f47297cb94d80397ed3e2fdad43b1973407472e0208652867942",
+    "bytes": 5237
+  },
+  "tools/prepare-supplicant.py": {
+    "git_sha256": "5f1866c09d5c747983dc55e6b3af9f4fa03ca4326c4acf7a188f1f737d3d7d70",
+    "local_sha256": "91e86d1b6cb81ba1ad7d671b31971872afb64b0f4c4401fe53448fe275b3d0d1",
+    "bytes": 3814
+  },
+  "tools/source-lock.json": {
+    "git_sha256": "f23882695f1c136c27b3f9cb36673bebad9ae1fc2af3fa787a98bd4add76c3c9",
+    "local_sha256": "e2c9f5e4536a1acce5d232c6983de5a6b146ee8176fe46ec5bc0f1fe56c7c805",
+    "bytes": 1971
+  },
+  "userspace/driver_sheng.c": {
+    "git_sha256": "f9d9e52dceefe2889f69d9a4a1e8f69cc0c2cac74d03a2c3349352301ce64e3e",
+    "local_sha256": "fefe8acfbb6a5eaea6ef6bebea278814737554c1a84f68d1cdad634ab90eca48",
+    "bytes": 25622
+  },
+  "userspace/l2_packet_sheng.c": {
+    "git_sha256": "f233302ed2f7288c210607974b4cf5eb2983d17c4b0347c4a6d32e675c292b18",
+    "local_sha256": "50d408eb589e8734932756b7799e950849b3acf39b2c3993a37561287518a889",
+    "bytes": 1923
+  },
+  "userspace/linux/types.h": {
+    "git_sha256": "7613d230b413e267b8b225a17e603bd74bb9675f64508020f41c9b8d0beef95b",
+    "local_sha256": "9d60046da86452f19da1864dde84d5759697d42374e945b4a6aacbd81f104699",
+    "bytes": 353
+  },
+  "userspace/nw_control_client.c": {
+    "git_sha256": "9443823ce06bed2155e34c314da7ac95fe90a574dabe136b6f758c98dbe6a7ab",
+    "local_sha256": "17c76c503e3e490bc0c21aa162075564367e02fded0a61fafe179e442ec6a57b",
+    "bytes": 9265
+  },
+  "userspace/nw_control_client.h": {
+    "git_sha256": "c6625abe9dcd4353b679dfe794a3eeb57836b30b67a1901b90be923465e0e54e",
+    "local_sha256": "1cd1b63be89b7fdf6e16630654e1e861e022336366f492f97872bba26cbaa04e",
+    "bytes": 1747
+  },
+  "userspace/nw_darwin_control.h": {
+    "git_sha256": "4511a5254617ca0898c9dc47827b07a12c8c2332e3f5b77adb2e62a35ae9e084",
+    "local_sha256": "dc554db426b4bbc17428d6923c5de08e1773119fbcc992491f3fb936754b07a6",
+    "bytes": 720
+  },
+  "userspace/nw_supplicant_frontend.c": {
+    "git_sha256": "2c188b8640c952daadb4e04dd81a580c1fbe3773a8a4ef3481b97cd7a4772ae2",
+    "local_sha256": "c1056f8e6bf1e45ac696dd529b77f0483ddfeaab4d96398809b7e61ad08b919c",
+    "bytes": 5824
+  },
+  "userspace/nw_supplicant_frontend.h": {
+    "git_sha256": "ec1935eddefcfe06a6addf9fdc701d41fb44c1457eaf11ba957b6f8e3c69706c",
+    "local_sha256": "38251ff2784e6644ea17e8d275f45e8c5fe2e2be2a8982f8a7a237ffaaf265e0",
+    "bytes": 316
+  },
+  "userspace/nw_wireless_event.c": {
+    "git_sha256": "edcfbca111d2dacc136d075a51e2a96930deeeeb36c2ea80e9e4bb9fccdd15bf",
+    "local_sha256": "cbce65c1e5ed2e9ee368c06860011948a06e60e4054e5b3b97bf4a210c47684a",
+    "bytes": 5416
+  },
+  "userspace/supplicant.config": {
+    "git_sha256": "eeeda650b01ad4bd22e8b75a8ab7de37f9dd2b7ae3e17856cfee80c55f0f2e17",
+    "local_sha256": "4e742018f22d7d0cda1850a60a54e91917ad2eaabc70b917ba3dc27da73e2f2d",
+    "bytes": 526
+  }
+}

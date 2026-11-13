@@ -1,0 +1,11 @@
+--- a/tools/build-supplicant.py
++++ b/tools/build-supplicant.py
+@@ -26,7 +26,7 @@
+ if args.target in ("ios", "macos"):
+     sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos" if args.target == "ios" else "macosx", "--show-sdk-path"],
+                                   text=True).strip()
+-    link = ["-target", "arm64e-apple-ios27.0" if args.target == "ios" else "arm64e-apple-macos27.0", "-isysroot", sdk]
++    link = ["-target", "arm64-apple-ios16.7" if args.target == "ios" else "arm64e-apple-macos27.0", "-isysroot", sdk]
+     flags += link
+ command = ["make", f"-j{args.jobs}", "wpa_supplicant", "V=1", f"CC={compiler}",
+            f"BUILDDIR={output}", f"EXTRA_CFLAGS={shlex.join(flags)}", f"LDFLAGS={shlex.join(link)}"]

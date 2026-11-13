@@ -1,0 +1,123 @@
+WiFi 原生用户态后续 — SOURCE-ONLY / 待主线审核
+2026-11-13，20H392 / iOS16.7
+
+当前完成：源码/控制ABI/权限/launchd配方审查；可审核的未安装workflow；
+最小部署目标补丁；未来真实SDK构建、原生签名和逐页校验脚本。
+native_sdk_build_executed=false；signed=false；hardware_tested=false。
+没有执行CI、commit、push、构建、签名、安装、COM或手机操作。
+本次唯一写入目录：D:/K70-UniXNU-data/wifi-userspace-next/。
+
+主线新证据已接收：实际modem_b四文件与OS2输入相同，版本差异候选H6已降掉；
+不把它等同于板选择完全验证，也不更换任何固件。本任务完全不包含固件输入。
+217真实0x38仍由主线诊断；不因准备用户态而设置ready或制造扫描/连接结果。
+
+1. 有哪些是真实现
+组件 UniXNU/Ath12kWifi@5f7f5a8a9f02f7ab45ed10a2f226e348c519a838。
+本次对17个实际构建输入逐文件核对公开GitHub内容、git object及本地源码；
+本地副本只是CRLF不同，规范LF后全部等于该commit，没有夹带本地未公开功能。
+完整逐文件Git blob/SHA256在sources.lock.json，原本地SHA在component-files.json。
+公开wpa_supplicant-2.12.tar.gz 4247413B，SHA256
+08e23937e16d0155e55cab2b51f51fbe10d80a1aa91c4e15442645059b737ef6。
+本地归档已只读计算并核实该SHA；本方案不复制或上传归档/样例配置。
+
+userspace/driver_sheng.c:462-499 真实打开原生控制端点、请求INFO并读取真实能力；
+506-516绑定scan2/get_scan_results2/authenticate/associate/set_key/
+set_supp_port/tx_control_port等实际接口。108-190用SCAN/GET_BSS事务，
+不是固定扫描结果。支持open/WPA2-PSK+PMF，不声称SAE/企业认证均已实现。
+userspace/nw_control_client.c:41-62 使用PF_SYSTEM/SOCK_DGRAM、SYSPROTO_CONTROL=2，
+CTLIOCGINFO查org.unixnu.wifi.control，connect后读取GET_SESSION。
+userspace/nw_darwin_control.h:8-18 的两个自有ABI声明为100B/32B；
+已对照Apple公开XNU8796.141.3 kern_control.h:89,108-137及sys_domain.h:41-42。
+这里只引用来源URL，不分发Apple头文件，也不加入伪造SDK/API shim。
+
+当前冻结板端 D:/K70-UniXNU-data/wifi-native216/WifiProbe.cpp:1186-1247
+有对应connect/disconnect/send/getopt/ctl_register；CTL_FLAG_PRIVILEGED保留。
+组件src/nw_control.c:138-151在未bound时返回NOT_READY，单owner/session保护保留。
+userspace/nw_control_client.c:123-178校验session/sequence/operation并排队事件，
+避免同步RPC时重入SME。userspace/nw_supplicant_frontend.c使用上游
+ADD/SET/SELECT_NETWORK入口，活动配置仅在RAM；本方案不附任何网络profile。
+userspace/l2_packet_sheng.c并非假EAPOL通道：CONTROL_PORT_RX/TX走driver_sheng，
+传统l2_packet_send明确EOPNOTSUPP，不可据它声称传统raw socket功能可用。
+20H392的Apple80211/wifid最终接入仍需实际设备验证，不能由自定义RPC存在推断成功。
+冻结WifiNet.cpp:94-111、411-418、500确实区分592B legacy与656B请求，
+:171只对modern请求发540B事件，不是无条件把新OS事件布局套到iOS16。
+但:596-599的IO80211Controller/IONetworkInterface是IOService派生的兼容层，
+不能据类名认定已实现Apple原驱动的完整外部ABI；本方案未添加此类替身或假扫描。
+
+2. 为什么需要真实SDK构建，当前还没有什么
+tools/build-supplicant.py:26-30原本使用arm64e-apple-ios27.0。
+patches/0001-ios16.7-target.patch只把iOS target改为arm64-apple-ios16.7，
+不改macOS target、认证算法、原生控制协议、编译告警选项或任何共享文件。
+补丁只供未来disposable CI checkout应用；本次未应用到原组件。
+原prepare脚本的上游改动仅backend注册与认证失败通知hook；不替换SME/WPA算法。
+未来脚本仍调用原fetch-sources/prepare/build，保留所有锁定源检查。
+原prepare的--check还要求Linux/FreeBSD依赖，因此未来CI会解析这两个公开锁定源；
+它们不是本用户态二进制的编译输入，也不作为artifact上传。
+
+明确的SDK可移植性风险，尚未解决/未假称可编译：公开2.12
+src/utils/os_unix.c:20-24 的__MACH__分支包含CoreServices；:847以后os_exec调用fork。
+这两个点可能在真实iPhoneOS SDK暴露可用性/头文件错误；目前没有实际SDK诊断，
+不凭猜测改时间源、加空实现、禁用可用性检查或伪造fork成功。
+review/workflows/wifi-userspace-ios16.yml若未来获准运行，会真实编译并失败可见，
+ci/build_native.py保留原编译输出；如失败，需主线再审最小OS适配，不能发布产物。
+所以当前状态是“可审核的真实构建方案”，不是“已成功构建的16.7用户态”。
+历史CODEX-STATUS提过775984B旧supplicant，但本地当前组件out/wpa-ios不存在，
+本次未找到/验证该二进制的真实minOS、动态导入与签名，不能把历史摘要当验收。
+
+3. 原有签名/权限如何保留
+公开原服务配方锁定：UniXNU/UniXNU-sheng@
+1108068537d5396edb2c63b2f8c6f5b97b0a4bbc/scripts/build-wifi-userspace.py。
+原文件SHA256 9b0dc1ed733431b4a2a9855b68a26c3556da4ab5738f9345e774eaf6bc4f4ff8。
+policy/supplicant-entitlements.plist严格等于该配方iOS分支：
+com.apple.private.security.no-container=true，只有这一项。
+没有新增platform-application、no-sandbox、task-port、IOKit白名单或通配权限。
+未来使用原生codesign --sign - --pagesize4096及原identifier
+org.unixnu.wifi.supplicant，不需要签名私钥，不进行签后Mach-O重写。
+ci/verify_native.py检查真实arm64/iOS16.7 Mach-O、每个CodeDirectory的4K页、
+每页SHA256、权限special slot和原identifier；再与原生codesign严格验证/CDHash核对。
+SDK仅在runner使用，记录Xcode/SDK/clang版本，绝不复制SDK/系统动态库进artifact。
+该权限基线来自锁定公开配方，不代表已核实旧20H392实际签名；集成前主线需与
+真正待替换产物对照。若不相同，应停在审核阶段，不扩大权限补救。
+
+4. launchd路径是否已对20H392实现
+公开现有消费者明确是ios27/macos27，非20H392验收。
+iOS执行路径：/usr/libexec/unixnu-wpa_supplicant。
+配置路径：/private/var/ngpu/etc/wifi/wpa_supplicant.conf。
+自有job：org.unixnu.wifi.supplicant；原参数-Dsheng -ien0 -c... -q -s；
+root、Umask077、KeepAlive、ThrottleInterval3、Interactive原样保留；没有-B。
+无StandardOutPath/StandardErrorPath，也不启用密钥调试或profile文件写入。
+service/wpa_supplicant.conf仅ap_scan=1，无MAC/SSID/口令/keys或network块。
+
+公开消费者是通过Data-backed wifi-bin映射与系统launchd缓存合并接入；
+参考patches/xnu-12377/sheng-wifi-launchd-cache.patch，不适用为20H392补丁。
+当前I16流程未见已接入本supplicant的可审核打包路径，本次也没有改它。
+不能把自有job放进/Library/LaunchDaemons就声称iOS16会自动加载；那是macOS路径。
+尚缺主线对20H392以下各项的审核/实现及实测：
+  - 自有可执行文件的只读映射保留/usr/libexec全部原文件，含cache loader；
+  - 保留所有原launchd jobs，仅合入自己的job；使用目标系统可接受的binary1，
+    及与之匹配的原生签名/散列，不能替换为ios27原缓存或伪造缓存；
+  - 现有两个原trust模块逐字保留，仅经原严格流程加入新自有CDHash；
+  - 原root/AMFI/MACF/sandbox策略保留，真实失败应记录，不用放权绕过；
+  - 真正收到FW_INIT_DONE并注册接口后，再按主线允许次序启动服务/验证连接。
+本方案不会自动merge/cache/mount/append trust/install，也不包含任何Apple/OEM文件。
+
+5. 主线如何审核和接续（当前没有执行）
+先读sources.lock.json、最小patch与ci/*.py；review/workflows文件不在活跃.github目录。
+确认方案内容后由主线统一决定分支/commit/push，再将审核过的整个目录放入
+将来仓库wifi-userspace-next/，并将workflow复制到.github/workflows/。
+workflow仅workflow_dispatch，contents:read；actions固定完整SHA，不保存git凭据。
+只上传delivery目录明确列出的自有binary、空配置、自有job和构建审计报告；
+不上传workspace、Apple/OEM输入、SDK、source样例、运行日志或任何凭据。
+未收到真实SDK成功报告前，不替换旧产物；未通过20H392缓存/权限/设备验证前，
+不宣称WiFi用户态接入成功，也不为网络初始化制造ready或扫描结果。
+
+公开一手来源：
+https://github.com/UniXNU/Ath12kWifi/tree/5f7f5a8a9f02f7ab45ed10a2f226e348c519a838
+https://github.com/UniXNU/UniXNU-sheng/blob/1108068537d5396edb2c63b2f8c6f5b97b0a4bbc/scripts/build-wifi-userspace.py
+https://github.com/UniXNU/UniXNU-sheng/blob/1108068537d5396edb2c63b2f8c6f5b97b0a4bbc/patches/xnu-12377/sheng-wifi-launchd-cache.patch
+https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-8796.141.3/bsd/sys/kern_control.h
+https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-8796.141.3/bsd/sys/sys_domain.h
+https://www.w1.fi/releases/
+https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
+
+验收级别：仅源码/方案静态检查。没有真实macOSSDK构建、签名或设备验收。

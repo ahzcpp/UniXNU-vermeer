@@ -1,0 +1,13 @@
+{
+  "STATUS.txt": "ad82cf24a573fc56c19ba2ed6e3393c52b9616fc9ad6bc212e0c62fe6ecf10f4",
+  "ci/build_native.py": "f05b67c562ca1b12319b022519f2d8d6cac08c0b321099b5270a1dc7f86c5672",
+  "ci/validate_plan.py": "4de9f373f6dc59ab70b018ebad3ec6715b8096d87274c6c66da7c398a9c26a95",
+  "ci/verify_native.py": "7a8013a2ce51537b0828931d3dcd6c24b5bd8ee6701541ed9d265f768eb3a927",
+  "component-files.json": "504850f3d006dbb883608f00852ae47871c1f51fc879c7d265bef583c9000d49",
+  "patches/0001-ios16.7-target.patch": "4de23f9ec9e0f67d979854de61905a2725f330613e6fd4c0fdddb7170e19387c",
+  "policy/supplicant-entitlements.plist": "cd1358e7c8c3b01da98b5544e3c2ffcdc9d92cf9a3191e45038e8691ef2021ca",
+  "review/workflows/wifi-userspace-ios16.yml": "75a91e008a02ca88f450bc3ac267ce9d261af2ddd9b3e2c807de177d20229dc9",
+  "service/org.unixnu.wifi.supplicant.plist": "9fcc217f1f19b755d485dc1829a860b587ee4110d9e7198f75abacf52aa50c0a",
+  "service/wpa_supplicant.conf": "e9c9e9cbef32ebce39046df848cfeb29ac00e96511b31c422d47763a5312532f",
+  "sources.lock.json": "6e0ee5d7e23f4cdb6f78ff68880a24390d63ef13b0eabb3b3353ed957c69831a"
+}
