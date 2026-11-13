@@ -1,0 +1,32 @@
+Scanout client revision 3
+
+Both options are disabled by default. k70-scanout-verify=1 compares a bounded
+number of complete scaled frames using aligned volatile 32-bit reads. It is
+diagnostic only; do not use that mode to measure frame rate. The original
+unscaled first-four-frame comparison is removed.
+
+k70-scanout-pace=60 waits after the GPU finishes and COMPLETE_SWAP succeeds,
+before requesting the next frame. Interrupted and early sleeps retry against
+the monotonic deadline. Errors, bounded retry exhaustion and early releases
+are counted. This limits client admission; it does not establish physical
+panel refresh or prove that the compositor produces 60 frames per second.
+
+The PF progress report changes independently: first frame, first failure,
+then every 120 frames instead of every 5. This reduces per-character kernel
+calls in ordinary operation.
+
+Local validation before this commit:
+- All five workflow patches apply together on isolated pinned driver copies.
+- Actual scaled AIR: 32 cases / 17,511,720 pixels, independent host comparison.
+- Revised pacing wrapper: 261 checks, clang++18 with ASan/UBSan, including a
+  sleep interrupted after 999 ns; the same wrapper retries to the deadline.
+- The unchanged pixel verifier previously passed 868 cases / 423,100,213
+  pixels with independent reference and planted-error checks in Claude's
+  local handoff. Those are host results, not hardware results.
+
+Real macOS SDK compilation and device testing are still required. On the
+previous binary, the Settings main page showed horizontal black stripes
+even though PF reported successful copies. Pixel correctness takes priority
+over cadence benchmarking; successful submission is insufficient evidence.
+No firmware, signing keys, phone identifiers or connection credentials are
+included in this branch. Do not merge the branch automatically.

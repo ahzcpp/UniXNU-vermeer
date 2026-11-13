@@ -2,8 +2,8 @@ name: GPU userspace for iOS 16.7
 
 on:
   push:
-    branches: [gpu16-client-runtime-20261113]
-    paths: [.github/workflows/gpu16-userspace.yml, gpu16/patch-client-diagnostics.py]
+    branches: [gpu16-scanout-client-20261113]
+    paths: [.github/workflows/gpu16-userspace.yml, gpu16/patch-client-diagnostics.py, gpu16/patch-gpu-scanout-verify.py, gpu16/GpuScanoutVerify.h, gpu16/GpuScanoutPace.h]
   workflow_dispatch:
 
 permissions:
@@ -94,6 +94,9 @@ jobs:
           set -euo pipefail
           python3 gpu16/patch-gpu-scanout-scale.py unixnu
           python3 gpu16/check-gpu-scanout-ir.py unixnu
+      - name: Add default-off scaled verification and scanout cadence
+        shell: bash
+        run: python3 gpu16/patch-gpu-scanout-verify.py unixnu
       - name: Record the first Vulkan startup failure on the device
         shell: bash
         run: |
