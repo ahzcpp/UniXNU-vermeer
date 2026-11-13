@@ -1,0 +1,20 @@
+{
+  "upstream_repository": "UniXNU/UniXNU-sheng",
+  "upstream_commit": "1108068537d5396edb2c63b2f8c6f5b97b0a4bbc",
+  "primary_sha256": {
+    "build-sheng-audio-hal.py": "26a2f1e48905335229ea9e166e0fd9feeef2beee486a265d42f10accc71ee528",
+    "Info.plist": "da8a31bf33069059977c73f2f92d3cfca1e9161ee420049eba08b89377f4bbd8",
+    "ShengAudioAbi.h": "9ef369877cfae3d2255129f7fdf332448b71300a0fc840d6522ec83e09754b52",
+    "ShengAudioPlugIn.c": "7f515b00e57bb3af456b0c6c20b6ab4958c809cadc459a2a7bebd6ce26a1c66f"
+  },
+  "delta": [
+    "iOS16 deployment target and bundle MinimumOSVersion agree",
+    "K70 bundle/device/factory names",
+    "unqualified global host-clock rewrite compiled out by default",
+    "fresh output required, no delete of existing bundle"
+  ],
+  "kernel_shared_ABI_sha256": "9ef369877cfae3d2255129f7fdf332448b71300a0fc840d6522ec83e09754b52",
+  "device_tested": false,
+  "driver_hardware_ready": false,
+  "contains_Apple_or_OEM_binary": false
+}

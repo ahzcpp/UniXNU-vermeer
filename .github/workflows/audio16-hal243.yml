@@ -1,0 +1,28 @@
+name: K70 iOS16 audio HAL243 offline build
+on:
+  push:
+    branches: [audio16-hal243-20261114]
+    paths: [hal243/**, .github/workflows/audio16-hal243.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audio-hal:
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build source-only iOS16 audio HAL
+        run: python3 hal243/scripts/build-k70-audio-hal.py dist-audio243 arm64-apple-ios16.0
+      - name: Verify architecture, deployment, signature and factory
+        run: python3 hal243/scripts/verify-hal243.py dist-audio243
+      - name: Include provenance and unverified hardware limits
+        run: cp hal243/provenance.json hal243/README.txt dist-audio243/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: K70-iOS16-audio-HAL243-offline-candidate
+          path: dist-audio243/
+          if-no-files-found: error
+          retention-days: 7
