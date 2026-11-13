@@ -56,6 +56,19 @@ def main():
         run(['git','apply',patch], component)
         builder = component/'tools/build-supplicant.py'
         check(hashlib.sha256(builder.read_bytes()).hexdigest() == lock['deployment']['patched_builder_sha256'], 'unexpected patched build script')
+        fetch_patch = ROOT/'patches/0002-fetch-noncone.patch'
+        fetch_meta = json.loads((ROOT/'patches/0002-fetch-noncone.json').read_text())
+        fetcher = component/'tools/fetch-sources.py'
+        fetch_before = hashlib.sha256(fetcher.read_bytes()).hexdigest()
+        check(fetch_before == lock['component']['files']['tools/fetch-sources.py']['sha256'], 'unexpected original fetch script')
+        run(['git','apply','--check',fetch_patch], component)
+        run(['git','apply',fetch_patch], component)
+        fetch_after = hashlib.sha256(fetcher.read_bytes()).hexdigest()
+        check(fetch_after == fetch_meta['patched_fetcher_sha256'], 'unexpected patched fetch script')
+        report['source_fetch_patch'] = dict(path='patches/0002-fetch-noncone.patch',
+                                          sha256=hashlib.sha256(fetch_patch.read_bytes()).hexdigest(),
+                                          original_fetcher_sha256=fetch_before,
+                                          patched_fetcher_sha256=fetch_after)
         # Preserve upstream's source checks. It currently also resolves locked
         # Linux/FreeBSD inputs; neither is linked into the userspace executable.
         with (out/'source-resolution.log').open('w') as log:

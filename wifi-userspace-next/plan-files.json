@@ -1,10 +1,12 @@
 {
   "STATUS.txt": "ad82cf24a573fc56c19ba2ed6e3393c52b9616fc9ad6bc212e0c62fe6ecf10f4",
-  "ci/build_native.py": "f05b67c562ca1b12319b022519f2d8d6cac08c0b321099b5270a1dc7f86c5672",
+  "ci/build_native.py": "4caa863de7e83073bf9e3827e54cebbf66904c231ee6fa487f5da788f2ef3503",
   "ci/validate_plan.py": "4de9f373f6dc59ab70b018ebad3ec6715b8096d87274c6c66da7c398a9c26a95",
   "ci/verify_native.py": "7a8013a2ce51537b0828931d3dcd6c24b5bd8ee6701541ed9d265f768eb3a927",
   "component-files.json": "504850f3d006dbb883608f00852ae47871c1f51fc879c7d265bef583c9000d49",
   "patches/0001-ios16.7-target.patch": "4de23f9ec9e0f67d979854de61905a2725f330613e6fd4c0fdddb7170e19387c",
+  "patches/0002-fetch-noncone.json": "595b53f8a25152aa405d4b35ebeeb67d34eb6adf9ff73cb0dc6dcec0bb89c322",
+  "patches/0002-fetch-noncone.patch": "d7371fe533e53645fd0a2dfde33ba316a7c059588040ecae57bb48882ad25d7b",
   "policy/supplicant-entitlements.plist": "cd1358e7c8c3b01da98b5544e3c2ffcdc9d92cf9a3191e45038e8691ef2021ca",
   "review/workflows/wifi-userspace-ios16.yml": "75a91e008a02ca88f450bc3ac267ce9d261af2ddd9b3e2c807de177d20229dc9",
   "service/org.unixnu.wifi.supplicant.plist": "9fcc217f1f19b755d485dc1829a860b587ee4110d9e7198f75abacf52aa50c0a",
