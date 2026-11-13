@@ -1,0 +1,26 @@
+Telemetry follow-up to Claude's scanout client revision3
+
+Hardware comparison: test170 (default options off) produced 58.7108 FPS in
+the scripted Settings-scroll phase; test171 (only pace60 enabled) produced
+57.5302 FPS. Both screenshots were normal and neither short benchmark had
+app memory-pressure kills, recover or panic. Keep pacing off for ordinary
+use while validating it; a 60-valued option is not itself a frame-rate fix.
+
+PP/PV were sent through streamText7 alongside PF. At served frame601, PP's
+600 intervals and PF's 120-frame progress period coincide. PF overwrites
+the optional diagnostic before the periodic kernel observer usually reads
+it. Absence of PP in the host log therefore does not prove pacing was off.
+
+This follow-up changes only reporting: optional PP/PV use the existing
+streamText/report8 channel and PF stays on report7. PC reports the parsed
+pace/verify options once when opening the client. Both helpers and the
+Client implementation remain byte-identical to revision3. Render, wait,
+COMPLETE, verifier bounds and diagnostic attempt limits are unchanged.
+No kernel archive, firmware, process privilege or physical refresh policy
+changes are included. Report8 can still be replaced by a later phase report
+after the serving client exits; these are observations, not health flags.
+
+The patch was applied locally to the exact qualified revision3 header; the
+new header SHA is a6bde0d561427bf21fd0d8c0360ed78127d3e6e24c2916670d9597de68c09907.
+Real SDK compilation and device observation are pending. Do not mark this
+fix verified until PC and bounded PP/PV lines are actually captured.
