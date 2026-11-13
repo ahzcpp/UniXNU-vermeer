@@ -30,3 +30,27 @@ even though PF reported successful copies. Pixel correctness takes priority
 over cadence benchmarking; successful submission is insufficient evidence.
 No firmware, signing keys, phone identifiers or connection credentials are
 included in this branch. Do not merge the branch automatically.
+
+Display-source publication follow-up (test169 / test170)
+
+patch-source-publication.py reproduces the exact isolated display164 -> 169
+source transformation. It requires the qualified input SHA and refuses output
+overwrite. The reproduced output matches the compiled test169 source SHA.
+It maps the existing held IOSurface descriptor read-only Copyback, performs
+the same source flush used by the working CPU fallback, releases that map,
+then offers the frame to the existing GPU presenter. Mapping failure falls
+back to the unchanged CPU path. No pixels are read or written by this block;
+early-retire remains zero. This is not a global driver coherence-policy fix.
+
+Device evidence: test169 full Settings scanout CRC matched and was visually
+normal; the prior test167 source16-pixel black stripes disappeared. The
+scripted continuous Settings-scroll transfer rate was 58.6414 FPS (active
+interval median 59.7846), with no app memory-pressure kills, recover or panic.
+Test170 with the genuinely built revision3 addon, both options off, showed
+normal Settings and 58.7108 FPS (active median 59.7667), likewise without those
+failures. These short tests do not prove every application, owner-death
+cleanup, physical panel refresh, or all future producer/cache aliases safe.
+Mapping effects and timing have not yet been isolated from cache maintenance.
+The optional pace60 comparison is still pending; do not enable it merely
+because its argument contains 60. CI run43340673362 built userspace at ffbbdcf;
+this display-only follow-up does not change that userspace build input.
