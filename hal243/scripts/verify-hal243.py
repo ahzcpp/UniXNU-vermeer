@@ -24,8 +24,10 @@ subprocess.run(['codesign','--verify','--strict',bundle],check=True)
 detail=subprocess.run(['codesign','-d','--verbose=4',bundle],text=True,capture_output=True,check=True).stderr
 cdhash=re.search(r'^CDHash=([a-f0-9]{40})$',detail,re.M).group(1);assert json.loads((out/'trust.json').read_text())['cdhash']==cdhash
 symbols=subprocess.check_output(['nm','-gj',p],text=True).splitlines();assert '_K70Audio_Create' in symbols
+undefined=subprocess.check_output(['nm','-uj',p],text=True).splitlines()
+assert not set(undefined)&{'_mprotect','_vm_protect','_dyld_register_func_for_add_image','_dlsym'}, 'unqualified rewrites/rebinding must compile out'
 report=dict(status='macOS_CI_build_and_static_bundle_checks_only_no_iOS_hardware_acceptance',
  sha256=hashlib.sha256(d).hexdigest(),bytes=len(d),architecture='arm64 subtype0',build=builds[0],loads=loads,cdhash=cdhash,
- min_os_bundle=info['MinimumOSVersion'],host_clock_patch_default=False,hardware_driver_not_supplied=True,
+ min_os_bundle=info['MinimumOSVersion'],host_clock_patch_default=False,virtual_audio_rebind_default=False,validated_shared_mapping=True,hardware_driver_not_supplied=True,
  device_tested=False,installed=False,no_Apple_or_OEM_binaries_in_artifact=True)
 (out/'build-manifest.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))

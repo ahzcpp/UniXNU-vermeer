@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
-// The sheng built-in audio device for the iOS audio server: one device with a stereo output stream (the six speakers) and a mono input
+// K70 source candidate for the iOS audio server: stereo output and mono input
 // stream (the microphones). Samples move through rings shared with the kernel service ShengAudio (package/ShengAudioAbi.h); the service
 // feeds the audio DSP. Objects: the plug-in (1), the device (2), the output stream (3), the input stream (4), the output volume (5).
 #include <CoreAudio/AudioServerPlugIn.h>
@@ -46,30 +46,39 @@ static Float64 gHostTicksPerFrame;
 static void setHostClock(void);
 
 // ---- Kernel service ------------------------------------------------------------------------------------------------------------
-static int mapType(uint32_t type, void **out) {
-    mach_vm_address_t address = 0;
-    mach_vm_size_t size = 0;
-    if (IOConnectMapMemory64(gConnect, type, mach_task_self(), &address, &size, kIOMapAnywhere) != kIOReturnSuccess) return -1;
-    *out = (void *)(uintptr_t)address;
-    return 0;
-}
+#include "K70AudioContract247.h"
 static int connectService(void) {
     if (gControl) return 0;
     io_service_t service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(SHENG_AUDIO_CLASS));
     if (!service) return -1;
-    kern_return_t kr = IOServiceOpen(service, mach_task_self(), 0, &gConnect);
+    io_connect_t connection=0;
+    kern_return_t kr=IOServiceOpen(service,mach_task_self(),0,&connection);
     IOObjectRelease(service);
-    if (kr != KERN_SUCCESS) return -1;
-    void *control = NULL, *out = NULL, *in = NULL;
-    if (mapType(ShengAudioMemoryControl, &control) || mapType(ShengAudioMemoryOutput, &out) || mapType(ShengAudioMemoryInput, &in)) {
-        IOServiceClose(gConnect); gConnect = 0; return -1;
+    if (kr!=KERN_SUCCESS || !connection) return -1;
+    K70AudioMap247 maps[3]={{0}};
+    unsigned mapped=0;
+    for (; mapped<3; ++mapped) {
+        mach_vm_address_t address=0; mach_vm_size_t bytes=0;
+        kr=IOConnectMapMemory64(connection,mapped,mach_task_self(),&address,&bytes,kIOMapAnywhere);
+        if(kr!=KERN_SUCCESS) break;
+        maps[mapped]=(K70AudioMap247){address,bytes};
     }
-    ShengAudioControl *c = control;
-    if (c->magic != SHENG_AUDIO_MAGIC || c->version != SHENG_AUDIO_VERSION) {IOServiceClose(gConnect); gConnect = 0; return -1;}
-    gOut = out; gIn = in; gControl = c;
-    gHostTicksPerFrame = (Float64)c->ticks_per_frame_q32 / 4294967296.0;
-    setHostClock();
-    return 0;
+    int valid=mapped==3 && k70_audio_maps247(maps);
+    ShengAudioControl snapshot={0};
+    mach_timebase_info_data_t timebase={0};
+    if(valid) {
+        memcpy(&snapshot,(const void *)(uintptr_t)maps[0].address,sizeof snapshot);
+        valid=mach_timebase_info(&timebase)==KERN_SUCCESS && k70_audio_contract247(&snapshot,timebase.numer,timebase.denom);
+    }
+    if(!valid) {
+        while(mapped) {--mapped;(void)IOConnectUnmapMemory64(connection,mapped,mach_task_self(),maps[mapped].address);}
+        IOServiceClose(connection);return -1;
+    }
+    // Publish only after every mapping and immutable ABI/timing field passed.
+    gConnect=connection;gOut=(void *)(uintptr_t)maps[1].address;gIn=(void *)(uintptr_t)maps[2].address;
+    gControl=(void *)(uintptr_t)maps[0].address;
+    gHostTicksPerFrame=(Float64)snapshot.ticks_per_frame_q32/4294967296.0;
+    setHostClock();return 0;
 }
 static kern_return_t call(uint32_t selector) {return gConnect ? IOConnectCallScalarMethod(gConnect, selector, NULL, 0, NULL, NULL) : KERN_FAILURE;}
 
@@ -564,7 +573,7 @@ __attribute__((unused)) static void imageAdded(const struct mach_header *h, intp
     rebind((const struct mach_header_64 *)h, slide);
 }
 // arm64e (iPadOS 27's server): the symbol pointers are authenticated with their slot address, so a plain rebind faults; the trace is off.
-#if !__has_feature(ptrauth_calls)
+#if defined(K70_AUDIO_ENABLE_VIRTUAL_AUDIO_REBIND) && K70_AUDIO_ENABLE_VIRTUAL_AUDIO_REBIND && !__has_feature(ptrauth_calls)
 __attribute__((constructor)) static void watchAudioServer(void) {_dyld_register_func_for_add_image(imageAdded);}
 #endif
 

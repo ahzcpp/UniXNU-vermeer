@@ -16,5 +16,22 @@
   "kernel_shared_ABI_sha256": "9ef369877cfae3d2255129f7fdf332448b71300a0fc840d6522ec83e09754b52",
   "device_tested": false,
   "driver_hardware_ready": false,
-  "contains_Apple_or_OEM_binary": false
+  "contains_Apple_or_OEM_binary": false,
+  "revision247": {
+    "basis": "Source-only HAL243 build7ee692c346453483d7252935561533cc71f7570b; no Apple/OEM input",
+    "changes": [
+      "all3map lengths/alignment/overflow/nonoverlap before dereference",
+      "fixedABI1 layout and ring dimensions",
+      "sharedDSPtimeline must match actual mach_timebase_info within1ppm",
+      "unmap allpartial successes before closing failedconnection",
+      "unqualifiedVirtualAudioimportrebinding compiledOFF bydefault",
+      "hostclockwrite remainsOFF"
+    ],
+    "host_contract_checks_per_compiler": 167293,
+    "actual_connect_checks_per_compiler": 64730,
+    "backend": "K70 stereo secondaryTDM/Awinic hardware path not enabled; no live playback acceptance",
+    "clock": "Do not transplant donor ADRP+LDR literal patch.20H392 getter computes frequency from mach_timebase_info via caulk; actualruntime must still be checked.",
+    "device_accessed": false,
+    "installed": false
+  }
 }
