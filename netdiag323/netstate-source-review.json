@@ -1,0 +1,16 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "readonly_mode": "state",
+  "namer_exact_keys": [
+    "*QUIET*",
+    "*COMPLETE*",
+    "*TIMEOUT*"
+  ],
+  "SCError_captured_immediately": true,
+  "publication_lease_route_loop_byte_identical344": true,
+  "explicit_list_preserved": true,
+  "no_Quiet_Setup_Global_fabrication": true,
+  "source_sha256": "0a85c30f71428a827973fc3695ca50586688a7ebfab53fcf0eef79b6b6cc8153",
+  "base_source_sha256": "756f850d705d06798ee6f596556305de3f6047b7ff1d5cbaa838e7bf70b35047"
+}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.unixnu.wifi.netdiag</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-netdiag</string>
+		<string>dhcp</string>
+		<string>--hold</string>
+		<string>-w</string>
+		<string>600</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>UserName</key>
+	<string>root</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/ngpu/etc/wifi/netdiag.out</string>
+	<key>StandardErrorPath</key>
+	<string>/private/var/ngpu/etc/wifi/netdiag.out</string>
+</dict>
+</plist>

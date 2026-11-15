@@ -1,0 +1,13 @@
+{
+  "source_only": true,
+  "native_sdk_pending": true,
+  "hardware_tested": false,
+  "observer_patch_sha256": "a300c8c3dbe812ccf6aa87cfae27db84f6ddf685a48d3089bd86cd9446577569",
+  "candidate_source_sha256": "756f850d705d06798ee6f596556305de3f6047b7ff1d5cbaa838e7bf70b35047",
+  "run_once_skip_optional_blocking_enumeration": true,
+  "explicit_list_mode_preserved": true,
+  "readonly_namer_scalar_probe": true,
+  "lease_publication_resolver_loop_unchanged": true,
+  "no_Quiet_or_Global_state_fabrication": true,
+  "reference": "https://github.com/apple-oss-distributions/configd/blob/configd-1241.140.6/SystemConfiguration.fproj/SCNetworkInterface.c"
+}

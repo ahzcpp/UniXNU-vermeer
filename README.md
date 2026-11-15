@@ -1,0 +1,1 @@
+Own network diagnostics. State mode only reads real InterfaceNamer readiness; it does not enumerate or publish interfaces. Run/once keep genuine lease, kernel route and resolver validation. SDK and runner checks are not hardware results.
