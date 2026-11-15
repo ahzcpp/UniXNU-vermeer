@@ -13,7 +13,9 @@
 typedef const struct __SCDynamicStore *SCDynamicStoreRef;
 typedef const struct __SCNetworkInterface *SCNetworkInterfaceRef;
 typedef void (*SCDynamicStoreCallBack)(SCDynamicStoreRef, CFArrayRef, void *);
+#ifndef NP_HAVE_SC_CONTEXT  /* the prototype check includes Apple's header, which defines it */
 typedef struct {CFIndex version; void *info; const void *(*retain)(const void *); void (*release)(const void *); CFStringRef (*copyDescription)(const void *);} SCDynamicStoreContext;
+#endif
 extern SCDynamicStoreRef SCDynamicStoreCreate(CFAllocatorRef, CFStringRef, SCDynamicStoreCallBack, SCDynamicStoreContext *);
 extern CFPropertyListRef SCDynamicStoreCopyValue(SCDynamicStoreRef, CFStringRef);
 extern Boolean SCDynamicStoreSetMultiple(SCDynamicStoreRef, CFDictionaryRef, CFArrayRef, CFArrayRef);
