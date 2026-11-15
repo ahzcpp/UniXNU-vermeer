@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.unixnu.diag.netsnap347</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-netsnap347</string>
+		<string>-c</string>
+		<string>-d</string>
+		<string>60</string>
+		<string>-n</string>
+		<string>30</string>
+		<string>-i</string>
+		<string>10</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>UserName</key>
+	<string>root</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/ngpu/etc/wifi/netsnap347.out</string>
+	<key>StandardErrorPath</key>
+	<string>/private/var/ngpu/etc/wifi/netsnap347.out</string>
+</dict>
+</plist>
