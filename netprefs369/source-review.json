@@ -1,0 +1,7 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "agent_frozen_source_sha256": "adcaef29fe9c375054f1e34e6a1715c4098c36780f9b07f93902bec6ee37f697",
+  "agent_host_tests_passed": true,
+  "real_CF_and_native_SDK_pending": true
+}
