@@ -6,7 +6,7 @@
  * otherwise SCNetworkInterfaceCopyAll callers wait for "*TIMEOUT*" (IONetworkStack found + 240 s in 20H392).
  *
  * Reads only: IORegistryEntryFromPath("IOService:/"), IOServiceGetMatchingServices(IOServiceMatching(<fixed class>)),
- * IOServiceGetBusyStateAndTime. Prints counts, busy counts, accumulated busy ms and state-bit tallies. Never prints names,
+ * Public IOServiceGetBusyState. Prints observed busy counts; unavailable private time/state metrics stay unknown. Never prints names,
  * registry IDs, paths, properties, addresses or any identity. No writes, no user clients, no properties set.
  */
 #include <errno.h>
@@ -88,8 +88,8 @@ static long long uptime_ms(void) {
     return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-/* accumulated busy time is in nanoseconds (IOService::getBusyStateAndTime uses absolute time converted to ns) */
-static long long ns_to_ms(uint64_t ns) { return (long long)(ns / 1000000ull); }
+/* No private SPI or synthesized busy-time/state metrics. */
+
 
 /* ---- -w: class-only busy walk ----
  * Reads, for at most WALK_MAX_ENTRIES registered services (IOServiceMatching("IOService")), only the busy count; for busy ones only
@@ -119,10 +119,9 @@ static void busy_walk(int n) {
     if (kr != KERN_SUCCESS) { emit("walk n=%d result=unknown kr=0x%x uptime_ms=%lld", n, kr, uptime_ms()); return; }
     io_service_t s;
     while (seen < WALK_MAX_ENTRIES && (s = IOIteratorNext(it)) != 0) {
-        uint64_t st = 0, a = 0;
         uint32_t b = 0;
         seen++;
-        if (IOServiceGetBusyStateAndTime(s, &st, &b, &a) != KERN_SUCCESS) { unknown_reads++; IOObjectRelease(s); continue; }
+        if (IOServiceGetBusyState(s, &b) != KERN_SUCCESS) { unknown_reads++; IOObjectRelease(s); continue; }
         if (b == 0) { IOObjectRelease(s); continue; }
         busy_entries++;
         io_name_t cls;
@@ -154,7 +153,6 @@ static long long g_walk_last_ms = -1;
 /* One sample = 6 rows: root, 4 classes, summary. "complete" is yes only when every read succeeded and no class was truncated;
  * only then may a reader treat class busy counts as covering the class. Root quiet is reported from the root read alone. */
 static void sample(int n) {
-    uint64_t state = 0, acc = 0;
     uint32_t busy = 0;
     const char *root_quiet = "unknown";
     int complete = 1, classes_busy = 0;
@@ -163,13 +161,13 @@ static void sample(int n) {
         complete = 0;
         emit("root n=%d result=unknown reason=IORegistryEntryFromPath_failed quiet=unknown uptime_ms=%lld", n, uptime_ms());
     } else {
-        kern_return_t kr = IOServiceGetBusyStateAndTime(root, &state, &busy, &acc);
+        kern_return_t kr = IOServiceGetBusyState(root, &busy);
         if (kr != KERN_SUCCESS) {
             complete = 0;
             emit("root n=%d result=unknown kr=0x%x quiet=unknown uptime_ms=%lld", n, kr, uptime_ms());
         } else {
             root_quiet = busy == 0 ? "yes" : "no";
-            emit("root n=%d busy=%u acc_busy_ms=%lld quiet=%s uptime_ms=%lld", n, busy, ns_to_ms(acc), root_quiet, uptime_ms());
+            emit("root n=%d busy=%u acc_busy_ms=unknown state_bits=unknown quiet=%s uptime_ms=%lld", n, busy, root_quiet, uptime_ms());
         }
         IOObjectRelease(root);
     }
@@ -179,21 +177,15 @@ static void sample(int n) {
         if (!match) { complete = 0; emit("class n=%d name=%s result=unknown reason=matching_dict", n, k_classes[c]); continue; }
         kern_return_t kr = IOServiceGetMatchingServices(MACH_PORT_NULL, match, &it); /* consumes match */
         if (kr != KERN_SUCCESS) { complete = 0; emit("class n=%d name=%s result=unknown kr=0x%x", n, k_classes[c], kr); continue; }
-        int seen = 0, busy_objs = 0, unknown = 0, registered = 0, matched = 0, inactive = 0;
+        int seen = 0, busy_objs = 0, unknown = 0;
         uint32_t busy_max = 0;
-        uint64_t acc_max = 0;
         io_service_t s;
         /* bounded: at most MAX_PER_CLASS objects are taken from the iterator */
         while (seen < MAX_PER_CLASS && (s = IOIteratorNext(it)) != 0) {
-            uint64_t st = 0, a = 0;
             uint32_t b = 0;
-            if (IOServiceGetBusyStateAndTime(s, &st, &b, &a) == KERN_SUCCESS) {
+            if (IOServiceGetBusyState(s, &b) == KERN_SUCCESS) {
                 if (b) busy_objs++;
                 if (b > busy_max) busy_max = b;
-                if (a > acc_max) acc_max = a;
-                if (st & IB_STATE_REGISTERED) registered++;
-                if (st & IB_STATE_MATCHED) matched++;
-                if (st & IB_STATE_INACTIVE) inactive++;
             } else {
                 unknown++;
             }
@@ -211,8 +203,8 @@ static void sample(int n) {
         if (!iterator_valid) unknown++;
         if (unknown || truncated[0] == 'y') complete = 0;
         if (busy_objs) classes_busy++;
-        emit("class n=%d name=%s seen=%d cap=%d truncated=%s iterator_valid=%d busy_objects=%d busy_max=%u acc_busy_ms_max=%lld registered=%d matched=%d inactive=%d unknown=%d",
-             n, k_classes[c], seen, MAX_PER_CLASS, truncated, iterator_valid, busy_objs, busy_max, ns_to_ms(acc_max), registered, matched, inactive, unknown);
+        emit("class n=%d name=%s seen=%d cap=%d truncated=%s iterator_valid=%d busy_objects=%d busy_max=%u acc_busy_ms_max=unknown state_bits=unknown unknown=%d",
+             n, k_classes[c], seen, MAX_PER_CLASS, truncated, iterator_valid, busy_objs, busy_max, unknown);
     }
     emit("sample n=%d root_quiet=%s classes_with_busy=%d complete=%s uptime_ms=%lld", n, root_quiet, classes_busy, complete ? "yes" : "no", uptime_ms());
     /* -w: only on an actual root busy > 0 reading, >= 60 s apart, at most WALK_MAX_RUNS times, needs a working clock */
@@ -258,7 +250,7 @@ int main(int argc, char **argv) {
     sigaction(SIGALRM, &sa, NULL);
     unsigned limit = (unsigned)(delay + count * interval + 30);
     alarm(limit);
-    emit("start version=366.4 samples=%d interval_s=%d delay_s=%d alarm_s=%u console=%s walk=%s uptime_ms=%lld", count, interval, delay,
+    emit("start version=366.5 samples=%d interval_s=%d delay_s=%d alarm_s=%u console=%s walk=%s uptime_ms=%lld", count, interval, delay,
          limit, g_console_fd >= 0 ? "on" : "off", g_walk_enabled ? "on" : "off", uptime_ms());
     if (delay) sleep((unsigned)delay);
     for (int n = 0; n < count; n++) {

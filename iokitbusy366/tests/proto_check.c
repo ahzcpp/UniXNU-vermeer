@@ -9,7 +9,7 @@ typedef __typeof__(IOIteratorNext) sdk_decl_IOIteratorNext;
 typedef __typeof__(IOIteratorIsValid) sdk_decl_IOIteratorIsValid;
 typedef __typeof__(IOObjectRelease) sdk_decl_IOObjectRelease;
 typedef __typeof__(IORegistryEntryFromPath) sdk_decl_IORegistryEntryFromPath;
-typedef __typeof__(IOServiceGetBusyStateAndTime) sdk_decl_IOServiceGetBusyStateAndTime;
+typedef __typeof__(IOServiceGetBusyState) sdk_decl_IOServiceGetBusyState;
 typedef __typeof__(IOObjectGetClass) sdk_decl_IOObjectGetClass;
 #define io_object_t own_io_object_t
 #define io_iterator_t own_io_iterator_t

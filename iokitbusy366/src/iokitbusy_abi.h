@@ -21,7 +21,7 @@ io_object_t IOIteratorNext(io_iterator_t iterator);
 boolean_t IOIteratorIsValid(io_iterator_t iterator);
 kern_return_t IOObjectRelease(io_object_t object);
 io_registry_entry_t IORegistryEntryFromPath(mach_port_t mainPort, const io_string_t path);
-kern_return_t IOServiceGetBusyStateAndTime(io_service_t service, uint64_t *state, uint32_t *busy_state, uint64_t *accumulated_busy_time);
+kern_return_t IOServiceGetBusyState(io_service_t service, uint32_t *busy_state);
 kern_return_t IOObjectGetClass(io_object_t object, io_name_t className); /* -w only: class name of busy entries */
 
 /* IOService state bits (IOKit/IOKitKeys / IOService.h): only used to count, never printed per object */

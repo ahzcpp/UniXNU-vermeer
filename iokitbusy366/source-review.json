@@ -13,7 +13,9 @@
   "main_additions": [
     "IOIteratorIsValid preserves unknown for invalidated traversal",
     "all API names must exist in real SDK before own declarations",
-    "strict native codesign verification"
+    "strict native codesign verification",
+    "Real SDK proved private GetBusyStateAndTime undeclared; switched to public IOServiceGetBusyState, preserving strict SDK validation",
+    "Unmeasured private accumulated-time/state bits explicitly unknown, never synthesized"
   ],
-  "native_source_sha256": "f0507218335fbc12645f9434a77397727bbef6858afbc2ea20465c82f91c9ea9"
+  "native_source_sha256": "74c96ee58c90c16dfedbd02127afc335d2ed5d159c174ac234ce60fce8a54e67"
 }
