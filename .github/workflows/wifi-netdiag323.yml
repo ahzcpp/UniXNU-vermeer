@@ -1,0 +1,27 @@
+# Source-only SDK build of the own network diagnostic. Does not install or enable anything.
+name: WiFi netdiag323 for iOS 16.7
+on:
+  push:
+    branches: [wifi16-netdiag323-20261115]
+    paths: [.github/workflows/wifi-netdiag323.yml, 'netdiag323/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  netdiag:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Host tests, real-network observe run, iOS build and own ad-hoc signature
+        run: bash netdiag323/ci/build.sh "${{ runner.temp }}/netdiag323"
+      - name: Retain own binary and audit metadata only
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wifi-netdiag323
+          path: ${{ runner.temp }}/netdiag323/delivery/
+          if-no-files-found: error
+          retention-days: 7
