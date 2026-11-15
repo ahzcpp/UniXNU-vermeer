@@ -1,8 +1,8 @@
-name: GPU userspace for iOS 16.7
+name: GPU WebKit startup diagnostics 435 for iOS 16.7
 
 on:
   push:
-    branches: [gpu16-build-20261111]
+    branches: [gpu16-webkit-startup435-20261116]
     paths: [.github/workflows/gpu16-userspace.yml]
   workflow_dispatch:
 
