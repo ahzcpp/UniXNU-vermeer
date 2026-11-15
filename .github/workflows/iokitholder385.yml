@@ -1,0 +1,24 @@
+name: Read-only unfinished IOKit holder observations385
+on:
+  push:
+    branches: [wifi16-iokitholder385-20261115]
+    paths: ['iokitholder385/**', '.github/workflows/iokitholder385.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  iokitholder385:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Genuine SDK, sanitizer fixtures, runner smoke and own 4K signature
+        run: bash iokitholder385/ci/build.sh "${{ runner.temp }}/iokitholder385"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-iokitholder385
+          path: ${{ runner.temp }}/iokitholder385/delivery/
+          if-no-files-found: error
+          retention-days: 7
