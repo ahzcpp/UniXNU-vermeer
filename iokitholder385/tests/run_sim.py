@@ -7,7 +7,9 @@ root = Path(__file__).resolve().parents[1]
 cc = os.environ.get('CC', 'cc')
 tmp = Path(tempfile.mkdtemp(prefix='ih385-'))
 exe = tmp / 'probe-sim'
-host = [] if sys.platform == 'darwin' else ['-I', str(root / 'tests/host')]  # Linux: mach stub; macOS: real <mach/mach.h>
+# An explicit Xcode clang path does not inherit xcrun's SDK environment.
+# Darwin tests still use real SDK headers; the Linux-only Mach fixture stays out.
+host = ['-isysroot', subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()] if sys.platform == 'darwin' else ['-I', str(root / 'tests/host')]
 subprocess.run([cc, '-std=gnu11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-fsanitize=address,undefined',
                 *host, '-o', str(exe), str(root / 'src/unixnu-iokitholder385.c'), str(root / 'tests/mock_iokit.c')],
                check=True)
