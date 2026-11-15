@@ -1,0 +1,12 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "base_source_sha256": "ba4ccad846bdc082ff7df3b5832bcb2374d22b62b9620496af6fc8c52639308a",
+  "source_sha256": "bc31f964573fc5d0e76c8b1ebfa3d388404b13d71a8f08d2e6a418c1dd08e78a",
+  "changes": "namespace347to349 plus optional -p process/absent console mirror only",
+  "console_default_limit": 64,
+  "console_optin_limit": 256,
+  "nonblocking_single_write_preserved": true,
+  "collection_and_policies_unchanged": true,
+  "no_phone_or_Apple_inputs": true
+}

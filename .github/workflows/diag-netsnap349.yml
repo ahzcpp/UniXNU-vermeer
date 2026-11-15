@@ -1,0 +1,27 @@
+# Source-only SDK build of the own read-only process/socket snapshot probe. Does not install or enable anything.
+name: Diag netsnap349 for iOS 16.7
+on:
+  push:
+    branches: [wifi16-netsnap349-console-20261115]
+    paths: [.github/workflows/diag-netsnap349.yml, 'netsnap349/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  netsnap349:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Policy check, runner smoke run, iOS build and own ad-hoc 4K signature
+        run: bash netsnap349/ci/build.sh "${{ runner.temp }}/netsnap349"
+      - name: Retain own binary and audit metadata only
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-netsnap349
+          path: ${{ runner.temp }}/netsnap349/delivery/
+          if-no-files-found: error
+          retention-days: 7
