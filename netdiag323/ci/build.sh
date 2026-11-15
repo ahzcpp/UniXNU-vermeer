@@ -31,6 +31,8 @@ otool -l "$d/unixnu-netdiag" | grep -A4 LC_BUILD_VERSION | tee "$w/build-version
 clang -std=c11 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o "$w/test_lease" tests/test_lease.c
 "$w/test_lease" | tee -a "$d/host-tests.txt"
 clang -std=c11 -Wall -Wextra -Werror -O2 -o "$w/netpublish-macos" src/unixnu-netpublish.c -framework CoreFoundation -framework SystemConfiguration
+# the own declarations must agree with Apple's real header: compile once more against it (macOS) as a prototype check
+clang -std=c11 -Wall -Wextra -Werror -O0 -fsyntax-only -include SystemConfiguration/SystemConfiguration.h src/netpublish_sc.h
 printf 'if=en0\nip=192.0.2.77\nmask=255.255.255.0\nrouter=192.0.2.1\ndns=198.51.100.53,198.51.100.54\nlease=3600\n' > "$w/synthetic.lease"
 "$w/netpublish-macos" dry-run "$w/synthetic.lease" > "$d/macos-netpublish.txt" 2>&1 || true
 sudo "$w/netpublish-macos" list >> "$d/macos-netpublish.txt" 2>&1 || true

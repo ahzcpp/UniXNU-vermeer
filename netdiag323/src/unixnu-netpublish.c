@@ -16,8 +16,7 @@
  * modes: run (default: loop every 5 s)   once   dry-run FILE (parse a lease file, build the dictionaries, print them, publish nothing)
  *        list (read only: SCNetworkInterfaceCopyAll and the Global keys)
  */
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
+#include "netpublish_sc.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -63,16 +62,16 @@ static void build(const NpLease *l, CFDictionaryRef *ipv4, CFDictionaryRef *dns)
 {
     CFMutableDictionaryRef d = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFArrayRef a = cfarray1(l->ip), m = cfarray1(l->mask); CFStringRef ifn = cfs(l->ifname), method = cfs("DHCP");
-    CFDictionarySetValue(d, kSCPropNetIPv4Addresses, a); CFDictionarySetValue(d, kSCPropNetIPv4SubnetMasks, m);
-    CFDictionarySetValue(d, kSCPropInterfaceName, ifn); CFDictionarySetValue(d, kSCPropNetIPv4ConfigMethod, method);
-    if (l->router[0]) {CFStringRef r = cfs(l->router); CFDictionarySetValue(d, kSCPropNetIPv4Router, r); CFRelease(r);}
+    CFDictionarySetValue(d, NP_PROP_ADDRESSES, a); CFDictionarySetValue(d, NP_PROP_SUBNET_MASKS, m);
+    CFDictionarySetValue(d, NP_PROP_INTERFACE_NAME, ifn); CFDictionarySetValue(d, NP_PROP_CONFIG_METHOD, method);
+    if (l->router[0]) {CFStringRef r = cfs(l->router); CFDictionarySetValue(d, NP_PROP_ROUTER, r); CFRelease(r);}
     CFRelease(a); CFRelease(m); CFRelease(method);
     *ipv4 = d; *dns = NULL;
     if (l->dns_count) {
         CFMutableArrayRef servers = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
         for (unsigned i = 0; i < l->dns_count; ++i) {CFStringRef s = cfs(l->dns[i]); CFArrayAppendValue(servers, s); CFRelease(s);}
         CFMutableDictionaryRef n = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        CFDictionarySetValue(n, kSCPropNetDNSServerAddresses, servers); CFDictionarySetValue(n, kSCPropInterfaceName, ifn);
+        CFDictionarySetValue(n, NP_PROP_SERVER_ADDRESSES, servers); CFDictionarySetValue(n, NP_PROP_INTERFACE_NAME, ifn);
         CFRelease(servers); *dns = n;
     }
     CFRelease(ifn);
@@ -192,10 +191,7 @@ int main(int argc, char **argv)
     list_interfaces();
     SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("org.unixnu.wifi.netpublish"), NULL, NULL);
     if (!store) {say("FAIL SCDynamicStoreCreate: %s", SCErrorString(SCError())); return 3;}
-    CFStringRef kv4 = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, CFSTR(SERVICE_ID), kSCEntNetIPv4);
-    CFStringRef kdns = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, CFSTR(SERVICE_ID), kSCEntNetDNS);
-    CFStringRef gv4 = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-    CFStringRef gdns = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetDNS);
+    CFStringRef kv4 = NP_KEY_SERVICE_IPV4(SERVICE_ID), kdns = NP_KEY_SERVICE_DNS(SERVICE_ID), gv4 = NP_KEY_GLOBAL_IPV4, gdns = NP_KEY_GLOBAL_DNS;
     {CFPropertyListRef a = SCDynamicStoreCopyValue(store, gv4), b = SCDynamicStoreCopyValue(store, gdns);
      show("before Global/IPv4", a); show("before Global/DNS", b); if (a) CFRelease(a); if (b) CFRelease(b);}
     if (!strcmp(mode, "list")) return 0;
