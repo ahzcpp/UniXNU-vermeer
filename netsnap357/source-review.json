@@ -1,0 +1,14 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "base_commit": "64298af8c96d1bbfb8077680f33e82bf06ac9c10",
+  "new_mode": "-m memory only; no PID/FD enumeration",
+  "source_sha256": "6352aee826c270ee80aca2dcf1d4d624d1abf116be24553853bd635ea73dbf1c",
+  "original_memory_ABI_and_header_unchanged": true,
+  "read_only_compressor_sizes": {
+    "vm.compressor_mode": 4,
+    "vm.compressor_is_active": 4,
+    "vm.compressor_bytes_used": 8
+  },
+  "finite_console256": true
+}

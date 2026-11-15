@@ -1,0 +1,1 @@
+Own source-only read-only memory/VM/compressor diagnostic. Explicit -m avoids all process/FD enumeration and mirrors finite samples within the existing256-row nonblocking console cap. Failed/short sysctl reads remain unknown with immediate errno/length; no VM/Jetsam/policy changes, sockets, credentials or payloads. Genuine SDK runner tests are not K70 evidence.
