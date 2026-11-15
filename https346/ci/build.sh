@@ -42,8 +42,26 @@ import hashlib, json, re, sys, pathlib
 d, w = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 cs = (w/'codesign.txt').read_text()
 cdhash = re.search(r'CDHash=([0-9a-f]{40})', cs).group(1)
-page = re.search(r'Page size=(\d+)', cs).group(1)
-assert page == '4096', page
+import struct
+def cd_page_sizes(blob):
+    # LC_CODE_SIGNATURE -> SuperBlob (big-endian) -> every CodeDirectory (0xfade0c02): pageSize is log2 at offset 39
+    ncmds = struct.unpack_from('<I', blob, 16)[0]; off = 32; sig = None
+    for _ in range(ncmds):
+        cmd, size = struct.unpack_from('<II', blob, off)
+        if cmd == 0x1d: sig = struct.unpack_from('<II', blob, off + 8)
+        off += size
+    so, ss = sig
+    magic, length, count = struct.unpack_from('>III', blob, so)
+    assert magic == 0xfade0cc0, hex(magic)
+    sizes = []
+    for i in range(count):
+        typ, boff = struct.unpack_from('>II', blob, so + 12 + 8 * i)
+        if struct.unpack_from('>I', blob, so + boff)[0] == 0xfade0c02:
+            sizes.append(1 << blob[so + boff + 39])
+    return sizes
+sizes = cd_page_sizes((d/'unixnu-https346').read_bytes())
+assert sizes and all(s == 4096 for s in sizes), sizes
+page = str(sizes[0])
 assert 'Identifier=org.unixnu.wifi.https346' in cs
 ents = (w/'entitlements.xml').read_text()
 assert 'com.apple.private.security.no-container' in ents, ents
