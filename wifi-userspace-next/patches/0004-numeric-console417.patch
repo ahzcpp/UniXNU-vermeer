@@ -1,0 +1,127 @@
+--- a/userspace/nw_selection330.h
++++ b/userspace/nw_selection330.h
+@@ -4,6 +4,7 @@
+  * identifier or untrusted format enters any emitted record. */
+ #ifndef NW_SELECTION330_H
+ #define NW_SELECTION330_H
++#include "nw_numeric337.h"
+ enum nw330_reason {
+  NW330_NAME_MATCH, NW330_NAME_MISMATCH, NW330_DISABLED, NW330_TEMP_DISABLED,
+  NW330_BSSID_FILTER, NW330_RSN_PARSE, NW330_PROTO, NW330_PAIRWISE, NW330_GROUP,
+@@ -44,10 +45,16 @@
+   c[NW330_DISABLED],c[NW330_TEMP_DISABLED],c[NW330_BSSID_FILTER],c[NW330_DISCONNECTED_GATE],c[NW330_ABORTED_GATE]);
+  wpa_printf(MSG_WARNING,"wifi330: WPA tkip offer_pair=%u offer_group=%u",
+   c[NW330_OFFER_PAIR_TKIP],c[NW330_OFFER_GROUP_TKIP]);
++ NW337_RECORD(NW337_PASS,nw330_selection.passes,rc,nw330_selection.disconnected,nw330_selection.aborted,
++  nw330_selection.own,nw330_selection.update,nw330_selection.fetched,c[NW330_NAME_MATCH],c[NW330_NAME_MISMATCH],c[NW330_SELECTED]);
++ NW337_RECORD(NW337_REJECT,c[NW330_RSN_PARSE],c[NW330_PROTO],c[NW330_PAIRWISE],c[NW330_GROUP],c[NW330_AKM],c[NW330_PMF],c[NW330_RATES],c[NW330_NO_PROTO],c[NW330_SECURITY_OK],c[NW330_PRIVACY],c[NW330_FREQ]);
++ NW337_RECORD(NW337_GATES,c[NW330_DISABLED],c[NW330_TEMP_DISABLED],c[NW330_BSSID_FILTER],c[NW330_DISCONNECTED_GATE],c[NW330_ABORTED_GATE]);
++ NW337_RECORD(NW337_OFFER,c[NW330_OFFER_PAIR_TKIP],c[NW330_OFFER_GROUP_TKIP]);
+  nw330_selection.active=0;
+ }
+ static inline void nw330_frontend(unsigned op,unsigned before,unsigned after,int rc) {
+  if(nw330_selection.frontend_rows>=32)return;
++ NW337_RECORD(NW337_FRONTEND,op,!!before,!!after,rc);
+  nw330_selection.frontend_rows++;
+  wpa_printf(MSG_WARNING,"wifi330: WPA frontend op=%u before_disconnected=%u after_disconnected=%u rc=%d",
+   op,!!before,!!after,rc);
+--- a/userspace/driver_sheng.c
++++ b/userspace/driver_sheng.c
+@@ -1,6 +1,7 @@
+ /* XNU control-port backend for unchanged wpa_supplicant authentication code. */
+ #include "utils/includes.h"
+ #include "utils/common.h"
++#include "nw_numeric337.h"
+ #include "utils/eloop.h"
+ #include "common/ieee802_11_defs.h"
+ #include "common/wpa_common.h"
+@@ -276,6 +277,7 @@
+   int result = sheng_rpc(driver, &b, &reply);
+   static unsigned tkip_rows331;
+   if (parameters->alg == WPA_ALG_TKIP && tkip_rows331 < 32) {
++    NW337_RECORD(NW337_INSTALL,!!(flags & NW_CONTROL_KEY_PAIRWISE),32,result);
+     tkip_rows331++;
+     wpa_printf(MSG_WARNING,"wifi331: TKIP install pairwise=%u bytes=32 result=%d",
+       !!(flags & NW_CONTROL_KEY_PAIRWISE),result);
+@@ -511,6 +513,7 @@
+     case RSN_CIPHER_SUITE_AES_128_CMAC: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_BIP; break;
+     }
+   }
++  NW337_RECORD(NW337_INFO,!!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_TKIP));
+   wpa_printf(MSG_WARNING,"wifi331: INFO cap_tkip=%u",!!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_TKIP));
+   if (!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_CCMP)) goto fail;
+   driver->capability.max_scan_ssids = sheng_value(&reply, NW_CONTROL_ATTR_MAX_SCAN_SSIDS, 1);
+--- /dev/null
++++ b/userspace/nw_numeric337.h
+@@ -0,0 +1,71 @@
++/* SPDX-License-Identifier: BSD-2-Clause-Patent
++ * Own numeric rows only; never accepts a format, label or identity string.
++ * Failure is deliberately isolated from authentication/control state. */
++#ifndef NW_NUMERIC337_H
++#define NW_NUMERIC337_H
++#include <stdint.h>
++#include <stddef.h>
++#include <stdio.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <sys/stat.h>
++#include <sys/file.h>
++#include <errno.h>
++enum nw337_row {NW337_PASS,NW337_REJECT,NW337_GATES,NW337_OFFER,NW337_FRONTEND,NW337_INFO,NW337_INSTALL,NW337_ROWS};
++#ifdef NW337_HOST_TEST
++#ifndef NW337_TEST_PATH
++#error Host test requires explicit synthetic file path
++#endif
++#define NW337_PATH NW337_TEST_PATH
++#else
++#define NW337_PATH "/dev/console"
++#endif
++#define NW337_CAP 65536
++#if defined(NW337_HOST_TEST) && defined(NW337_TEST_STAT)
++#define NW337_FSTAT NW337_TEST_STAT
++#else
++#define NW337_FSTAT fstat
++#endif
++static inline void nw337_numeric_impl(enum nw337_row row,const int64_t *values,size_t count) {
++ static const struct {const char *name;unsigned n;const char *fields[11];} schema[NW337_ROWS]={
++  {"pass",10,{"pass","rc","disconnected","aborted","own","update","fetched","name_match","name_mismatch","selected"}},
++  {"reject",11,{"rsn_parse","proto","pairwise","group","akm","pmf","rates","non_wpa","rsn_ok","privacy","freq"}},
++  {"gates",5,{"disabled","temp_disabled","bssid_filter","disconnected","aborted"}},
++  {"offer",2,{"pair_tkip","group_tkip"}},
++  {"frontend",4,{"op","before_disconnected","after_disconnected","rc"}},
++  {"info",1,{"cap_tkip"}},
++  {"install",3,{"pairwise","bytes","rc"}}
++ };
++ static unsigned attempts;
++ if((unsigned)row>=NW337_ROWS || !values || count!=schema[row].n)return;
++ unsigned seen=__atomic_load_n(&attempts,__ATOMIC_RELAXED);
++ do {if(seen>=256)return;}while(!__atomic_compare_exchange_n(&attempts,&seen,seen+1,0,__ATOMIC_RELAXED,__ATOMIC_RELAXED));
++ char line[768];int used=snprintf(line,sizeof(line),"wifi417: %s",schema[row].name);
++ if(used<0 || (size_t)used>=sizeof(line))return;
++ for(size_t i=0;i<count;i++) {
++  int n=snprintf(line+used,sizeof(line)-(size_t)used," %s=%lld",schema[row].fields[i],(long long)values[i]);
++  if(n<0 || (size_t)n>=sizeof(line)-(size_t)used)return;
++  used+=n;
++ }
++ if((size_t)used+1>=sizeof(line))return;line[used++]='\n';
++ /* Numeric metadata only. A failed or busy console never delays SME. */
++ static unsigned budget_used;
++ unsigned consumed=__atomic_load_n(&budget_used,__ATOMIC_RELAXED);
++ do {if(consumed>NW337_CAP-(unsigned)used)return;}
++ while(!__atomic_compare_exchange_n(&budget_used,&consumed,consumed+(unsigned)used,0,__ATOMIC_RELAXED,__ATOMIC_RELAXED));
++ int fd=open(NW337_PATH,O_WRONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
++ if(fd<0)return;
++ struct stat st;
++ if(NW337_FSTAT(fd,&st) || !S_ISCHR(st.st_mode)) {close(fd);return;}
++ /* One write, no retry, no fsync, no file creation, no generic log mirror. */
++ (void)write(fd,line,(size_t)used);
++ close(fd);
++}
++static inline void nw337_numeric(enum nw337_row row,const int64_t *values,size_t count) {
++ int saved_errno=errno;
++ nw337_numeric_impl(row,values,count);
++ errno=saved_errno;
++}
++#define NW337_RECORD(row,...) do {const int64_t nw337_values[]={__VA_ARGS__}; \
++ nw337_numeric((row),nw337_values,sizeof(nw337_values)/sizeof(nw337_values[0]));}while(0)
++#endif

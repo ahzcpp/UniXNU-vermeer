@@ -86,6 +86,12 @@ def main():
         report['selection_tkip_patch_sha256'] = hashlib.sha256(compatibility.read_bytes()).hexdigest()
         report['bounded_numeric_diagnostics'] = True
         report['real_INFO_gated_TKIP'] = True
+        numeric_patch = ROOT/'patches/0004-numeric-console417.patch'
+        check(hashlib.sha256(numeric_patch.read_bytes()).hexdigest() == '7ce78dfdd2dd123d8ec272d19d7e7463807862800da4ae329f1c6a99d76d7564', 'numeric console417 patch digest')
+        run(['git','apply','--check',numeric_patch], component)
+        run(['git','apply',numeric_patch], component)
+        report['numeric_console417_patch_sha256'] = hashlib.sha256(numeric_patch.read_bytes()).hexdigest()
+        report['nonblocking_numeric_only_console'] = True
         report['native_sdk_build_executed'] = True
         with (out/'native-build.log').open('w') as log:
             subprocess.run([sys.executable, str(builder),'--target','ios'],

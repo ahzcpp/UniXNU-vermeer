@@ -126,3 +126,5 @@ https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.
 Bounded numeric selection diagnostics and native INFO-gated TKIP support.
 Preserves upstream CCMP preference, RSN/PMF profile, deployment and signing policy.
 Native SDK build and real K70 association verification remain separate.
+
+417: Mirror only bounded fixed numeric selection rows to nonblocking character console. Original service, crypto, permissions and network policy unchanged. No generic log redirection; failed/partial output is dropped. Host/native/device validation are separate.
