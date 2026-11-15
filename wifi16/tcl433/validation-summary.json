@@ -1,0 +1,25 @@
+{
+  "status": "PASS_ISOLATED_ONE_NATIVE_TU_UPSTREAM_TCL_BACKPORT433",
+  "upstream_commit": "fdea4d44e4b9c3f7021c85f8cd766e84e224472d",
+  "upstream_url": "https://github.com/torvalds/linux/commit/fdea4d44e4b9c3f7021c85f8cd766e84e224472d",
+  "patch_sha256": "b0a9ece79ecdb8d450d75bbd7982c3d882d290b200eb84f8f4634600d96b306a",
+  "control_exact_original407_and431": true,
+  "defined_and_undefined_symbols_exact": true,
+  "archive_sha256": "3492adaeba216d8220a9e3278231797c8045066987842e6f62d1168c322fd667",
+  "parent_archive_sha256": "c6868a89fe03468a9cab45f2ed68af534a7a91fb80917b4192898453b2b4dfbe",
+  "members": 128,
+  "changed_members": [
+    "ath12k_dp.o"
+  ],
+  "unchanged_members": 127,
+  "functional_change": "Recompute current vdev/pdev TCL metadata with assignment, replacing accumulating OR; original VALID_HTT clear unchanged.",
+  "security_key_port_auth_and_generation_changes": false,
+  "hardware_tested": false,
+  "K70_rejoin_cause_proven": false,
+  "control_object_sha256": "b3d427a9d358259a0f0ec587d9d4a3688d54bfe8fa101a932ef2ab9331a3759f",
+  "patched_object_sha256": "51feded25a4d45699bbcc98466b96bb662398e66fe930ea7cea98fddecac7d36",
+  "host_cases": 16392,
+  "host_original_stale_sequence_reproduced": true,
+  "native_and_boot_independent_reviews_pass": true,
+  "device_booted": false
+}
