@@ -458,7 +458,17 @@ int main(int argc, char **argv)
         const int o = dhcp_open(&d, st.index);
         if (o < 0) {say("RESULT fail step=dhcp-socket"); return 3;}
         if (o == 0) {
-            if (dhcp_acquire(&d, st.mac, &lease, 0, NULL)) {dhcp_close(&d); say("RESULT fail step=dhcp"); return 3;}
+            /* with --hold, a failed exchange is tried again (15 s apart) until the -w budget from start is used up */
+            const uint64_t budget_end = now_ms() + (uint64_t)wait_s * 1000u;
+            int acquired = dhcp_acquire(&d, st.mac, &lease, 0, NULL) == 0;
+            while (!acquired && hold && !g_stop && now_ms() + 15000 < budget_end) {
+                say("INFO dhcp retry in 15 s (hold)");
+                sleep(15);
+                if_state(&st);
+                if ((st.flags & (IFF_UP | IFF_RUNNING)) != (IFF_UP | IFF_RUNNING)) {say("INFO link not running; waiting"); continue;}
+                acquired = dhcp_acquire(&d, st.mac, &lease, 0, NULL) == 0;
+            }
+            if (!acquired) {dhcp_close(&d); say("RESULT fail step=dhcp"); return 3;}
             if (set_address(&lease)) {dhcp_close(&d); say("RESULT fail step=address"); return 4;}
             struct in_addr gw; unsigned idx;
             if (lease.router.s_addr && !default_route(&gw, &idx)) route_msg(RTM_ADD, lease.router);
