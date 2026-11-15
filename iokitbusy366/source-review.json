@@ -1,0 +1,19 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "claude_frozen_source_sha256": {
+    "iokitbusy366/ci/build.sh": "1d03c6383c7d96407a35b6597d6632bf9774aff085a2248a3f00c28283aa33fb",
+    "iokitbusy366/launchd/entitlements.plist": "cd1358e7c8c3b01da98b5544e3c2ffcdc9d92cf9a3191e45038e8691ef2021ca",
+    "iokitbusy366/launchd/org.unixnu.diag.iokitbusy366.plist": "4940ebd1aafd024da9dc5378123d1827c5528f11126cf12ba80aaff925abece0",
+    "iokitbusy366/src/iokitbusy_abi.h": "c8997dded0b669371adaf016e46fd730d49289082f7abfb755a7d6864489c525",
+    "iokitbusy366/src/unixnu-iokitbusy366.c": "1c679983e63bffa9f31b134310171d7ae168d255dc0eb6400ba287b093f6e28b",
+    "iokitbusy366/tests/policy_check.py": "47851fcc80a705c7f9cec90da7963faa76d7c71eac73b841c48b000b89916300",
+    "iokitbusy366/tests/proto_check.c": "2953c600730a7543d4e2fe034e5868951e238f50dde6bf6e17256adcf2ce9ab6"
+  },
+  "main_additions": [
+    "IOIteratorIsValid preserves unknown for invalidated traversal",
+    "all API names must exist in real SDK before own declarations",
+    "strict native codesign verification"
+  ],
+  "native_source_sha256": "f0507218335fbc12645f9434a77397727bbef6858afbc2ea20465c82f91c9ea9"
+}

@@ -1,0 +1,1 @@
+Own read-only bounded IOKit busy diagnostic. Fixed root/network classes plus explicit-w class-only walk, no identities/properties/paths. Failures/truncation/invalidated iterators remain partial/unknown. No service readiness or timeout changes. Native SDK runner tests are not K70 evidence.

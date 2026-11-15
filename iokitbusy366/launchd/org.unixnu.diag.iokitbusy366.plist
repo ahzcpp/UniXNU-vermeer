@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.unixnu.diag.iokitbusy366</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-iokitbusy366</string>
+		<string>-c</string>
+		<string>-w</string>
+		<string>-n</string>
+		<string>18</string>
+		<string>-i</string>
+		<string>20</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>UserName</key>
+	<string>root</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/ngpu/etc/wifi/iokitbusy366.out</string>
+	<key>StandardErrorPath</key>
+	<string>/private/var/ngpu/etc/wifi/iokitbusy366.out</string>
+</dict>
+</plist>
