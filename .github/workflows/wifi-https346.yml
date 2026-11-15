@@ -1,0 +1,27 @@
+# Source-only SDK build of the own HTTPS reachability probe. Does not install or enable anything.
+name: WiFi https346 probe for iOS 16.7
+on:
+  push:
+    branches: [wifi16-https-probe-20261115]
+    paths: [.github/workflows/wifi-https346.yml, 'https346/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  https346:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Policy check, runner-network run, iOS build and own ad-hoc 4K signature
+        run: bash https346/ci/build.sh "${{ runner.temp }}/https346"
+      - name: Retain own binary and audit metadata only
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wifi-https346
+          path: ${{ runner.temp }}/https346/delivery/
+          if-no-files-found: error
+          retention-days: 7
