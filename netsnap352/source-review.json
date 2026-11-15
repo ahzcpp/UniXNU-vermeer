@@ -1,0 +1,13 @@
+{
+  "source_only": true,
+  "hardware_tested": false,
+  "base_commit": "eaad843cd625f81a1d76abeafa2ea4d05f404086",
+  "quality_patch_sha256": "3a7bfae7b4fbe0b963307a53d9804a24329d7cc6040c8530ef983c0adfb80b93",
+  "memory_patch_sha256": "50ada0303da8917e0d3649259e578c41240678f096885de2ffa541ae5baf1131",
+  "source_sha256": "62cdcf2a6aca3bf950de4033ab552acb69b6f6914cd9b067d2e42e63712bd706",
+  "actual_XNU10063_proc_VM_ABI_checked": true,
+  "host_quality_checks": 5301,
+  "memory_host_cases": 14,
+  "no_mock_headers_in_native_paths": true,
+  "read_only": true
+}

@@ -1,0 +1,1 @@
+Own read-only fixed-watchlist socket/process and VM diagnostics. Failed reads remain partial/unknown; no addresses or payloads are printed. Normal kernel protections, policies and memory settings remain unchanged. Genuine SDK CI and runner observations are not K70 test results.
