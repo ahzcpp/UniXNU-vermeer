@@ -1,0 +1,268 @@
+--- a/userspace/nw_supplicant_frontend.c
++++ b/userspace/nw_supplicant_frontend.c
+@@ -6,6 +6,7 @@
+ #include "wpa_supplicant_i.h"
+ #include "ctrl_iface.h"
+ #include "nw_supplicant_frontend.h"
++#include "nw_selection330.h"
+ 
+ extern void nw_sheng_report_auth_failure(void *priv);
+ extern void nw_sheng_report_request_failure(void *priv, unsigned operation, int status);
+@@ -98,6 +99,7 @@
+ {
+   struct wpa_supplicant *supplicant = context;
+   int result = -1;
++  const unsigned disconnected330 = supplicant->disconnected;
+   switch (event->header.operation) {
+   case NW_CONTROL_JOIN_REQUEST: result = join(supplicant, event); break;
+   case NW_CONTROL_DISCONNECT_REQUEST: result = fixed_command(supplicant, "DISCONNECT"); break;
+@@ -117,6 +119,7 @@
+     break;
+   }
+   }
++  nw330_frontend(event->header.operation, disconnected330, supplicant->disconnected, result);
+   if (result && event->header.operation == NW_CONTROL_JOIN_REQUEST)
+     nw_sheng_report_request_failure(supplicant->drv_priv, event->header.operation, NW_CONTROL_INVALID);
+   if (result && event->header.operation == NW_CONTROL_SCAN_REQUEST)
+--- a/tools/prepare-supplicant.py
++++ b/tools/prepare-supplicant.py
+@@ -5,6 +5,7 @@
+ from pathlib import Path
+ import subprocess
+ import tarfile
++from selection330_transform import instrument_events330
+ 
+ root = Path(__file__).resolve().parents[1]
+ subprocess.run(["python3", str(root / "tools/fetch-sources.py"), "--check"], check=True)
+@@ -56,6 +57,7 @@
+         "#ifdef CONFIG_DRIVER_SHENG\n\tnw_supplicant_auth_failed(wpa_s, reason);\n#endif\n\n\tssid->auth_failures++;")
+ replace("wpa_supplicant/wpa_supplicant.c", '#include "ctrl_iface.h"',
+         '#include "ctrl_iface.h"\n#ifdef CONFIG_DRIVER_SHENG\n#include "nw_supplicant_frontend.h"\n#endif')
++staged["wpa_supplicant/events.c"] = instrument_events330(staged["wpa_supplicant/events.c"].decode()).encode()
+ for name, data in staged.items():
+     write_changed(out / name, data)
+ for relative, source in {
+--- a/userspace/driver_sheng.c
++++ b/userspace/driver_sheng.c
+@@ -243,6 +243,16 @@
+       (parameters->key_flag & (KEY_FLAG_PMK | KEY_FLAG_MODIFY | KEY_FLAG_NEXT))) return -1;
+   switch (parameters->alg) {
+   case WPA_ALG_NONE: flags |= NW_CONTROL_KEY_DELETE; break;
++  case WPA_ALG_TKIP:
++    /* driver.h/nl80211: TK[16], local TX MIC[8], local RX MIC[8].
++     * Upstream wpa.c already swaps AP GTK MIC halves for the station.
++     * Pass bytes unchanged to cfg80211/mac80211: do NOT swap a second time. */
++    if (!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_TKIP) ||
++        !parameters->key || parameters->key_len != 32 ||
++        (parameters->seq_len != 0 && parameters->seq_len != 6) ||
++        (parameters->seq_len && !parameters->seq) ||
++        parameters->key_idx < 0 || parameters->key_idx > 3) return -1;
++    cipher = RSN_CIPHER_SUITE_TKIP; break;
+   case WPA_ALG_CCMP: cipher = RSN_CIPHER_SUITE_CCMP; break;
+   case WPA_ALG_GCMP: cipher = RSN_CIPHER_SUITE_GCMP; break;
+   case WPA_ALG_GCMP_256: cipher = RSN_CIPHER_SUITE_GCMP_256; break;
+@@ -263,7 +273,14 @@
+       (parameters->addr && nw_control_put(&b, NW_CONTROL_ATTR_BSSID, parameters->addr, ETH_ALEN)) ||
+       nw_control_put(&b, NW_CONTROL_ATTR_KEY_SEQUENCE, parameters->seq, parameters->seq_len) ||
+       nw_control_put(&b, NW_CONTROL_ATTR_KEY, parameters->key, parameters->key_len)) return sheng_invalid(&b);
+-  return sheng_rpc(driver, &b, &reply);
++  int result = sheng_rpc(driver, &b, &reply);
++  static unsigned tkip_rows331;
++  if (parameters->alg == WPA_ALG_TKIP && tkip_rows331 < 32) {
++    tkip_rows331++;
++    wpa_printf(MSG_WARNING,"wifi331: TKIP install pairwise=%u bytes=32 result=%d",
++      !!(flags & NW_CONTROL_KEY_PAIRWISE),result);
++  }
++  return result;
+ }
+ static int sheng_port(void *priv, int authorized)
+ {
+@@ -486,6 +503,7 @@
+   if (!ciphers || cipher_length % 4) goto fail;
+   for (size_t i = 0; i < cipher_length; i += 4) {
+     switch (WPA_GET_LE32(ciphers + i)) {
++    case RSN_CIPHER_SUITE_TKIP: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_TKIP; break;
+     case RSN_CIPHER_SUITE_CCMP: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_CCMP; break;
+     case RSN_CIPHER_SUITE_GCMP: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_GCMP; break;
+     case RSN_CIPHER_SUITE_GCMP_256: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_GCMP_256; break;
+@@ -493,6 +511,7 @@
+     case RSN_CIPHER_SUITE_AES_128_CMAC: driver->capability.enc |= WPA_DRIVER_CAPA_ENC_BIP; break;
+     }
+   }
++  wpa_printf(MSG_WARNING,"wifi331: INFO cap_tkip=%u",!!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_TKIP));
+   if (!(driver->capability.enc & WPA_DRIVER_CAPA_ENC_CCMP)) goto fail;
+   driver->capability.max_scan_ssids = sheng_value(&reply, NW_CONTROL_ATTR_MAX_SCAN_SSIDS, 1);
+   if (driver->capability.max_scan_ssids < 1 || driver->capability.max_scan_ssids > WPAS_MAX_SCAN_SSIDS) goto fail;
+--- a/userspace/supplicant.config
++++ b/userspace/supplicant.config
+@@ -7,7 +7,7 @@
+ CONFIG_BACKEND=file
+ CONFIG_NO_CONFIG_WRITE=y
+ CONFIG_NO_CONFIG_BLOBS=y
+-CONFIG_NO_TKIP=y
++# TKIP compatibility is gated by the real native INFO cipher list.
+ CONFIG_TLS=internal
+ CONFIG_CRYPTO=internal
+ CONFIG_INTERNAL_LIBTOMMATH=y
+--- /dev/null
++++ b/userspace/nw_selection330.h
+@@ -0,0 +1,55 @@
++/* SPDX-License-Identifier: BSD-2-Clause-Patent
++ * Private en0 diagnostic, not a new protocol or authentication implementation.
++ * Fixed numeric fields only. No string, MAC, credential, identity hash, profile
++ * identifier or untrusted format enters any emitted record. */
++#ifndef NW_SELECTION330_H
++#define NW_SELECTION330_H
++enum nw330_reason {
++ NW330_NAME_MATCH, NW330_NAME_MISMATCH, NW330_DISABLED, NW330_TEMP_DISABLED,
++ NW330_BSSID_FILTER, NW330_RSN_PARSE, NW330_PROTO, NW330_PAIRWISE, NW330_GROUP,
++ NW330_AKM, NW330_PMF, NW330_RATES, NW330_NO_PROTO, NW330_SECURITY_OK,
++ NW330_DISCONNECTED_GATE, NW330_ABORTED_GATE, NW330_SELECTED, NW330_PRIVACY,
++ NW330_FREQ, NW330_OFFER_PAIR_TKIP, NW330_OFFER_GROUP_TKIP, NW330_REASON_COUNT
++};
++static struct {
++ unsigned active, passes, frontend_rows, disconnected, aborted, own, update, fetched;
++ unsigned counts[NW330_REASON_COUNT];
++} nw330_selection;
++static inline int nw330_selection_begin(unsigned disconnected,unsigned aborted,unsigned own,unsigned update) {
++ if(nw330_selection.active || nw330_selection.passes>=32) return 0;
++ nw330_selection.active=1;nw330_selection.passes++;
++ nw330_selection.disconnected=!!disconnected;nw330_selection.aborted=!!aborted;
++ nw330_selection.own=!!own;nw330_selection.update=!!update;nw330_selection.fetched=0;
++ for(unsigned i=0;i<NW330_REASON_COUNT;i++)nw330_selection.counts[i]=0;
++ return 1;
++}
++static inline void nw330_selection_note(unsigned reason) {
++ if(nw330_selection.active && reason<NW330_REASON_COUNT && nw330_selection.counts[reason]<65535)
++  nw330_selection.counts[reason]++;
++}
++static inline void nw330_selection_fetched(unsigned n) {
++ if(nw330_selection.active)nw330_selection.fetched=n<65535?n:65535;
++}
++static inline void nw330_selection_end(int rc) {
++ if(!nw330_selection.active)return;
++ const unsigned *c=nw330_selection.counts;
++ wpa_printf(MSG_WARNING,"wifi330: WPA pass=%u rc=%d disconnected=%u aborted=%u own=%u update=%u fetched=%u name_match=%u name_mismatch=%u selected=%u",
++  nw330_selection.passes,rc,nw330_selection.disconnected,nw330_selection.aborted,
++  nw330_selection.own,nw330_selection.update,nw330_selection.fetched,
++  c[NW330_NAME_MATCH],c[NW330_NAME_MISMATCH],c[NW330_SELECTED]);
++ wpa_printf(MSG_WARNING,"wifi330: WPA reject rsn_parse=%u proto=%u pairwise=%u group=%u akm=%u pmf=%u rates=%u non_wpa=%u rsn_ok=%u privacy=%u freq=%u",
++  c[NW330_RSN_PARSE],c[NW330_PROTO],c[NW330_PAIRWISE],c[NW330_GROUP],c[NW330_AKM],
++  c[NW330_PMF],c[NW330_RATES],c[NW330_NO_PROTO],c[NW330_SECURITY_OK],c[NW330_PRIVACY],c[NW330_FREQ]);
++ wpa_printf(MSG_WARNING,"wifi330: WPA gates disabled=%u temp_disabled=%u bssid_filter=%u disconnected=%u aborted=%u",
++  c[NW330_DISABLED],c[NW330_TEMP_DISABLED],c[NW330_BSSID_FILTER],c[NW330_DISCONNECTED_GATE],c[NW330_ABORTED_GATE]);
++ wpa_printf(MSG_WARNING,"wifi330: WPA tkip offer_pair=%u offer_group=%u",
++  c[NW330_OFFER_PAIR_TKIP],c[NW330_OFFER_GROUP_TKIP]);
++ nw330_selection.active=0;
++}
++static inline void nw330_frontend(unsigned op,unsigned before,unsigned after,int rc) {
++ if(nw330_selection.frontend_rows>=32)return;
++ nw330_selection.frontend_rows++;
++ wpa_printf(MSG_WARNING,"wifi330: WPA frontend op=%u before_disconnected=%u after_disconnected=%u rc=%d",
++  op,!!before,!!after,rc);
++}
++#endif
+--- /dev/null
++++ b/tools/selection330_transform.py
+@@ -0,0 +1,101 @@
++"""Instrument the pinned supplicant2.12 actual decisions, without changing them.
++This public-source-only module is called by the component's existing preparer.
++All insertion sites are exact/unique; unexpected upstream changes fail closed.
++"""
++def instrument_events330(s):
++    def rep(a,b,count=1):
++        nonlocal s
++        if s.count(a)!=count: raise ValueError(('selection330 context',a[:100],s.count(a),count))
++        s=s.replace(a,b)
++    rep('#include "nan_supplicant.h"','#include "nan_supplicant.h"\n#include "nw_selection330.h"')
++    signature='''static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
++\t\t\t\t\t      union wpa_event_data *data,
++\t\t\t\t\t      int own_request, int update_only)
++'''
++    declaration='''static int nw330_scan_results_impl(struct wpa_supplicant *wpa_s,
++ union wpa_event_data *data,int own_request,int update_only);
++'''
++    wrapper=declaration+signature+'''{
++ int observe330=wpa_s && wpa_s->driver && !os_strcmp(wpa_s->driver->name,"sheng");
++ int started330=observe330 ? nw330_selection_begin(wpa_s->disconnected,
++   data ? data->scan_info.aborted : 0,own_request,update_only) : 0;
++ int result330=nw330_scan_results_impl(wpa_s,data,own_request,update_only);
++ /* result2 can remove the interface. Never dereference wpa_s after the call. */
++ if(started330)nw330_selection_end(result330);
++ return result330;
++}
++static int nw330_scan_results_impl(struct wpa_supplicant *wpa_s,
++ union wpa_event_data *data,int own_request,int update_only)
++'''
++    rep(signature,wrapper)
++    rep('''\tif (scan_res == NULL) {
++\t\tif (wpa_s->conf->ap_scan''','''\tif (scan_res) nw330_selection_fetched(scan_res->num);
++\tif (scan_res == NULL) {
++\t\tif (wpa_s->conf->ap_scan''')
++    rep('''\tif (data && data->scan_info.aborted) {
++\t\twpa_dbg''','''\tif (data && data->scan_info.aborted) {
++        nw330_selection_note(NW330_ABORTED_GATE);
++\t\twpa_dbg''')
++    rep('''\tif (wpa_s->disconnected) {
++\t\twpa_supplicant_set_state(wpa_s, WPA_DISCONNECTED);''','''\tif (wpa_s->disconnected) {
++        nw330_selection_note(NW330_DISCONNECTED_GATE);
++\t\twpa_supplicant_set_state(wpa_s, WPA_DISCONNECTED);''')
++    rep('''\tselected = wpa_supplicant_pick_network(wpa_s, &ssid, new_scan);''','''\tselected = wpa_supplicant_pick_network(wpa_s, &ssid, new_scan);
++    if(selected)nw330_selection_note(NW330_SELECTED);''')
++    # Notes are placed inside the existing true branch, before debug_print.
++    # Both legacy WPA and RSN paths share corresponding rejection semantics.
++    for condition,reason,count in [
++      ('if (wpa_parse_wpa_ie(rsn_ie, 2 + rsn_ie[1], &ie)) {','NW330_RSN_PARSE',1),
++      ('if (wpa_parse_wpa_ie(wpa_ie, 2 + wpa_ie[1], &ie)) {','NW330_RSN_PARSE',1),
++      ('if (!(ie.proto & ssid->proto)) {','NW330_PROTO',2),
++      ('if (!(ie.pairwise_cipher & ssid->pairwise_cipher)) {','NW330_PAIRWISE',2),
++      ('if (!(ie.group_cipher & ssid->group_cipher)) {','NW330_GROUP',2),
++      ('if (!(ie.key_mgmt & ssid->key_mgmt)) {','NW330_AKM',2),
++      ('if (!rate_match(wpa_s, ssid, bss, debug_print)) {','NW330_RATES',1),
++      ('if (!wpa_supplicant_match_privacy(bss, ssid)) {','NW330_PRIVACY',1),
++      ('if (!freq_allowed(ssid->freq_list, bss->freq)) {','NW330_FREQ',1),
++    ]:rep(condition,condition+'\n        nw330_selection_note('+reason+');',count)
++    rep('''\tif (wpas_network_disabled(wpa_s, ssid)) {
++\t\tif (debug_print)''','''\tif (wpas_network_disabled(wpa_s, ssid)) {
++        nw330_selection_note(NW330_DISABLED);
++\t\tif (debug_print)''')
++    rep('''!(ssid->key_mgmt & WPA_KEY_MGMT_IEEE8021X_NO_WPA)) {
++\t\tif (debug_print)''','''!(ssid->key_mgmt & WPA_KEY_MGMT_IEEE8021X_NO_WPA)) {
++        nw330_selection_note(NW330_NO_PROTO);
++\t\tif (debug_print)''')
++    # Restrict this insertion to wpa_scan_res_ok, not every temp-disabled query.
++    start=s.index('static bool wpa_scan_res_ok(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid,\n')
++    part=s[start:]
++    old='''\tif (res > 0) {
++\t\tif (debug_print)'''
++    if part.count(old)!=1:raise ValueError('temp disabled context')
++    s=s[:start]+part.replace(old,old.replace('\n\t\tif','\n        nw330_selection_note(NW330_TEMP_DISABLED);\n\t\tif'),1)
++    rep('''os_memcmp(match_ssid, ssid->ssid, match_ssid_len) != 0)) {
++\t\tif (debug_print)''','''os_memcmp(match_ssid, ssid->ssid, match_ssid_len) != 0)) {
++        nw330_selection_note(NW330_NAME_MISMATCH);
++\t\tif (debug_print)''')
++    rep('''\tif (!link && ssid->bssid_set &&
++\t    !ether_addr_equal(bss->bssid, ssid->bssid)) {''','''    if(check_ssid)nw330_selection_note(NW330_NAME_MATCH);
++\tif (!link && ssid->bssid_set &&
++\t    !ether_addr_equal(bss->bssid, ssid->bssid)) {
++        nw330_selection_note(NW330_BSSID_FILTER);''')
++    # PMF decisions retain their exact conditions/returns; instrument by unique
++    # debug-message branch context independent of the runtime debug level.
++    for text in ['   skip RSN IE - no mgmt frame protection',
++                 '   skip RSN IE - no mgmt frame protection enabled but AP requires it']:
++        marker='"'+text+'"'
++        at=s.find(marker)
++        if at<0:raise ValueError(('PMF marker',text))
++        debug=s.rfind('if (debug_print)',0,at)
++        if debug<0 or at-debug>180:raise ValueError('PMF branch')
++        branch=s.rfind('\n',0,debug)
++        s=s[:branch]+'\n        nw330_selection_note(NW330_PMF);'+s[branch:]
++    rep('''\t\t\t\t"   selected based on RSN IE");
++\t\treturn 1;''','''\t\t\t\t"   selected based on RSN IE");
++        nw330_selection_note(NW330_SECURITY_OK);
++\t\treturn 1;''')
++    rep("\t\tif (!ie.has_group)\n\t\t\tie.group_cipher = wpa_default_rsn_cipher(bss->freq);",
++        "\t\tif (!ie.has_group)\n\t\t\tie.group_cipher = wpa_default_rsn_cipher(bss->freq);\n"
++        "        if(ie.pairwise_cipher & WPA_CIPHER_TKIP)nw330_selection_note(NW330_OFFER_PAIR_TKIP);\n"
++        "        if(ie.group_cipher & WPA_CIPHER_TKIP)nw330_selection_note(NW330_OFFER_GROUP_TKIP);")
++    return s

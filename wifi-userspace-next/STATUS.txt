@@ -121,3 +121,8 @@ https://www.w1.fi/releases/
 https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
 
 验收级别：仅源码/方案静态检查。没有真实macOSSDK构建、签名或设备验收。
+
+2026-11-15 selection/TKIP candidate:
+Bounded numeric selection diagnostics and native INFO-gated TKIP support.
+Preserves upstream CCMP preference, RSN/PMF profile, deployment and signing policy.
+Native SDK build and real K70 association verification remain separate.

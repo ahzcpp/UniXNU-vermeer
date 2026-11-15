@@ -76,6 +76,16 @@ def main():
                            stdout=log, stderr=subprocess.STDOUT, check=True)
         archive = component/'deps'/lock['supplicant']['archive']
         check(hashlib.sha256(archive.read_bytes()).hexdigest() == lock['supplicant']['sha256'], 'public supplicant tarball digest')
+        # Reviewed public adapter/selector changes, after locked source resolution.
+        compatibility = ROOT/'patches/0003-selection-tkip.patch'
+        check(hashlib.sha256(compatibility.read_bytes()).hexdigest() ==
+              'e241f4aad8ebc7484f98e8bb5899d6481a9e0c3c9e527ea7ef4c52fda9cce174',
+              'selection/TKIP public patch digest')
+        run(['git','apply','--check',compatibility], component)
+        run(['git','apply',compatibility], component)
+        report['selection_tkip_patch_sha256'] = hashlib.sha256(compatibility.read_bytes()).hexdigest()
+        report['bounded_numeric_diagnostics'] = True
+        report['real_INFO_gated_TKIP'] = True
         report['native_sdk_build_executed'] = True
         with (out/'native-build.log').open('w') as log:
             subprocess.run([sys.executable, str(builder),'--target','ios'],

@@ -1,8 +1,9 @@
-# REVIEW COPY ONLY. No workflow was installed, committed, pushed or dispatched.
-# After review, place this at .github/workflows/wifi-userspace-ios16.yml and
-# place the complete source-only plan at wifi-userspace-next/ in that repository.
+# Reviewed source-only SDK build. Does not install or enable the service.
 name: Reviewed native WiFi userspace for iOS 16.7
 on:
+  push:
+    branches: [wifi16-selection-tkip-20261115]
+    paths: [.github/workflows/wifi-userspace-ios16.yml, 'wifi-userspace-next/**']
   workflow_dispatch:
 permissions:
   contents: read
