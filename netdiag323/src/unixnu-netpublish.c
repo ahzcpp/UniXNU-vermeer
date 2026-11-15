@@ -15,6 +15,7 @@
  *
  * modes: run (default: loop every 5 s)   once   dry-run FILE (parse a lease file, build the dictionaries, print them, publish nothing)
  *        list (read only: SCNetworkInterfaceCopyAll and the Global keys)
+ * optional: run|once|list -c mirrors existing rows to a nonblocking console; stdout/file unchanged
  */
 #include "netpublish_sc.h"
 #include <arpa/inet.h>
@@ -38,6 +39,7 @@
 #include <unistd.h>
 #include "netdiag_route.h"
 #include "netpublish_lease.h"
+#include "netpublish_console.h"
 
 #define SERVICE_ID "A7C30323-4E45-5444-4941-470000000323"
 #define LEASE_FILE "/private/var/ngpu/etc/wifi/netdiag.lease"
@@ -52,6 +54,7 @@ static void say(const char *fmt, ...)
     line[n++] = '\n'; line[n] = 0;
     fputs(line, stdout); fflush(stdout);
     if (g_log) {fputs(line, g_log); fflush(g_log);}
+    np_console_emit(line,(size_t)n);
 }
 
 static CFStringRef cfs(const char *s) {return CFStringCreateWithCString(NULL, s, kCFStringEncodingUTF8);}
@@ -172,10 +175,28 @@ static void list_interfaces(void)
 static volatile sig_atomic_t g_stop;
 static void on_term(int s) {(void)s; g_stop = 1;}
 
+static void report_namer_state(SCDynamicStoreRef store)
+{
+    CFPropertyListRef state = SCDynamicStoreCopyValue(store, CFSTR("Plugin:InterfaceNamer"));
+    int dictionary = state && CFGetTypeID(state) == CFDictionaryGetTypeID();
+    say("INFO namer present=%d dictionary=%d quiet_key=%d complete_key=%d timeout_key=%d",
+        state != NULL, dictionary,
+        dictionary && CFDictionaryContainsKey(state, CFSTR("Quiet")),
+        dictionary && CFDictionaryContainsKey(state, CFSTR("Complete")),
+        dictionary && CFDictionaryContainsKey(state, CFSTR("Timeout")));
+    if (state) CFRelease(state);
+}
+
 int main(int argc, char **argv)
 {
     const char *mode = argc > 1 ? argv[1] : "run";
     signal(SIGTERM, on_term); signal(SIGINT, on_term); signal(SIGPIPE, SIG_IGN);
+    int console_error=0;
+    /* Mode and dry-run FILE retain their original positions. Other arguments
+     * keep their existing handling; -c only enables an optional log mirror. */
+    for(int i=!strcmp(mode,"dry-run")?3:2;i<argc;i++) {
+        if(!strcmp(argv[i],"-c")&&np_console_enable())console_error=errno;
+    }
     if (!strcmp(mode, "dry-run")) {
         if (argc < 3) return 64;
         NpLease l; char text[512]; FILE *f = fopen(argv[2], "r"); size_t n = f ? fread(text, 1, sizeof text - 1, f) : 0; if (f) fclose(f); text[n] = 0;
@@ -188,9 +209,17 @@ int main(int argc, char **argv)
     mkdir("/private/var/ngpu/log", 0700);
     g_log = fopen("/private/var/ngpu/log/unixnu-netpublish.log", "a");
     say("START mode=%s service=%s uid=%d version=323b", mode, SERVICE_ID, (int)getuid());
-    list_interfaces();
+    if(console_error)say("WARN optional console open errno=%d (stdout/file retained)",console_error);
+    /* Enumeration waits for InterfaceNamer and is only diagnostic. The
+     * publication path independently validates its real kernel lease/route. */
+    if (!strcmp(mode, "list")) {
+        say("INFO interface-enumeration begin");
+        list_interfaces();
+        say("INFO interface-enumeration end");
+    } else say("INFO interface-enumeration skipped for lease publication");
     SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("org.unixnu.wifi.netpublish"), NULL, NULL);
     if (!store) {say("FAIL SCDynamicStoreCreate: %s", SCErrorString(SCError())); return 3;}
+    report_namer_state(store);
     CFStringRef kv4 = NP_KEY_SERVICE_IPV4(SERVICE_ID), kdns = NP_KEY_SERVICE_DNS(SERVICE_ID), gv4 = NP_KEY_GLOBAL_IPV4, gdns = NP_KEY_GLOBAL_DNS;
     {CFPropertyListRef a = SCDynamicStoreCopyValue(store, gv4), b = SCDynamicStoreCopyValue(store, gdns);
      show("before Global/IPv4", a); show("before Global/DNS", b); if (a) CFRelease(a); if (b) CFRelease(b);}

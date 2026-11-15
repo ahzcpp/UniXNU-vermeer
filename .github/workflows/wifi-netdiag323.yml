@@ -2,7 +2,7 @@
 name: WiFi netdiag323 for iOS 16.7
 on:
   push:
-    branches: [wifi16-bpf-dhcp-20261115]
+    branches: [wifi16-netpublish-console-20261115]
     paths: [.github/workflows/wifi-netdiag323.yml, 'netdiag323/**']
   workflow_dispatch:
 permissions:
