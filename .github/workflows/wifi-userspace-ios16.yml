@@ -2,7 +2,7 @@
 name: Reviewed native WiFi userspace for iOS 16.7
 on:
   push:
-    branches: [wifi16-scan-handover422-20261115]
+    branches: [wifi16-scan-completion426-20261116]
     paths: [.github/workflows/wifi-userspace-ios16.yml, 'wifi-userspace-next/**']
   workflow_dispatch:
 permissions:

@@ -98,6 +98,12 @@ def main():
         run(['git','apply',handover_patch], component)
         report['scan_handover422_patch_sha256'] = hashlib.sha256(handover_patch.read_bytes()).hexdigest()
         report['strict_new_generation_scan_cancellation'] = True
+        completion_patch = ROOT/'patches/0006-scan-completion426.patch'
+        check(hashlib.sha256(completion_patch.read_bytes()).hexdigest() == '83886de62def0e237aa9d8ea0ed627a163f6365631941790efa8ae5491e982f3', 'scan completion426 patch digest')
+        run(['git','apply','--check',completion_patch], component)
+        run(['git','apply',completion_patch], component)
+        report['scan_completion426_patch_sha256'] = hashlib.sha256(completion_patch.read_bytes()).hexdigest()
+        report['normal_scan_terminal_and_same_owner_reset426'] = True
         report['native_sdk_build_executed'] = True
         with (out/'native-build.log').open('w') as log:
             subprocess.run([sys.executable, str(builder),'--target','ios'],

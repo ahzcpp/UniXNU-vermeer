@@ -1,0 +1,127 @@
+--- a/userspace/driver_sheng.c
++++ b/userspace/driver_sheng.c
+@@ -395,9 +395,28 @@
+     nw_sheng_wireless_event(driver->context, view); break;
+   case NW_CONTROL_SCAN_STARTED:
+     wpa_supplicant_event(driver->context, EVENT_SCAN_STARTED, NULL); break;
+-  case NW_CONTROL_SCAN_DONE:
++  case NW_CONTROL_SCAN_DONE: {
++    /* Reached only for this session (client filter) and the current generation (above): the
++     * native cfg80211 scan terminal, results or abort. driver_nl80211_event.c send_scan_event()
++     * reports every such terminal with nl_scan_event = 1 (driver.h: 1 normal scan, 0 vendor
++     * scan); upstream EVENT_SCAN_RESULTS clears an external scan owner only for it. aborted keeps
++     * the native status; no extra event is created. */
++    int64_t before426[NW426_RADIO_FIELDS], after426[NW426_RADIO_FIELDS];
++    static unsigned terminal_rows426;
++    nw_supplicant_radio426(driver->context, before426);
+     event.scan_info.aborted = view->header.status != NW_CONTROL_OK;
+-    wpa_supplicant_event(driver->context, EVENT_SCAN_RESULTS, &event); break;
++    event.scan_info.nl_scan_event = 1;
++    wpa_supplicant_event(driver->context, EVENT_SCAN_RESULTS, &event);
++    if (driver->closing || driver->failed) break;
++    nw_supplicant_radio426(driver->context, after426);
++    if ((before426[1] > 0 || after426[3] > 0 || event.scan_info.aborted) && terminal_rows426 < 96) {
++      terminal_rows426++;
++      NW337_RECORD(NW337_RADIO426, 1, (int64_t)operation, event.scan_info.aborted, before426[0], before426[1],
++                   after426[0], after426[1], before426[2], after426[2], before426[3], after426[3],
++                   before426[4], after426[4], before426[5], after426[5], before426[0] == 1 && after426[0] == 0);
++    }
++    break;
++  }
+   case NW_CONTROL_AUTH_FRAME:
+     if (!frame || length < 30) break;
+     os_memcpy(event.auth.peer, frame + 10, ETH_ALEN);
+--- a/userspace/nw_numeric337.h
++++ b/userspace/nw_numeric337.h
+@@ -11,7 +11,7 @@
+ #include <sys/stat.h>
+ #include <sys/file.h>
+ #include <errno.h>
+-enum nw337_row {NW337_PASS,NW337_REJECT,NW337_GATES,NW337_OFFER,NW337_FRONTEND,NW337_INFO,NW337_INSTALL,NW337_HANDOVER422,NW337_ROWS};
++enum nw337_row {NW337_PASS,NW337_REJECT,NW337_GATES,NW337_OFFER,NW337_FRONTEND,NW337_INFO,NW337_INSTALL,NW337_HANDOVER422,NW337_RADIO426,NW337_ROWS};
+ #ifdef NW337_HOST_TEST
+ #ifndef NW337_TEST_PATH
+ #error Host test requires explicit synthetic file path
+@@ -27,7 +27,7 @@
+ #define NW337_FSTAT fstat
+ #endif
+ static inline void nw337_numeric_impl(enum nw337_row row,const int64_t *values,size_t count) {
+- static const struct {const char *name;unsigned n;const char *fields[11];} schema[NW337_ROWS]={
++ static const struct {const char *name;unsigned n;const char *fields[16];} schema[NW337_ROWS]={
+   {"pass",10,{"pass","rc","disconnected","aborted","own","update","fetched","name_match","name_mismatch","selected"}},
+   {"reject",11,{"rsn_parse","proto","pairwise","group","akm","pmf","rates","non_wpa","rsn_ok","privacy","freq"}},
+   {"gates",5,{"disabled","temp_disabled","bssid_filter","disconnected","aborted"}},
+@@ -35,7 +35,10 @@
+   {"frontend",4,{"op","before_disconnected","after_disconnected","rc"}},
+   {"info",1,{"cap_tkip"}},
+   {"install",3,{"pairwise","bytes","rc"}},
+-  {"handover422",11,{"op","gen_delta","work","started","scanning_before","scanning_after","state_before","state_after","work_after","drops","scan_done_drops"}}
++  {"handover422",11,{"op","gen_delta","work","started","scanning_before","scanning_after","state_before","state_after","work_after","drops","scan_done_drops"}},
++  /* phase 1 = current-generation native scan terminal, 2 = trusted strictly-newer generation reset */
++  {"radio426",16,{"phase","op","aborted","ext_self_before","ext_any_before","ext_self_after","ext_any_after","active_before","active_after",
++                  "queue_before","queue_after","work_before","work_after","state_before","state_after","cleared"}}
+  };
+  static unsigned attempts;
+  if((unsigned)row>=NW337_ROWS || !values || count!=schema[row].n)return;
+--- a/userspace/nw_supplicant_frontend.c
++++ b/userspace/nw_supplicant_frontend.c
+@@ -139,6 +139,8 @@
+                                        unsigned drops, unsigned scan_done_drops)
+ {
+   struct wpa_supplicant *supplicant = context;
++  int64_t before426[NW426_RADIO_FIELDS], after426[NW426_RADIO_FIELDS];
++  nw_supplicant_radio426(supplicant, before426);
+   const int work = supplicant->scan_work != NULL;
+   const int started = work && supplicant->scan_work->started;
+   const int scanning_before = supplicant->scanning;
+@@ -155,4 +157,38 @@
+   NW337_RECORD(NW337_HANDOVER422, (int64_t)operation, (int64_t)(generation_delta > INT32_MAX ? INT32_MAX : generation_delta),
+                work, started, scanning_before, supplicant->scanning, state_before, supplicant->wpa_state,
+                supplicant->scan_work != NULL, (int64_t)drops, (int64_t)scan_done_drops);
++  /* An external scan this interface saw start (EVENT_SCAN_STARTED without an own request) can
++   * only end through a cfg80211 scan terminal in the same native session/generation. That
++   * generation is gone: dev_close aborted the scan and its terminal, if any, carries an older
++   * generation and is dropped by the kernel and by sheng_event. Upstream ends a stale owner with
++   * exactly this rule when the owning interface goes away (radio_remove_interface(): only if the
++   * owner IS this wpa_s). Another interface's owner, own_scan_running, the scan cookie, keys and
++   * every other state stay untouched; no RECONNECT, no flush, no result is invented. */
++  int cleared426 = 0;
++  if (supplicant->radio && supplicant->radio->external_scan_req_interface == supplicant) {
++    supplicant->radio->external_scan_req_interface = NULL;
++    cleared426 = 1;
++    radio_work_check_next(supplicant);
++  }
++  nw_supplicant_radio426(supplicant, after426);
++  NW337_RECORD(NW337_RADIO426, 2, (int64_t)operation, -1, before426[0], before426[1], after426[0], after426[1],
++               before426[2], after426[2], before426[3], after426[3], before426[4], after426[4], before426[5], after426[5],
++               cleared426);
+ }
++void nw_supplicant_radio426(void *context, int64_t out[NW426_RADIO_FIELDS])
++{
++  struct wpa_supplicant *supplicant = context;
++  struct wpa_radio *radio = supplicant ? supplicant->radio : NULL;
++  int64_t queued = 0;
++  if (radio) {
++    struct wpa_radio_work *item;
++    dl_list_for_each(item, &radio->work, struct wpa_radio_work, list)
++      if (++queued >= 64) break;
++  }
++  out[0] = radio ? radio->external_scan_req_interface == supplicant : -1;
++  out[1] = radio ? radio->external_scan_req_interface != NULL : -1;
++  out[2] = radio ? (int64_t)radio->num_active_works : -1;
++  out[3] = radio ? queued : -1;
++  out[4] = supplicant ? supplicant->scan_work != NULL : -1;
++  out[5] = supplicant ? (int64_t)supplicant->wpa_state : -1;
++}
+--- a/userspace/nw_supplicant_frontend.h
++++ b/userspace/nw_supplicant_frontend.h
+@@ -7,4 +7,9 @@
+ /* Called only for a strictly newer JOIN/DISCONNECT/POWER generation (kernel already closed and reopened the interface). */
+ void nw_supplicant_generation_reset422(void *context, unsigned operation, uint64_t generation_delta,
+                                        unsigned drops, unsigned scan_done_drops);
++/* Numeric radio snapshot for own rows only (no pointer, name or identity leaves it):
++ * [0] external scan owner is this interface, [1] any external owner, [2] num_active_works,
++ * [3] queued radio works (capped at 64), [4] scan_work present, [5] wpa_state; -1 = no radio. */
++#define NW426_RADIO_FIELDS 6
++void nw_supplicant_radio426(void *context, int64_t out[NW426_RADIO_FIELDS]);
+ #endif
