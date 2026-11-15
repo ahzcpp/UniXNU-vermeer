@@ -23,7 +23,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <net/if_dl.h>
-#include <net/route.h>
+#include "netdiag_route.h"
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
