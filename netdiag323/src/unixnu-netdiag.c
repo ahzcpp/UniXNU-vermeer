@@ -273,6 +273,20 @@ static int dhcp_acquire(Dhcp *d, const uint8_t mac[6], NdLease *out, int renew, 
     return -1;
 }
 
+/* The lease for unixnu-netpublish: written atomically after ACK, removed when this process removes the address. */
+#define LEASE_FILE "/private/var/ngpu/etc/wifi/netdiag.lease"
+static void write_lease(const NdLease *l)
+{
+    char a[32], m[32], g[32], d0[32], d1[32], text[256];
+    ip4(a, l->yiaddr); ip4(m, l->mask); ip4(g, l->router); ip4(d0, l->dns[0]); ip4(d1, l->dns[1]);
+    const int n = snprintf(text, sizeof text, "if=%s\nip=%s\nmask=%s\nrouter=%s\ndns=%s%s%s\nlease=%u\n", g_if, a, m,
+                           l->router.s_addr ? g : "", l->dns_count ? d0 : "", l->dns_count > 1 ? "," : "", l->dns_count > 1 ? d1 : "", l->lease_s);
+    int fd = open(LEASE_FILE ".tmp", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0 || n <= 0 || write(fd, text, (size_t)n) != n) {say("FAIL lease file write errno=%d", errno); if (fd >= 0) close(fd); return;}
+    close(fd);
+    say("%s lease file %s", rename(LEASE_FILE ".tmp", LEASE_FILE) ? "FAIL" : "PASS", LEASE_FILE);
+}
+
 /* ---------------- address and route ---------------- */
 static int set_address(const NdLease *l)
 {
@@ -470,6 +484,7 @@ int main(int argc, char **argv)
             }
             if (!acquired) {dhcp_close(&d); say("RESULT fail step=dhcp"); return 3;}
             if (set_address(&lease)) {dhcp_close(&d); say("RESULT fail step=address"); return 4;}
+            write_lease(&lease);
             struct in_addr gw; unsigned idx;
             if (lease.router.s_addr && !default_route(&gw, &idx)) route_msg(RTM_ADD, lease.router);
             else if (lease.router.s_addr) say("WARN a default route already exists: not replaced");
@@ -515,11 +530,12 @@ int main(int argc, char **argv)
         if (g_stop) break;
         Dhcp d = {-1, -1, 1};
         NdLease fresh;
-        if (dhcp_open(&d, st.index) == 0 && dhcp_acquire(&d, st.mac, &fresh, 1, &lease) == 0) {lease = fresh; got_at = now_ms(); dhcp_close(&d); continue;}
+        if (dhcp_open(&d, st.index) == 0 && dhcp_acquire(&d, st.mac, &fresh, 1, &lease) == 0) {lease = fresh; got_at = now_ms(); write_lease(&lease); dhcp_close(&d); continue;}
         dhcp_close(&d);
         if (lease.lease_s && now_ms() >= got_at + (uint64_t)lease.lease_s * 1000u) {say("FAIL lease expired without renewal"); break;}
         sleep(30);
     }
+    unlink(LEASE_FILE);
     if (lease.router.s_addr) route_msg(RTM_DELETE, lease.router);
     del_address(&lease);
     say("STOP");

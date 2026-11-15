@@ -11,7 +11,6 @@
 		<string>--hold</string>
 		<string>-w</string>
 		<string>600</string>
-		<string>-c</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

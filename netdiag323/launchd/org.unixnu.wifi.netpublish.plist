@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.unixnu.wifi.netpublish</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-netpublish</string>
+		<string>run</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>Umask</key>
+	<integer>18</integer>
+	<key>UserName</key>
+	<string>root</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/ngpu/etc/wifi/netpublish.out</string>
+	<key>StandardErrorPath</key>
+	<string>/private/var/ngpu/etc/wifi/netpublish.out</string>
+</dict>
+</plist>
