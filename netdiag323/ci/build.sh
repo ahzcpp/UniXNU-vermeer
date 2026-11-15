@@ -12,6 +12,9 @@ SDK=$(xcrun --sdk iphoneos --show-sdk-path); echo "sdk $SDK"
 clang -std=c11 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all \
   -o "$w/test_core" tests/test_core.c src/netdiag_core.c
 "$w/test_core" | tee "$d/host-tests.txt"
+# Pure framing/filter/BPF record regression tests; genuine native headers below.
+clang -std=c11 -Wall -Wextra -Werror -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o "$w/test_bpf" tests/test_bpf.c src/netdiag_core.c
+"$w/test_bpf" | tee -a "$d/host-tests.txt"
 # 2. the whole tool on a real network (the runner's): observe mode exercises getifaddrs, the routing-table dump, DNS over UDP,
 #    the system resolver, TCP and HTTP. Not DHCP and no address change (the runner's interface is already configured).
 clang -std=c11 -Wall -Wextra -Werror -O2 -o "$w/netdiag-macos" src/unixnu-netdiag.c src/netdiag_core.c

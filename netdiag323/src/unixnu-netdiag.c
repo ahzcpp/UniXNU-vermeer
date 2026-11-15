@@ -46,6 +46,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "netdiag_core.h"
+#include "netdiag_bpf_io.h"
 
 static FILE *g_log;
 static struct in_addr g_extra_dns;  /* -D: an additional DNS server to try after the lease's (diagnostics only) */
@@ -88,7 +89,11 @@ static void if_state(IfState *s)
         if (a->ifa_addr && a->ifa_addr->sa_family == AF_LINK) {
             const struct sockaddr_dl *dl = (const struct sockaddr_dl *)a->ifa_addr;
             s->index = dl->sdl_index;
-            if (dl->sdl_alen == 6) {memcpy(s->mac, LLADDR(dl), 6); s->have_mac = 1;}
+            if (dl->sdl_alen == 6 && dl->sdl_type == 6 &&
+                dl->sdl_len >= offsetof(struct sockaddr_dl,sdl_data)+(size_t)dl->sdl_nlen+6 &&
+                nd_bpf_mac_valid((const uint8_t *)LLADDR(dl))) {
+                memcpy(s->mac, LLADDR(dl), 6); s->have_mac = 1;
+            }
         } else if (a->ifa_addr && a->ifa_addr->sa_family == AF_INET && !s->have_ip) {
             s->ip = ((const struct sockaddr_in *)a->ifa_addr)->sin_addr;
             if (a->ifa_netmask) s->mask = ((const struct sockaddr_in *)a->ifa_netmask)->sin_addr;
@@ -159,39 +164,58 @@ static void report_route(const char *when)
 }
 
 /* ---------------- DHCP over a raw send socket and a UDP receive socket ---------------- */
-typedef struct {int tx, rx; int host_order;} Dhcp;
+typedef struct {int tx,rx,host_order;unsigned index;uint8_t mac[6];NdBpfPort bpf;int raw_error;unsigned rejected;} Dhcp;
+static int dhcp_bpf_activate(Dhcp *d) {
+    IfState current;if_state(&current);
+    if(strcmp(g_if,"en0") || !current.present || !current.have_mac || current.index!=d->index ||
+       memcmp(current.mac,d->mac,6) || (current.flags&(IFF_UP|IFF_RUNNING))!=(IFF_UP|IFF_RUNNING)) {
+        errno=ENETDOWN;say("FAIL dhcp bpf interface validation raw_errno=%d bpf_errno=%d",d->raw_error,errno);return -1;
+    }
+    const char *phase="arguments";
+    if(nd_bpf_open_native(&d->bpf,d->index,d->mac,&phase)) {
+        int e=errno;say("FAIL dhcp bpf phase=%s raw_errno=%d bpf_errno=%d",phase,d->raw_error,e);errno=e;return -1;
+    }
+    say("INFO dhcp BPF active index=%u dlt=1 rx_buffer=%u raw_errno=%d",d->index,d->bpf.capacity,d->raw_error);return 0;
+}
 
-static int dhcp_open(Dhcp *d, unsigned ifindex)
+static int dhcp_open(Dhcp *d, unsigned ifindex,const uint8_t mac[6])
 {
+    memset(d,0,sizeof *d);d->tx=d->rx=d->bpf.fd=-1;
+    if(strcmp(g_if,"en0") || !ifindex || if_nametoindex("en0")!=ifindex || !nd_bpf_mac_valid(mac)) {errno=EINVAL;return -1;}
+    d->index=ifindex;memcpy(d->mac,mac,6);
     int one = 1;
     d->host_order = 1;  /* Darwin raw IP_HDRINCL takes ip_len/ip_off in host order; switched once on EINVAL */
     d->rx = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (d->rx < 0) {say("FAIL dhcp udp socket errno=%d", errno); return -1;}
-    setsockopt(d->rx, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+    /* UDP68 remains exclusively reserved, even while BPF receives. */
     setsockopt(d->rx, SOL_SOCKET, SO_BROADCAST, &one, sizeof one);
-    if (setsockopt(d->rx, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof ifindex)) say("WARN rx IP_BOUND_IF errno=%d", errno);
+    if (setsockopt(d->rx, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof ifindex)) {
+        int e=errno;close(d->rx);d->rx=-1;say("FAIL rx IP_BOUND_IF errno=%d",e);errno=e;return -1;
+    }
     struct sockaddr_in me = {.sin_len = sizeof me, .sin_family = AF_INET, .sin_port = htons(68)};
     if (bind(d->rx, (struct sockaddr *)&me, sizeof me)) {
         const int e = errno; close(d->rx); d->rx = -1;
         say("%s dhcp bind udp/68 errno=%d%s", e == EADDRINUSE ? "SKIP" : "FAIL", e,
             e == EADDRINUSE ? " (port taken: another DHCP client, most likely configd IPConfiguration, owns it)" : "");
-        return e == EADDRINUSE ? 1 : -1;
+        errno=e;return e == EADDRINUSE ? 1 : -1;
     }
     d->tx = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-    if (d->tx < 0) {say("FAIL dhcp raw socket errno=%d", errno); close(d->rx); return -1;}
+    if (d->tx < 0) {int e=errno;close(d->rx);d->rx=-1;say("FAIL dhcp raw socket errno=%d",e);errno=e;return -1;}
     setsockopt(d->tx, IPPROTO_IP, IP_HDRINCL, &one, sizeof one);
     setsockopt(d->tx, SOL_SOCKET, SO_BROADCAST, &one, sizeof one);
     if (setsockopt(d->tx, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof ifindex)) {
-        say("FAIL tx IP_BOUND_IF errno=%d", errno); close(d->tx); close(d->rx); return -1;
+        int e=errno;close(d->tx);close(d->rx);d->tx=d->rx=-1;say("FAIL tx IP_BOUND_IF errno=%d",e);errno=e;return -1;
     }
     return 0;
 }
 
-static void dhcp_close(Dhcp *d) {if (d->tx >= 0) close(d->tx); if (d->rx >= 0) close(d->rx); d->tx = d->rx = -1;}
+static void dhcp_close(Dhcp *d) {int e=errno;nd_bpf_close_native(&d->bpf);if(d->tx>=0)close(d->tx);if(d->rx>=0)close(d->rx);d->tx=d->rx=-1;errno=e;}
 
 static int dhcp_send(Dhcp *d, const uint8_t *payload, size_t len)
 {
-    uint8_t frame[20 + 8 + ND_DHCP_MAX];
+    uint8_t frame[14 + 20 + 8 + ND_DHCP_MAX];
+    if(!nd_bpf_client_valid(payload,len,d->mac)){errno=EINVAL;return -1;}
+    if(d->bpf.fd>=0)goto bpf_send;
     struct in_addr src = {0}, dst = {htonl(INADDR_BROADCAST)};
     size_t n = nd_udp_ip_frame(frame, sizeof frame, src, dst, 68, 67, payload, len, d->host_order);
     if (!n) return -1;
@@ -203,7 +227,19 @@ static int dhcp_send(Dhcp *d, const uint8_t *payload, size_t len)
         r = sendto(d->tx, frame, n, 0, (struct sockaddr *)&to, sizeof to);
         if (r >= 0) say("INFO raw send needed network-order ip_len");
     }
-    if (r != (ssize_t)n) {say("FAIL dhcp send errno=%d", errno); return -1;}
+    if(r==(ssize_t)n)return 0;
+    if(r>=0)errno=EIO;
+    d->raw_error=errno;
+    if(d->raw_error!=EHOSTUNREACH && d->raw_error!=ENETUNREACH) {
+        int e=errno;say("FAIL dhcp raw send errno=%d",e);errno=e;return -1;
+    }
+    say("WARN dhcp raw send errno=%d; trying real Ethernet BPF without adding an address/route",d->raw_error);
+    if(dhcp_bpf_activate(d))return -1;
+bpf_send:;
+    size_t ethernet=nd_dhcp_ether_frame(frame,sizeof frame,d->mac,payload,len);
+    if(!ethernet){errno=EINVAL;return -1;}
+    ssize_t sent=write(d->bpf.fd,frame,ethernet);
+    if(sent!=(ssize_t)ethernet){int e=sent<0?errno:EIO;say("FAIL dhcp BPF write raw_errno=%d bpf_errno=%d",d->raw_error,e);errno=e;return -1;}
     return 0;
 }
 
@@ -214,10 +250,29 @@ static int dhcp_wait(Dhcp *d, uint32_t xid, const uint8_t mac[6], int want, NdLe
     for (;;) {
         const uint64_t t = now_ms();
         if (t >= end) return 0;
-        struct pollfd p = {d->rx, POLLIN, 0};
+        /* Drain complete BPF records retained from the previous read before
+         * polling. UDP68 stays bound for ownership; it is not trusted to receive
+         * broadcasts before the interface has an IPv4 address. */
+        while(d->bpf.fd>=0 && d->bpf.at<d->bpf.have) {
+            const uint8_t *frame,*payload;size_t bytes,payload_bytes;
+            int got=nd_bpf_record(d->bpf.buf,d->bpf.have,&d->bpf.at,&frame,&bytes);
+            if(got<0){d->bpf.at=d->bpf.have;if(d->rejected++<8)say("WARN dhcp invalid BPF record");break;}
+            if(!got)break;
+            if(!nd_bpf_dhcp_payload(frame,bytes,mac,&payload,&payload_bytes))continue;
+            NdLease candidate;int type=nd_dhcp_parse(payload,payload_bytes,xid,mac,&candidate);
+            if(type==ND_DHCPNAK && want==ND_DHCPACK){errno=ECONNREFUSED;say("FAIL dhcp NAK from server via BPF");return -1;}
+            if(type==want){*lease=candidate;return 1;}
+        }
+        struct pollfd p = {d->bpf.fd>=0?d->bpf.fd:d->rx, POLLIN, 0};
         int r = poll(&p, 1, (int)(end - t));
         if (r < 0) {if (errno == EINTR) continue; return -1;}
         if (!r) return 0;
+        if(p.revents&(POLLERR|POLLHUP|POLLNVAL)){errno=EIO;return -1;}
+        if(d->bpf.fd>=0){
+            ssize_t got=read(d->bpf.fd,d->bpf.buf,d->bpf.capacity);
+            if(got<0){if(errno==EAGAIN||errno==EINTR)continue;int e=errno;say("FAIL dhcp BPF read errno=%d",e);errno=e;return -1;}
+            if(!got)continue;d->bpf.at=0;d->bpf.have=(size_t)got;continue;
+        }
         uint8_t buf[1500];
         ssize_t n = recv(d->rx, buf, sizeof buf, 0);
         if (n <= 0) continue;
@@ -468,8 +523,8 @@ int main(int argc, char **argv)
     int ours = 0;  /* address and route installed by this process */
     if (!strcmp(mode, "dhcp") && !st.have_ip) {
         if (!st.have_mac) {say("RESULT fail step=mac (no link-layer address on %s)", g_if); return 2;}
-        Dhcp d = {-1, -1, 1};
-        const int o = dhcp_open(&d, st.index);
+        Dhcp d;memset(&d,0,sizeof d);d.tx=d.rx=d.bpf.fd=-1;
+        const int o = dhcp_open(&d, st.index,st.mac);
         if (o < 0) {say("RESULT fail step=dhcp-socket"); return 3;}
         if (o == 0) {
             /* with --hold, a failed exchange is tried again (15 s apart) until the -w budget from start is used up */
@@ -528,9 +583,9 @@ int main(int argc, char **argv)
         const unsigned t1 = lease.t1_s ? lease.t1_s : (lease.lease_s ? lease.lease_s / 2 : 1800);
         while (!g_stop && now_ms() < got_at + (uint64_t)t1 * 1000u) sleep(5);
         if (g_stop) break;
-        Dhcp d = {-1, -1, 1};
+        Dhcp d;memset(&d,0,sizeof d);d.tx=d.rx=d.bpf.fd=-1;
         NdLease fresh;
-        if (dhcp_open(&d, st.index) == 0 && dhcp_acquire(&d, st.mac, &fresh, 1, &lease) == 0) {lease = fresh; got_at = now_ms(); write_lease(&lease); dhcp_close(&d); continue;}
+        if (dhcp_open(&d, st.index,st.mac) == 0 && dhcp_acquire(&d, st.mac, &fresh, 1, &lease) == 0) {lease = fresh; got_at = now_ms(); write_lease(&lease); dhcp_close(&d); continue;}
         dhcp_close(&d);
         if (lease.lease_s && now_ms() >= got_at + (uint64_t)lease.lease_s * 1000u) {say("FAIL lease expired without renewal"); break;}
         sleep(30);

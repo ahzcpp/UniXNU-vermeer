@@ -1,0 +1,17 @@
+{
+  "public_source_only": true,
+  "native_sdk_build_pending": true,
+  "hardware_dhcp_verified": false,
+  "patch_sha256": "eae8e734f94d50a19c6f739917eb056b220c96e4258fedc7ac3e8d1677b010d5",
+  "files_sha256": {
+    "src/unixnu-netdiag.c": "80c062b9e929c70bf82fc3e873a0ad02f22d3fac32cc0ac9f1a30bcecfe102ef",
+    "src/netdiag_bpf_core.h": "a87366a447bcecdbc47b672dc4d04a744236e269b39d7409b8e177d1567ff521",
+    "src/netdiag_bpf_abi.h": "15b657f706684d65d7c4d3579498839f49c81e7b9e8c1ff4f855b0b33e13662d",
+    "src/netdiag_bpf_io.h": "dad61bb1a77ffa61f5584fc387e1ad58281a43cb7625d20e499c8c2cb0ccb564",
+    "src/netdiag_core.c": "35b31977a02ecbc3bf872c5e5636d0ea99c0a9c15fde7e3e9023bc3c3412a300",
+    "src/netdiag_core.h": "c52ab1e81a1a157df0d216f988b08ede56d39f3524e08a0cd610151b639760f5",
+    "src/netdiag_route.h": "9014f0feff0ca16e1735bb555f1cddd6350431f3f51da1dcc6cb01847e1a373b"
+  },
+  "requires_driver_BPF_RX_tap": true,
+  "no_mock_headers_in_native_build": true
+}
