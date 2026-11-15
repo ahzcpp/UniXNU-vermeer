@@ -1,0 +1,62 @@
+--- a/iokit/Kernel/IONVRAM.cpp
++++ b/iokit/Kernel/IONVRAM.cpp
+@@ -41,6 +41,9 @@
+ #include <os/system_event_log.h>
+ #include <sys/csr.h>
+ 
++// K70 immutable proxy: pure acquire-load identity predicate, no locks.
++extern "C" bool k70_nvram_ro_for_provider399(const void *provider);
++#line 44 "IONVRAM.cpp"
+ #define super IOService
+ 
+ OSDefineMetaClassAndStructors(IODTNVRAM, IOService);
+@@ -1507,6 +1510,9 @@
+ {
+ 	IOReturn ret = kIOReturnSuccess;
+ 
++	// RO rejection precedes rate-limit/unsafe-lock no-op success paths.
++	if (k70_nvram_ro_for_provider399(this)) return kIOReturnNotWritable;
++#line 1510 "IONVRAM.cpp"
+ 	DEBUG_INFO("rateLimit=%d\n", rateLimit);
+ 
+ 	if (!SAFE_TO_LOCK()) {
+@@ -1815,9 +1821,11 @@
+ 				DEBUG_INFO("Removing with value provided GUID\n");
+ 				removeRet = removePropertyWithGUIDAndName(valueVarGuid, variableName);
+ 			}
+-			if (deletePropertyKeyWRet) {
++			if (deletePropertyKeyWRet ||
++			    (removeRet == kIOReturnNotWritable && k70_nvram_ro_for_provider399(this))) {
+ 				ret = removeRet;
+ 			}
++#line 1821 "IONVRAM.cpp"
+ 			DEBUG_INFO("%s found, removeRet=%#08x\n", deletePropertyKeyWRet ? "deletePropertyKeyWRet" : "deletePropertyKey", removeRet);
+ 		} else {
+ 			DEBUG_INFO("%s value needs to be an OSString\n", deletePropertyKeyWRet ? "deletePropertyKeyWRet" : "deletePropertyKey");
+@@ -1911,6 +1919,13 @@
+ 		goto exit;
+ 	}
+ 
++	// Original write permission, object type and size checks ran above.
++	// Reject ordinary writes and reset/obliterate before any cache change.
++	if (k70_nvram_ro_for_provider399(this)) {
++		ret = kIOReturnNotWritable;
++		goto exit;
++	}
++#line 1914 "IONVRAM.cpp"
+ 	NVRAMWRITELOCK();
+ 	ok = handleSpecialVariables(name, guid, propObject.get(), &ret);
+ 	NVRAMUNLOCK();
+@@ -1995,6 +2010,12 @@
+ 		goto exit;
+ 	}
+ 
++	// Keep original dictionary/DELETE permission failures; never mutate RO.
++	if (k70_nvram_ro_for_provider399(this)) {
++		ret = kIOReturnNotWritable;
++		goto exit;
++	}
++#line 1998 "IONVRAM.cpp"
+ 	translateGUID(guid, name, newGuid, _format->getSystemPartitionActive());
+ 
+ 	NVRAMWRITELOCK();

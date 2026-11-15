@@ -1,0 +1,10 @@
+host-out/
+__pycache__/
+*.o
+*.cpo
+*.a
+*.bin
+*.img
+*.macho
+*.pem
+private/

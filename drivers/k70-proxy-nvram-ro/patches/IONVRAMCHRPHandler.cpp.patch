@@ -1,0 +1,12 @@
+--- a/iokit/Kernel/IONVRAMCHRPHandler.cpp
++++ b/iokit/Kernel/IONVRAMCHRPHandler.cpp
+@@ -612,6 +612,9 @@
+ 	NVRAMRegionInfo                   variableRegions[] = { { kIONVRAMPartitionCommon, _commonPartitionOffset, _commonPartitionSize},
+ 								{ kIONVRAMPartitionSystem, _systemPartitionOffset, _systemPartitionSize} };
+ 
++	// Preserve dirty state/image/generation and reject even a clean sync.
++	if (k70_nvram_ro_for_provider399(_provider)) return kIOReturnNotWritable;
++#line 615 "IONVRAMCHRPHandler.cpp"
+ 	require_action(_nvramController != nullptr, exit, (ret = kIOReturnNotReady, DEBUG_ERROR("No _nvramController\n")));
+ 	require_action(_newData == true, exit, (ret = kIOReturnSuccess, DEBUG_INFO("No _newData to sync\n")));
+ 	require_action(_bankSize != 0, exit, (ret = kIOReturnSuccess, DEBUG_INFO("No nvram size info\n")));

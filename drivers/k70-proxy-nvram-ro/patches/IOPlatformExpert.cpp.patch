@@ -1,0 +1,51 @@
+--- a/iokit/Kernel/IOPlatformExpert.cpp
++++ b/iokit/Kernel/IOPlatformExpert.cpp
+@@ -72,6 +72,9 @@
+ #define APPLE_VENDOR_VARIABLE_GUID "4d1ede05-38c7-4a6a-9cc6-4bcca8b38c14"
+ #endif /* defined(XNU_TARGET_OS_OSX) */
+ 
++extern "C" SInt32 k70_nvram_ro_create399(IOService *provider);
++extern "C" bool k70_nvram_ro_for_provider399(const void *provider);
++#line 75 "IOPlatformExpert.cpp"
+ void printDictionaryKeys(OSDictionary * inDictionary, char * inMsg);
+ static void getCStringForObject(OSObject *inObj, char *outStr, size_t outStrLen);
+ 
+@@ -1631,6 +1634,13 @@
+ {
+ 	IOService *         nub;
+ 
++
++    // Do not turn the real, successfully bound IODTNVRAM /options object
++    // into an empty IOPlatformDevice. All other nubs and feature-OFF retain
++    // their original path; no registry links or variable contents are copied.
++    if (k70_nvram_ro_for_provider399(from)) return NULL;
++
++#line 1634 "IOPlatformExpert.cpp"
+ 	nub = new IOPlatformDevice;
+ 	if (nub) {
+ 		if (!nub->init( from, gIODTPlane )) {
+@@ -1725,6 +1735,24 @@
+ 	assert(gIOOptionsEntry != NULL); // subclasses that do their own NVRAM initialization shouldn't be calling this
+ 	dtNVRAM = gIOOptionsEntry;
+ 
++
++    // dtNVRAM was assigned above. Invoke before top-level nubs can take over
++    // /options. An absent, malformed or non-1 chosen selector does NOTHING.
++    IORegistryEntry *k70Chosen399 = IORegistryEntry::fromPath("/chosen", gIODTPlane);
++    if (k70Chosen399) {
++        OSData *selector = OSDynamicCast(OSData, k70Chosen399->getProperty("k70-nvram-proxy-ro"));
++        if (selector && selector->getLength() == 4 && selector->getBytesNoCopy()) {
++            const UInt8 *v = static_cast<const UInt8 *>(selector->getBytesNoCopy());
++            if (v[0] == 1 && v[1] == 0 && v[2] == 0 && v[3] == 0) {
++                SInt32 result = k70_nvram_ro_create399(dtNVRAM);
++                IOLog("k70:nvram399 enrollment=%08x active=%u\n", static_cast<UInt32>(result),
++                    k70_nvram_ro_for_provider399(dtNVRAM) ? 1u : 0u);
++            }
++        }
++        k70Chosen399->release();
++    }
++
++#line 1728 "IOPlatformExpert.cpp"
+ 	// Publish the cpus.
+ 	cpus = rootEntry->childFromPath( "cpus", gIODTPlane);
+ 	if (cpus) {
