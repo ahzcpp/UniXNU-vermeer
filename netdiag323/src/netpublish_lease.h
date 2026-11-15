@@ -33,6 +33,7 @@ static int np_lease_parse(const char *text, size_t len, NpLease *l)
             const char *q = v, *ve = v + vn;
             while (q < ve) {
                 const char *c = memchr(q, ',', (size_t)(ve - q)); const char *e = c ? c : ve;
+                if (c && c + 1 == ve) return -1;  /* a trailing comma */
                 if (l->dns_count == 2 || np_ipv4(q, (size_t)(e - q), l->dns[l->dns_count])) return -1;
                 l->dns_count++; q = c ? c + 1 : ve;
             }
