@@ -10,6 +10,7 @@ python3 tests/policy_check.py | tee "$d/policy.txt"
 python3 tests/io_test.py | tee "$d/io-test.txt"
 F=(-std=gnu11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation)
 FW=(-framework CoreFoundation -framework SystemConfiguration)
+xcrun --sdk macosx clang "${F[@]}" -fsyntax-only tests/proto_check.c
 xcrun --sdk macosx clang "${F[@]}" -fsanitize=address,undefined tests/test_cf.c -framework CoreFoundation -o "$w/test-cf"
 "$w/test-cf" | tee "$d/cf-fixtures.txt"
 xcrun --sdk iphoneos clang "${F[@]}" -arch arm64 -mios-version-min=16.0 -fsyntax-only tests/test_cf.c

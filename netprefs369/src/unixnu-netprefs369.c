@@ -1,5 +1,5 @@
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
+#include "netprefs369_sc.h"
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -40,7 +40,7 @@ static void sample(unsigned seq) {
  CFPropertyListRef v=NULL;int ce=0;if(store){v=SCDynamicStoreCopyValue(store,CFSTR("Plugin:InterfaceNamer"));ce=v?0:SCError();}
  int dict=v&&CFGetTypeID(v)==CFDictionaryGetTypeID();
  /* result0=value;1=NoKey;2=read failure;3=create failure. NoKey isn't file absence. */
- int result=!store?3:v?0:ce==kSCStatusNoKey?1:2;
+ int result=!store?3:v?0:ce==NP369_NO_KEY?1:2;
  row("NETPREFS369 sample=%u phase=2 create=%d create_sc=%d result=%d copy_sc=%d present=%d dict=%d type_unknown=%d\n",seq,store!=NULL,se,result,ce,v!=NULL,dict,v!=NULL&&!dict);
  const CFStringRef keys[]={CFSTR("*START*"),CFSTR("*STACK*"),CFSTR("*QUIET*"),CFSTR("*COMPLETE*"),CFSTR("*TIMEOUT*")};
  for(unsigned k=0;k<5;k++){np_stamp t=np_timestamp(v,keys[k]);row("NETPREFS369 sample=%u phase=2 key=%u known=%d present=%d timestamp_known=%d timestamp=%.3f\n",seq,k,dict,t.present,t.numeric,t.stamp);}

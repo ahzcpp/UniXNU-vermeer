@@ -21,5 +21,5 @@ ents=plistlib.loads((w/'entitlements.xml').read_bytes());assert ents=={'com.appl
 libs=[x.split()[0] for x in (w/'dylibs.txt').read_text().splitlines()[1:] if x.strip()]
 assert set(libs)=={'/usr/lib/libSystem.B.dylib','/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation','/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration'},libs
 cs=(w/'codesign.txt').read_text();cd=re.search(r'CDHash=([0-9a-f]{40})',cs);assert cd
-report=dict(binary_sha256=hashlib.sha256(b).hexdigest(),cdhash=cd[1],pages=pages,minimum_ios='16.0',arm64=True,entitlements=ents,libs=libs,actual_imports=(d/'imports.txt').read_text(),cf_fixtures=(d/'cf-fixtures.txt').read_text(),runner_note='macOS smoke only, not K70 runtime evidence',hardware_tested=False)
+report=dict(source_sha256=hashlib.sha256(Path('src/unixnu-netprefs369.c').read_bytes()).hexdigest(),sc_header_sha256=hashlib.sha256(Path('src/netprefs369_sc.h').read_bytes()).hexdigest(),binary_sha256=hashlib.sha256(b).hexdigest(),cdhash=cd[1],pages=pages,minimum_ios='16.0',arm64=True,entitlements=ents,libs=libs,actual_imports=(d/'imports.txt').read_text(),cf_fixtures=(d/'cf-fixtures.txt').read_text(),runner_note='macOS smoke only, not K70 runtime evidence',hardware_tested=False)
 (d/'build-report.json').write_text(json.dumps(report,indent=2)+'\n');print('NETPREFS369 SDK_SIGNATURE PASS')

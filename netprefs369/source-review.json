@@ -3,5 +3,18 @@
   "hardware_tested": false,
   "agent_frozen_source_sha256": "adcaef29fe9c375054f1e34e6a1715c4098c36780f9b07f93902bec6ee37f697",
   "agent_host_tests_passed": true,
-  "real_CF_and_native_SDK_pending": true
+  "real_CF_and_native_SDK_pending": true,
+  "main_typed_SPI_bridge": {
+    "reason": "app-facing SDK marks platform SC calls unavailable; target system exports checked separately",
+    "genuine_macOS_SDK_prototypes_required": true,
+    "no_global_availability_override": true,
+    "read_only_calls": [
+      "SCDynamicStoreCreate",
+      "SCDynamicStoreCopyValue",
+      "SCPreferencesCreate",
+      "SCPreferencesGetValue",
+      "SCError"
+    ]
+  },
+  "native_source_sha256": "975222e10ec8b9e91cec02fae96bd68281d158de98f3b5c6077c871c41cc0054"
 }
