@@ -8,9 +8,11 @@ w=$out/work; d=$out/delivery
 cd "$here"
 xcodebuild -version | tee "$w/xcode.txt"
 xcrun --sdk iphoneos --show-sdk-path | tee "$w/sdk.txt"; xcrun --sdk iphoneos --show-sdk-version | tee -a "$w/sdk.txt"
-ls "$(xcrun --sdk iphoneos --show-sdk-path)/usr/include/sys/proc_info.h"
 python3 tests/policy_check.py | tee "$d/policy-check.txt"
 FLAGS=(-std=gnu11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter)
+# own proc_info mirror must equal the real macOS header layout (the iPhoneOS SDK does not ship sys/proc_info.h)
+xcrun --sdk macosx clang "${FLAGS[@]}" -o "$w/abi_check" tests/abi_check.c
+"$w/abi_check" | tee "$d/abi-check.txt"
 xcrun --sdk macosx clang "${FLAGS[@]}" -o "$w/netsnap-macos" src/unixnu-netsnap347.c
 sudo "$w/netsnap-macos" -n 2 -i 2 > "$d/runner-macos-run.txt" 2>&1 || true
 cat "$d/runner-macos-run.txt"

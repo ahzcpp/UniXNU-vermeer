@@ -2,8 +2,8 @@
  * unixnu-netsnap347: own, read-only, bounded snapshot of which processes hold network sockets / NECP clients and whether they
  * are busy or waiting, taken repeatedly while someone opens the App Store on the K70 iOS 16.7 port.
  *
- * Reads only (root): proc_listallpids, proc_name, proc_pidinfo(PROC_PIDTASKINFO / PROC_PIDLISTFDS),
- * proc_pidfdinfo(PROC_PIDFDSOCKETINFO) and the read-only net.necp.* counters. Changes nothing (no sysctl writes, no signals,
+ * Reads only (root): proc_listallpids, proc_name, proc_pidinfo(NS_PROC_PIDTASKINFO / NS_PROC_PIDLISTFDS),
+ * proc_pidfdinfo(NS_PROC_PIDFDSOCKETINFO) and the read-only net.necp.* counters. Changes nothing (no sysctl writes, no signals,
  * no sockets of its own, no file writes besides stdout).
  *
  * Prints per snapshot: system totals, NECP policy/session counters, and for a fixed list of App-Store-related processes:
@@ -26,17 +26,7 @@
 #include <sys/sysctl.h>
 #include <time.h>
 #include <unistd.h>
-#if __has_include(<sys/proc_info.h>)
-#include <sys/proc_info.h>
-#else
-#error "sys/proc_info.h not in this SDK"
-#endif
-
-/* libproc (exported by libSystem; header not shipped in the iPhoneOS SDK) */
-int proc_listallpids(void *buffer, int buffersize);
-int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
-int proc_pidfdinfo(int pid, int fd, int flavor, void *buffer, int buffersize);
-int proc_name(int pid, void *buffer, uint32_t buffersize);
+#include "netsnap_procinfo.h"
 
 #define TAG "NETSNAP347"
 #define LINE_MAX_BYTES 480
@@ -122,26 +112,26 @@ static int port_class(int port) {
 }
 
 static void scan_fds(int pid, struct counts *c) {
-    static struct proc_fdinfo fds[MAX_FDS];
-    int bytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, (int)sizeof fds);
+    static struct ns_proc_fdinfo fds[MAX_FDS];
+    int bytes = proc_pidinfo(pid, NS_PROC_PIDLISTFDS, 0, fds, (int)sizeof fds);
     if (bytes <= 0) return;
-    int n = bytes / (int)sizeof(struct proc_fdinfo);
+    int n = bytes / (int)sizeof(struct ns_proc_fdinfo);
     for (int i = 0; i < n; i++) {
-        if (fds[i].proc_fdtype == PROX_FDTYPE_NETPOLICY) { c->necp++; continue; }
-        if (fds[i].proc_fdtype == PROX_FDTYPE_CHANNEL) { c->chan++; continue; }
-        if (fds[i].proc_fdtype != PROX_FDTYPE_SOCKET) continue;
-        struct socket_fdinfo si;
+        if (fds[i].proc_fdtype == NS_PROX_FDTYPE_NETPOLICY) { c->necp++; continue; }
+        if (fds[i].proc_fdtype == NS_PROX_FDTYPE_CHANNEL) { c->chan++; continue; }
+        if (fds[i].proc_fdtype != NS_PROX_FDTYPE_SOCKET) continue;
+        struct ns_socket_fdinfo si;
         memset(&si, 0, sizeof si);
-        if (proc_pidfdinfo(pid, fds[i].proc_fd, PROC_PIDFDSOCKETINFO, &si, (int)sizeof si) != (int)sizeof si) continue;
-        int fam = si.psi.soi_family;
+        if (proc_pidfdinfo(pid, fds[i].proc_fd, NS_PROC_PIDFDSOCKETINFO, &si, (int)sizeof si) != (int)sizeof si) continue;
+        int fam = si.soi_family;
         if (fam != AF_INET && fam != AF_INET6) { c->sockets_other++; continue; }
-        if (si.psi.soi_kind == SOCKINFO_TCP) {
-            int st = si.psi.soi_proto.pri_tcp.tcpsi_state;
+        if (si.soi_kind == NS_SOCKINFO_TCP) {
+            int st = si.soi_proto.pri_tcp.tcpsi_state;
             if (st >= 0 && st < 11) c->tcp_state[st]++;
-            int fport = ntohs((uint16_t)si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
+            int fport = ntohs((uint16_t)si.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
             if (st != 1 /* LISTEN */) c->tcp_port[port_class(fport)]++;
-        } else if (si.psi.soi_kind == SOCKINFO_IN && si.psi.soi_protocol == IPPROTO_UDP) {
-            int fport = ntohs((uint16_t)si.psi.soi_proto.pri_in.insi_fport);
+        } else if (si.soi_kind == NS_SOCKINFO_IN && si.soi_protocol == IPPROTO_UDP) {
+            int fport = ntohs((uint16_t)si.soi_proto.pri_in.insi_fport);
             c->udp++;
             if (fport == 53) c->udp53++;
             else if (fport == 443) c->udp443++;
@@ -212,10 +202,10 @@ static void snapshot(int index, int elapsed_s) {
             }
             present[w] = 1;
             wc[w] = c;
-            struct proc_taskinfo ti;
+            struct ns_proc_taskinfo ti;
             memset(&ti, 0, sizeof ti);
             cur[w].pid = pid;
-            if (proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &ti, (int)sizeof ti) == (int)sizeof ti) {
+            if (proc_pidinfo(pid, NS_PROC_PIDTASKINFO, 0, &ti, (int)sizeof ti) == (int)sizeof ti) {
                 cur[w].cpu_abs = ti.pti_total_user + ti.pti_total_system;
                 cur[w].msg_sent = (uint64_t)(uint32_t)ti.pti_messages_sent;
                 cur[w].msg_recv = (uint64_t)(uint32_t)ti.pti_messages_received;
