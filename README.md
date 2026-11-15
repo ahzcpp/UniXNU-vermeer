@@ -1,0 +1,1 @@
+Own finite read-only network diagnostic. Fixed public HEAD requests, no response bodies, no redirects, normal TLS, no account or network-policy writes. Network.framework path metadata plus runtime UID. Intended root/mobile comparison is not a substitute for actual Safari/AppStore acceptance. Native SDK and runner tests are not device evidence. Independent branch, no merge.
