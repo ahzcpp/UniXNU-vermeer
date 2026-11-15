@@ -1,0 +1,108 @@
+--- a/userspace/driver_sheng.c	2026-11-15 22:59:39.773272417 +0800
++++ b/userspace/driver_sheng.c	2026-11-15 23:04:42.113271328 +0800
+@@ -18,6 +18,7 @@
+   uint64_t generation;
+   unsigned references;
+   unsigned join_frequency;
++  unsigned drops422, scan_done_drops422;
+   int closing, failed, drain_scheduled;
+ };
+ static void sheng_drain(void *context, void *unused);
+@@ -360,8 +361,16 @@
+                  operation == NW_CONTROL_POWER_REQUEST || operation == NW_CONTROL_SCAN_REQUEST;
+   if (frontend) {
+     if (view->header.generation < driver->generation) return;
++    const uint64_t previous422 = driver->generation;
+     driver->generation = view->header.generation;
+     nw_control_client_generation(driver->client, driver->generation);
++    /* Only these requests follow a native dev_close/dev_open; a UI SCAN_REQUEST or an
++     * equal generation never ends supplicant scan work. */
++    if (view->header.generation > previous422 &&
++        (operation == NW_CONTROL_JOIN_REQUEST || operation == NW_CONTROL_DISCONNECT_REQUEST ||
++         operation == NW_CONTROL_POWER_REQUEST))
++      nw_supplicant_generation_reset422(driver->context, operation, view->header.generation - previous422,
++                                        driver->drops422, driver->scan_done_drops422);
+     if (operation != NW_CONTROL_SCAN_REQUEST) driver->join_frequency = 0;
+     if (operation == NW_CONTROL_JOIN_REQUEST) {
+       u32 frequency = sheng_value(view, NW_CONTROL_ATTR_FREQUENCY, 0);
+@@ -370,7 +379,12 @@
+     nw_supplicant_request(driver->context, view);
+     return;
+   }
+-  if (view->header.generation != driver->generation) return;
++  if (view->header.generation != driver->generation) {
++    /* Old keys, EAPOL, port and scan completions stay rejected; only counted. */
++    driver->drops422++;
++    if (operation == NW_CONTROL_SCAN_DONE) driver->scan_done_drops422++;
++    return;
++  }
+   union wpa_event_data event;
+   os_memset(&event, 0, sizeof(event));
+   size_t length = 0;
+--- a/userspace/nw_supplicant_frontend.c	2026-11-15 22:59:39.733272418 +0800
++++ b/userspace/nw_supplicant_frontend.c	2026-11-15 23:04:42.113271328 +0800
+@@ -7,6 +7,8 @@
+ #include "ctrl_iface.h"
+ #include "nw_supplicant_frontend.h"
+ #include "nw_selection330.h"
++#include "scan.h"
++#include "nw_numeric337.h"
+ 
+ extern void nw_sheng_report_auth_failure(void *priv);
+ extern void nw_sheng_report_request_failure(void *priv, unsigned operation, int status);
+@@ -133,3 +135,24 @@
+       (!os_strcmp(reason, "WRONG_KEY") || !os_strcmp(reason, "NO_PSK_AVAILABLE")))
+     nw_sheng_report_auth_failure(supplicant->drv_priv);
+ }
++void nw_supplicant_generation_reset422(void *context, unsigned operation, uint64_t generation_delta,
++                                       unsigned drops, unsigned scan_done_drops)
++{
++  struct wpa_supplicant *supplicant = context;
++  const int work = supplicant->scan_work != NULL;
++  const int started = work && supplicant->scan_work->started;
++  const int scanning_before = supplicant->scanning;
++  const int state_before = supplicant->wpa_state;
++  /* The native side published this generation only after dev_close/dev_open of the
++   * interface, and every completion tagged with an older generation is discarded
++   * (kernel and client). A scan begun before it can never report results, so end it
++   * through upstream's own lifecycle: drop a pending scan request, then let
++   * radio_remove_works() call wpas_trigger_scan_cb(deinit) (scanning 0, scan-done
++   * failure notification, scan_work NULL) before freeing it. No result is invented;
++   * the following frontend request starts a fresh scan in the new generation. */
++  wpa_supplicant_cancel_scan(supplicant);
++  radio_remove_works(supplicant, "scan", 0);
++  NW337_RECORD(NW337_HANDOVER422, (int64_t)operation, (int64_t)(generation_delta > INT32_MAX ? INT32_MAX : generation_delta),
++               work, started, scanning_before, supplicant->scanning, state_before, supplicant->wpa_state,
++               supplicant->scan_work != NULL, (int64_t)drops, (int64_t)scan_done_drops);
++}
+--- a/userspace/nw_supplicant_frontend.h	2026-11-15 22:59:39.673272418 +0800
++++ b/userspace/nw_supplicant_frontend.h	2026-11-15 23:04:42.113271328 +0800
+@@ -4,4 +4,7 @@
+ #include "nw_control.h"
+ int nw_supplicant_request(void *context, const struct nw_control_view *event);
+ void nw_supplicant_auth_failed(void *context, const char *reason);
++/* Called only for a strictly newer JOIN/DISCONNECT/POWER generation (kernel already closed and reopened the interface). */
++void nw_supplicant_generation_reset422(void *context, unsigned operation, uint64_t generation_delta,
++                                       unsigned drops, unsigned scan_done_drops);
+ #endif
+--- a/userspace/nw_numeric337.h	2026-11-15 22:59:39.713272418 +0800
++++ b/userspace/nw_numeric337.h	2026-11-15 23:04:42.113271328 +0800
+@@ -11,7 +11,7 @@
+ #include <sys/stat.h>
+ #include <sys/file.h>
+ #include <errno.h>
+-enum nw337_row {NW337_PASS,NW337_REJECT,NW337_GATES,NW337_OFFER,NW337_FRONTEND,NW337_INFO,NW337_INSTALL,NW337_ROWS};
++enum nw337_row {NW337_PASS,NW337_REJECT,NW337_GATES,NW337_OFFER,NW337_FRONTEND,NW337_INFO,NW337_INSTALL,NW337_HANDOVER422,NW337_ROWS};
+ #ifdef NW337_HOST_TEST
+ #ifndef NW337_TEST_PATH
+ #error Host test requires explicit synthetic file path
+@@ -34,7 +34,8 @@
+   {"offer",2,{"pair_tkip","group_tkip"}},
+   {"frontend",4,{"op","before_disconnected","after_disconnected","rc"}},
+   {"info",1,{"cap_tkip"}},
+-  {"install",3,{"pairwise","bytes","rc"}}
++  {"install",3,{"pairwise","bytes","rc"}},
++  {"handover422",11,{"op","gen_delta","work","started","scanning_before","scanning_after","state_before","state_after","work_after","drops","scan_done_drops"}}
+  };
+  static unsigned attempts;
+  if((unsigned)row>=NW337_ROWS || !values || count!=schema[row].n)return;

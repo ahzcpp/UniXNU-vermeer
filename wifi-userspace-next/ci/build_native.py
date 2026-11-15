@@ -92,6 +92,12 @@ def main():
         run(['git','apply',numeric_patch], component)
         report['numeric_console417_patch_sha256'] = hashlib.sha256(numeric_patch.read_bytes()).hexdigest()
         report['nonblocking_numeric_only_console'] = True
+        handover_patch = ROOT/'patches/0005-scan-handover422.patch'
+        check(hashlib.sha256(handover_patch.read_bytes()).hexdigest() == 'dec4691252e64924397347bd350cb98b1420f40cabbf2873dca7864c0f7c61d2', 'scan handover422 patch digest')
+        run(['git','apply','--check',handover_patch], component)
+        run(['git','apply',handover_patch], component)
+        report['scan_handover422_patch_sha256'] = hashlib.sha256(handover_patch.read_bytes()).hexdigest()
+        report['strict_new_generation_scan_cancellation'] = True
         report['native_sdk_build_executed'] = True
         with (out/'native-build.log').open('w') as log:
             subprocess.run([sys.executable, str(builder),'--target','ios'],
