@@ -1,0 +1,24 @@
+name: Read-only app network observations389
+on:
+  push:
+    branches: [wifi16-proc389-20261115]
+    paths: ['proc389/**', '.github/workflows/proc389.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proc389:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Genuine SDK, sanitizer fixtures, runner smoke and own 4K signature
+        run: bash proc389/ci/build.sh "${{ runner.temp }}/proc389"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-proc389
+          path: ${{ runner.temp }}/proc389/delivery/
+          if-no-files-found: error
+          retention-days: 7

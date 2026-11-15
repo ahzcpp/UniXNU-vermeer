@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>org.unixnu.diag.proc389</string>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-proc389</string>
+		<string>-p</string>
+		<string>-d</string>
+		<string>0</string>
+		<string>-n</string>
+		<string>4</string>
+		<string>-i</string>
+		<string>30</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/private/var/ngpu/etc/wifi/proc389.out</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/ngpu/etc/wifi/proc389.out</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>UserName</key>
+	<string>root</string>
+</dict>
+</plist>

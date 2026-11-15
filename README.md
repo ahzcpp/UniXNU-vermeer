@@ -1,0 +1,1 @@
+Finite read-only process network observations for App Store, Safari, and a combined WebKit group. Four snapshots, fixed groups, truthful incomplete-read and multi-instance handling, bounded output. No network or policy changes. Genuine SDK and runner checks do not establish device connectivity. Independent source-only branch; no merge.
