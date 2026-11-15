@@ -1,0 +1,29 @@
+name: Bounded iOS16 HTTPS body probe 437
+on:
+  push:
+    branches: [wifi16-body437-20261116]
+    paths: [wifi16/body437/**, .github/workflows/wifi-body437.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native437:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build finite body probe and verify host guards with genuine SDK
+        shell: bash
+        run: bash wifi16/body437/ci/build.sh "$PWD/out437"
+      - name: Upload only owner-built probe and numeric diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-netbody437
+          retention-days: 3
+          if-no-files-found: warn
+          path: |
+            out437/delivery/**
+            out437/work/*.txt
