@@ -1,0 +1,17 @@
+{
+  "status": "PASS424_SOURCE_POLICY_ONLY",
+  "original_Network_URLSession_delegate_TLS_metrics_code_exact_namespace_change": true,
+  "original_classifier_bytes_exact": true,
+  "fixed_four_HEADs_unchanged": true,
+  "credential_cookie_body_redirect_policy_unchanged": true,
+  "watchdog_armed_before_drop_or_pool": true,
+  "UID_guard_before_pool_and_network": true,
+  "only_fixed501_no_account_lookup_or_arbitrary_UID_URL": true,
+  "no_root_network_fallback": true,
+  "logging_normal_rows_cap": 96,
+  "watchdog_reserved_rows": 1,
+  "max_line_bytes": 639,
+  "dropped_console_upper_bound_bytes": 61408,
+  "native_compiled": false,
+  "actual_UID_drop_tested": false
+}

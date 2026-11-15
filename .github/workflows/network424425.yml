@@ -1,0 +1,32 @@
+name: Finite read-only network diagnostics424 and425
+on:
+  push:
+    branches: [wifi16-path-state424-425-20261116]
+    paths: ['netpath424/**', 'netstate425/**', '.github/workflows/network424425.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-diagnostics:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Genuine SDK builds, finite runner checks and own signatures
+        run: |
+          bash netpath424/ci/build.sh "${{ runner.temp }}/netpath424"
+          bash netstate425/ci/build425.sh "${{ runner.temp }}/netstate425"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-netpath424
+          path: ${{ runner.temp }}/netpath424/delivery/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-netstate425
+          path: ${{ runner.temp }}/netstate425/delivery/
+          if-no-files-found: error
+          retention-days: 7
