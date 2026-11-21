@@ -1,0 +1,218 @@
+diff --git a/src/vulkan/runtime/vk_log.c b/src/vulkan/runtime/vk_log.c
+--- a/src/vulkan/runtime/vk_log.c
++++ b/src/vulkan/runtime/vk_log.c
+@@ -294,11 +294,169 @@
+    }
+ }
+ 
++
++#ifdef __APPLE__
++#include <IOKit/IOKitLib.h>
++#include <errno.h>
++#include <unistd.h>
++
++/* Only the paired tu_add_to_heap446 call may supply these three ULLs.
++ * Never parse arguments of any other format, file, or error. */
++#define K70_HEAP446_LITERAL "K70 heap446 h=%llu u=%llu a=%llu"
++static unsigned k70_generic446_claimed, k70_heap446_claimed;
++static unsigned k70_generic446_ready, k70_heap446_ready;
++static unsigned k70_generic446_attempted, k70_heap446_attempted;
++static unsigned k70_writer446;
++static char k70_generic446_text[96], k70_heap446_text[96];
++static unsigned k70_generic446_row, k70_heap446_row;
++
++static unsigned
++k70_role446(void)
++{
++   const char *who = getprogname();
++   return who && strstr(who, "WebKit") ? 46u :
++          who && strstr(who, "mediaserverd") ? 45u : 47u;
++}
++
++static int
++k70_checksum446(char text[96], int length)
++{
++   if (length <= 0 || (unsigned)length + 8 >= 96)
++      return 0;
++   unsigned checksum = 0;
++   for (int i = 0; i < length; ++i)
++      checksum = ((checksum * 33u) ^ (unsigned char)text[i]) & 0xffffu;
++   return snprintf(text + length, 96u - (unsigned)length, " c=%04x", checksum) == 7;
++}
++
++/* Same old marker protocol. No neutral-row selection, new connection type,
++ * new permission, or kernel interface. Return values do not authorize work.
++ * Row/length is globally shared in the receiver: cross-process interleaving
++ * and trailing markers still make framing best effort. */
++static void
++k70_send446(const char text[96], unsigned row)
++{
++   io_service_t service = IOServiceGetMatchingService(0, IOServiceMatching("IOAcceleratorES"));
++   if (!service)
++      return;
++   io_connect_t unused = 0;
++   if (IOServiceOpen(service, mach_task_self(), 0x4147c000u | row, &unused) == KERN_SUCCESS)
++      IOServiceClose(unused);
++   for (unsigned i = 0; text[i] && i < 95; i += 2) {
++      unsigned a = (unsigned char)text[i] & 0x7fu;
++      unsigned b = text[i + 1] ? ((unsigned char)text[i + 1] & 0x7fu) : 0u;
++      unused = 0;
++      if (IOServiceOpen(service, mach_task_self(), 0x41478000u | (a << 7) | b, &unused) == KERN_SUCCESS)
++         IOServiceClose(unused);
++   }
++   IOObjectRelease(service);
++}
++
++/* A nonwaiting, bounded two-record drain. Each immutable buffer is written
++ * by its independent once winner, then release-published. One in-process
++ * writer serializes frames. If another producer finds the writer busy it
++ * returns; the writer rechecks pending work AFTER release, avoiding the
++ * last-pending race. With two once producers, three passes suffice without
++ * spinning on IOKit or a lock. Heap claimed suppresses generic transmission;
++ * a generic already in flight finishes first and then drains the heap frame.
++ * Thus this library instance never overwrites its heap frame with generic435.
++ * This cannot prevent another process/producer from overwriting the same row.
++ */
++static void
++k70_drain446(void)
++{
++   for (unsigned pass = 0; pass < 3; ++pass) {
++      unsigned expected = 0;
++      if (!__atomic_compare_exchange_n(&k70_writer446, &expected, 1u, false,
++                                       __ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
++         return;
++      if (__atomic_load_n(&k70_heap446_ready, __ATOMIC_ACQUIRE) &&
++          !__atomic_load_n(&k70_heap446_attempted, __ATOMIC_RELAXED)) {
++         k70_send446(k70_heap446_text, k70_heap446_row);
++         __atomic_store_n(&k70_heap446_attempted, 1u, __ATOMIC_RELEASE);
++      } else if (__atomic_load_n(&k70_generic446_ready, __ATOMIC_ACQUIRE) &&
++                 !__atomic_load_n(&k70_generic446_attempted, __ATOMIC_RELAXED) &&
++                 !__atomic_load_n(&k70_heap446_claimed, __ATOMIC_ACQUIRE)) {
++         k70_send446(k70_generic446_text, k70_generic446_row);
++         __atomic_store_n(&k70_generic446_attempted, 1u, __ATOMIC_RELEASE);
++      }
++      __atomic_store_n(&k70_writer446, 0u, __ATOMIC_RELEASE);
++      const unsigned heap_pending =
++         __atomic_load_n(&k70_heap446_ready, __ATOMIC_ACQUIRE) &&
++         !__atomic_load_n(&k70_heap446_attempted, __ATOMIC_ACQUIRE);
++      const unsigned generic_pending =
++         __atomic_load_n(&k70_generic446_ready, __ATOMIC_ACQUIRE) &&
++         !__atomic_load_n(&k70_generic446_attempted, __ATOMIC_ACQUIRE) &&
++         !__atomic_load_n(&k70_heap446_claimed, __ATOMIC_ACQUIRE);
++      if (!heap_pending && !generic_pending)
++         return;
++   }
++}
++
++static void
++k70_record_first_vk_error(VkResult error, const char *file, int line,
++                          const char *format, va_list args)
++{
++   const int saved_errno = errno;
++   if (error >= 0)
++      return;
++   const char *base = file ? strrchr(file, '/') : NULL;
++   base = base ? base + 1 : file ? file : "unknown";
++   const bool heap_site = error == (VkResult)-2 &&
++      strncmp(base, "tu_device.cc", sizeof("tu_device.cc")) == 0 &&
++      format && strncmp(format, K70_HEAP446_LITERAL, sizeof(K70_HEAP446_LITERAL)) == 0;
++   unsigned expected = 0;
++   unsigned *claimed = heap_site ? &k70_heap446_claimed : &k70_generic446_claimed;
++   if (!__atomic_compare_exchange_n(claimed, &expected, 1u, false,
++                                    __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) {
++      errno = saved_errno;
++      return;
++   }
++   int length;
++   char *text = heap_site ? k70_heap446_text : k70_generic446_text;
++   if (heap_site) {
++      va_list copy;
++      va_copy(copy, args);
++      const unsigned long long heap = va_arg(copy, unsigned long long);
++      const unsigned long long used = va_arg(copy, unsigned long long);
++      const unsigned long long allocation = va_arg(copy, unsigned long long);
++      va_end(copy);
++      length = snprintf(text, 96, "HP446 p=%d h=%016llx u=%016llx a=%016llx",
++                        (int)getpid(), heap, used, allocation);
++   } else {
++      /* Original435 first-negative record; unknown format/args never read. */
++      char safe[17];
++      unsigned n = 0;
++      while (n < 16 && base[n]) {
++         unsigned char c = (unsigned char)base[n];
++         safe[n++] = c >= 32 && c < 127 ? c : '_';
++      }
++      safe[n] = 0;
++      length = snprintf(text, 96, "VK435 p=%d e=%d f=%s l=%d",
++                        (int)getpid(), (int)error, safe, line);
++   }
++   if (k70_checksum446(text, length)) {
++      if (heap_site) {
++         k70_heap446_row = k70_role446();
++         __atomic_store_n(&k70_heap446_ready, 1u, __ATOMIC_RELEASE);
++      } else {
++         k70_generic446_row = k70_role446();
++         __atomic_store_n(&k70_generic446_ready, 1u, __ATOMIC_RELEASE);
++      }
++      k70_drain446();
++   }
++   errno = saved_errno;
++}
++#endif
++
+ VkResult
+ __vk_errorv(const void *_obj, VkResult error,
+             const char *file, int line,
+             const char *format, va_list va)
+ {
++#ifdef __APPLE__
++   k70_record_first_vk_error(error, file, line, format, va);
++#endif
+    struct vk_object_base *object = (struct vk_object_base *)_obj;
+    struct vk_instance *instance = vk_object_to_instance(object);
+    object = vk_object_for_error(object, error);
+diff --git a/src/freedreno/vulkan/tu_device.cc b/src/freedreno/vulkan/tu_device.cc
+--- a/src/freedreno/vulkan/tu_device.cc
++++ b/src/freedreno/vulkan/tu_device.cc
+@@ -3515,10 +3515,16 @@
+    struct tu_memory_heap *mem_heap = &dev->physical_device->heap;
+    uint64_t mem_heap_used = p_atomic_add_return(&mem_heap->used, bo->size);
+    if (mem_heap_used > mem_heap->size) {
++      /* Numeric446 diagnostic: retain actual values before rollback/free. */
++      const uint64_t heap446 = mem_heap->size;
++      const uint64_t allocation446 = bo->size;
+       p_atomic_add(&mem_heap->used, -bo->size);
+       tu_bo_finish(dev, bo);
+       return vk_errorf(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY,
+-                       "Out of heap memory");
++                       "K70 heap446 h=%llu u=%llu a=%llu",
++                       (unsigned long long)heap446,
++                       (unsigned long long)mem_heap_used,
++                       (unsigned long long)allocation446);
+    }
+    return VK_SUCCESS;
+ }
+diff --git a/src/util/os_misc.c b/src/util/os_misc.c
+--- a/src/util/os_misc.c
++++ b/src/util/os_misc.c
+@@ -356,7 +356,19 @@
+ bool
+ os_get_total_physical_memory(uint64_t *size)
+ {
+-#if HAVE_SYSCONF
++#if DETECT_OS_APPLE
++   /* Query bytes directly. Older Darwin sysconf(PHYS_PAGES) also queries
++    * hw.pagesize; that intermediate is unnecessary for a byte-sized heap.
++    * Keep failures explicit and never substitute a guessed memory budget. */
++   uint64_t memory = 0;
++   size_t length = sizeof(memory);
++   int mib[2] = { CTL_HW, HW_MEMSIZE };
++   if (sysctl(mib, 2, &memory, &length, NULL, 0) != 0 ||
++       length != sizeof(memory) || memory == 0)
++      return false;
++   *size = memory;
++   return true;
++#elif HAVE_SYSCONF
+    const long phys_pages = sysconf(_SC_PHYS_PAGES);
+    const long page_size = sysconf(_SC_PAGESIZE);
+ 

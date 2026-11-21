@@ -1,0 +1,129 @@
+{
+  "draft_only": false,
+  "core_commit": "c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5",
+  "mesa": {
+    "repository": "https://gitlab.freedesktop.org/mesa/mesa",
+    "mirror": "https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa",
+    "commit": "85fda3b36405bcaea8bffc64aa4f2651dc90770d",
+    "tree": "b72ff1eb2138026ed6aba524770899faabf7d7c8",
+    "sparse_directories": [
+      "bin",
+      "include",
+      "build-support",
+      "subprojects",
+      "src/compiler",
+      "src/freedreno",
+      "src/util",
+      "src/c11",
+      "src/getopt",
+      "src/gtest",
+      "src/gallium/include",
+      "src/gallium/auxiliary/util",
+      "src/gallium/auxiliary/nir",
+      "src/gallium/auxiliary/tgsi",
+      "src/loader",
+      "src/mesa/main",
+      "src/android_stub",
+      "src/amd/common",
+      "src/amd/vulkan/bvh",
+      "src/amd/vulkan/tools",
+      "src/tool",
+      "src/virtio/virtio-gpu",
+      "src/gallium/frontends",
+      "src/gallium/drivers/llvmpipe",
+      "src/vulkan/runtime/bvh",
+      "src/mesa/program",
+      "src/vulkan/util",
+      "src/vulkan",
+      "src/gallium/auxiliary",
+      "src/gbm"
+    ]
+  },
+  "compiler_inputs_sha256": "add783c19b56cf439470d84640ddc4c14ef8336b12e89c519d6cbc43d53869bb",
+  "base_files": {
+    "scripts/build-boot-runtime.py": "98439d14baaf9c1117bf60ae7e8db6a164917ac2ce4a8228783ea006858ea639",
+    "scripts/build-turnip-darwin.py": "930ffaf18447c721e50585501493d2095bc959b774a92be417feb82f66021511",
+    "scripts/mesa_patch_identity.py": "60f03967f4d2b56807b7b3d984181792cb810abbbc6392161d4c82b03d4433a7",
+    "scripts/requirements-adreno-compiler.txt": "493c8cfda8dc52729876b8ba8726fe589c14521caf092b7c92504b9ec0244b15"
+  },
+  "core_patches": [
+    {
+      "path": "patches/mesa/freedreno-tools-nir.patch",
+      "sha256": "77e966b6e9a725892d10889a4d8deeefb03a32ae3a007904868132e56350191f"
+    },
+    {
+      "path": "patches/mesa/ir3-darwin-build-id.patch",
+      "sha256": "be3ca7840a16cb7696d8d7e67195c8d097cf0e38a3b5011edc674a5aed9c6975"
+    },
+    {
+      "path": "patches/mesa/ir3-portable-asm-roundtrip.patch",
+      "sha256": "bfc5552bc2bd6e1668d75773cce7bf62fd19065e6281bf7da49f9ddfc2e79339"
+    },
+    {
+      "path": "patches/mesa/offline-adreno-compiler-probe.patch",
+      "sha256": "b7d7a113beb5ef99edea24858d906194d4b4755c987520545ad2f7f3136bb4fb"
+    },
+    {
+      "path": "patches/mesa/turnip-darwin-kmd.patch",
+      "sha256": "da264be322fd914ead493fd24f056213d368c49ff800b79d980e68bc686971c6"
+    },
+    {
+      "path": "patches/mesa/turnip-graphics-cache-feedback.patch",
+      "sha256": "07f397e38d9acfb0085db4c19567c84fd8a3bcd63d6fd05192857abfbde5aed2"
+    },
+    {
+      "path": "patches/mesa/turnip-empty-scissor.patch",
+      "sha256": "dec657626dcd8e8d3f1447e44574f31e4afb8c90b6ebf7d589ba10ee0f8b6461"
+    },
+    {
+      "path": "patches/mesa/turnip-builtin-shader-pack.patch",
+      "sha256": "3c606dc99643c3ca3e4736c5783348cd85cbff3fbc55161e53226ab459f34473"
+    },
+    {
+      "path": "patches/mesa/turnip-host-import-images.patch",
+      "sha256": "8bc141db41848a59b16493b4ca8a359e0f18f1cad5f14147ff18d15f79c0c3c4"
+    },
+    {
+      "path": "patches/mesa/turnip-render-mode-for-attachment-memory.patch",
+      "sha256": "853c6f507b542e8e2d3c8314be0b69b485cde68709272cb9a46268c82a28d42a"
+    },
+    {
+      "path": "patches/mesa/turnip-gmem-mutable-swap.patch",
+      "sha256": "92fe61c73cad117c5d98040eee4aafe95c3863407688f00a443b67a19706bfd1"
+    },
+    {
+      "path": "patches/mesa/turnip-current-queue-priorities.patch",
+      "sha256": "25a64d842b26336b052720ababd5fa00ef4c6507351e5b75f51492b768593588"
+    },
+    {
+      "path": "patches/mesa/turnip-frame-diagnostics.patch",
+      "sha256": "5eb8dda6e381f10fa48b62a9a497fb74a8b08c7999dea5468585c9848b2af966"
+    },
+    {
+      "path": "patches/mesa/turnip-transient-attachments-in-gmem.patch",
+      "sha256": "afc6a9b2417d4e2ad56f2965971a039c186e37d59fb72352c2de9959edea8f4e"
+    },
+    {
+      "path": "patches/mesa/turnip-gmem-swap-trace.patch",
+      "sha256": "4222e164046329634ffb16be5855e57a050f2c4d3e7ee7ec787efec8e342e3c0"
+    },
+    {
+      "path": "patches/mesa/turnip-thread-render-mode.patch",
+      "sha256": "5a567d4c136dae860f0be4880d7446b862c2d1cd48e09b618c761034512c597e"
+    },
+    {
+      "path": "patches/mesa/turnip-gmem-memory-side-swap.patch",
+      "sha256": "79168ffd251bfd90bc88027c49bc9eaaab93779e69331bb499f874f6e4e2d183"
+    }
+  ],
+  "extra_patch": {
+    "path": "patches/memory452.patch",
+    "sha256": "451d5bb0e4d0b8545037b549f3356c43ad274fd93252c7fbf5f8e9120b7ed008",
+    "record_as": "patches/mesa/turnip-heap446-source-only.patch"
+  },
+  "extra_source_outputs": {
+    "src/vulkan/runtime/vk_log.c": "519aaa5491a2dd31f87d8169ece3443070a506fedd5f563b67eb50dfb84ff506",
+    "src/freedreno/vulkan/tu_device.cc": "b6b5f870d9f45aa152f50ecec62bc7bf920a895ae380dfa1632d6414595f34c1",
+    "src/util/os_misc.c": "ec45897378477b099f6e50f296bee22136c88778fe73af8ec916450f6169f378"
+  }
+}

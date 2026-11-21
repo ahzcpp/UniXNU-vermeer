@@ -1,0 +1,54 @@
+name: Darwin memory query452 for iOS16.7
+on:
+  push:
+    branches: [gpu16-memory452-20261121]
+    paths: [.github/workflows/turnip-only.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  turnip:
+    runs-on: macos-15-intel
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact core and native ABI only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init unixnu
+          git -C unixnu remote add origin https://github.com/UniXNU/UniXNU.git
+          git -C unixnu fetch --depth=1 origin c1ecc5b74c9dc4ced13bcfbd81a2c3998025a5e5
+          git -C unixnu checkout --detach FETCH_HEAD
+          git -C unixnu submodule update --init --depth=1 drivers/Adreno740
+      - name: Install only Turnip compiler tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install llvm ninja glslang bison shaderc
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Build and4KiB-sign only owned Vulkan
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 turnip-only/build_turnip_only.py --root unixnu --delivery delivery-turnip-only
+      - name: Upload only owned Vulkan and actual source/signature metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnip-only-ios16.7
+          retention-days: 3
+          if-no-files-found: error
+          path: delivery-turnip-only/*
+      - name: Save compiler logs on failure only
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnip-only-failure-logs
+          retention-days: 3
+          if-no-files-found: ignore
+          path: unixnu/.cache/mesa-tu-ios-*.log
