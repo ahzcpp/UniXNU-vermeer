@@ -357,9 +357,10 @@ static void take_stackshot(int n, int k)
 	int keep[WK_MAX_KEEP], nkeep = 0;
 	for (int i = 0; i < g_nroles && nkeep < WK_MAX_KEEP; i++) keep[nkeep++] = g_roles[i].pid;
 	int prc = wk_parse_stackshot((const uint8_t *)(uintptr_t)cfg.sc_buffer, cfg.sc_size, &g_ss, keep, nkeep);
-	emit("ss n=%d k=%d rc=0 bytes=%u ms=%lld parse=%d tasks=%d threads=%d errors=%d truncated=%d frames_kept=%d frames_truncated=%d sc=%d",
+	emit("ss n=%d k=%d rc=0 bytes=%u ms=%lld parse=%d tasks=%d threads=%d errors=%d truncated=%d frames_kept=%d frames_truncated=%d sc=%d"
+	     " perr_type=0x%x perr_off=%llu",
 	     n, k, cfg.sc_size, t1 - t0, prc, g_ss.n_tasks, g_ss.n_threads, g_ss.errors, g_ss.truncated, g_ss.n_frames,
-	     g_ss.frames_truncated, g_ss.has_sc);
+	     g_ss.frames_truncated, g_ss.has_sc, prc ? g_ss.last_type : 0u, prc ? (unsigned long long)g_ss.last_off : 0ull);
 	if (g_ss.has_sc) {
 		char u[40]; for (int i = 0; i < 16; i++) snprintf(u + 2 * i, 3, "%02x", g_ss.sc_uuid[i]);
 		emit("sscache n=%d k=%d uuid=%s", n, k, u);

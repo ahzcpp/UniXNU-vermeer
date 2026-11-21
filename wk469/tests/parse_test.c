@@ -92,7 +92,8 @@ static void kc_array(uint32_t el_type, const void *data, uint32_t el_size, uint3
 	kc_item(WK_KC_ARRAY_PAD0 | pad, data, total, ((uint64_t)el_type << 32) | count);
 }
 static void kc_begin(uint32_t ctype, uint64_t id) { kc_item(WK_KC_CONTAINER_BEGIN, &ctype, 4, id); }
-static void kc_end(uint32_t ctype, uint64_t id) { kc_item(WK_KC_CONTAINER_END, &ctype, 4, id); }
+/* kern_cdata.c kcdata_add_container_marker: END carries no payload (data_size 0), identifier in flags */
+static void kc_end(uint32_t ctype, uint64_t id) { (void)ctype; kc_item(WK_KC_CONTAINER_END, NULL, 0, id); }
 
 static struct wk_ss SS;
 static void add_thread(uint64_t tid, uint64_t flags, int nuser, uint64_t first_lr)
@@ -204,9 +205,17 @@ static void test_nesting(void)
 	/* thread inside thread */
 	begin_buf(); kc_begin(WK_KC_CONT_TASK, 1); kc_begin(WK_KC_CONT_THREAD, 1); add_thread(2, 0, 1, 0x1000); kc_end(WK_KC_CONT_THREAD, 1);
 	kc_end(WK_KC_CONT_TASK, 1); end_buf(); CHECK(parse_now() == -1);
-	/* END type mismatch: task END while the thread container is still open */
-	begin_buf(); kc_begin(WK_KC_CONT_TASK, 1); kc_begin(WK_KC_CONT_THREAD, 1); kc_end(WK_KC_CONT_TASK, 1); kc_end(WK_KC_CONT_TASK, 1);
+	/* END identifier mismatch: the task's END (id 362) arrives while thread 9 is still open */
+	begin_buf(); kc_begin(WK_KC_CONT_TASK, 362); kc_begin(WK_KC_CONT_THREAD, 9); kc_end(WK_KC_CONT_TASK, 362); kc_end(WK_KC_CONT_TASK, 362);
 	end_buf(); CHECK(parse_now() == -1);
+	/* terminated task: TRANSITIONING_TASK container holding a thread is well formed (kern_stackshot.c) */
+	begin_buf(); kc_begin(WK_KC_CONT_TRANSITIONING_TASK, 77); add_thread(78, WK_TH_FLAG_MAIN, 1, 0x1000); kc_end(WK_KC_CONT_TRANSITIONING_TASK, 77);
+	add_task(362, 11, 12, 0, 0, 0, 1); end_buf();
+	CHECK(parse_now() == 0 && SS.n_tasks == 2 && SS.task[0].pid == -1 && SS.task[0].n_threads == 1 && SS.task[1].pid == 362 && SS.n_threads == 3);
+	/* a thread directly inside a non-task container (e.g. a port-label container) is rejected */
+	begin_buf(); kc_begin(0x934u, 1); add_thread(5, 0, 1, 0x1000); kc_end(0x934u, 1); end_buf(); CHECK(parse_now() == -1);
+	/* other containers (shared cache 0x942) nest and close freely at top level */
+	begin_buf(); kc_begin(0x942u, 3); kc_end(0x942u, 3); add_task(362, 11, 12, 0, 0, 0, 1); end_buf(); CHECK(parse_now() == 0 && SS.n_tasks == 1);
 	/* END with no open container */
 	begin_buf(); kc_end(WK_KC_CONT_TASK, 1); end_buf(); CHECK(parse_now() == -1);
 	/* unclosed task before BUFFER_END: data kept for inspection, but the snapshot is malformed -> rc -1 */

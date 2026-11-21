@@ -117,6 +117,7 @@ struct wk_task {
 struct wk_ss {
 	int n_tasks, n_threads, n_frames, errors, truncated, frames_truncated;
 	int has_sc; uint64_t sc_base; uint8_t sc_uuid[16];   /* global shared cache (top-level item) */
+	uint32_t last_type; uint64_t last_off;               /* 469: item being parsed when parsing stopped (diagnostic) */
 	struct wk_task task[WK_MAX_TASKS];
 	struct wk_thread thread[WK_MAX_THREADS];
 	struct wk_frames frame[WK_MAX_FRAMED];
@@ -217,17 +218,20 @@ static inline const char *wk_ts_kind_name(const struct wk_thread *th)
 static inline int wk_parse_stackshot(const uint8_t *buf, size_t len, struct wk_ss *ss, const int *keep, int nkeep)
 {
 	ss->n_tasks = ss->n_threads = ss->n_frames = ss->errors = ss->truncated = ss->frames_truncated = 0;
-	ss->has_sc = 0; ss->sc_base = 0; memset(ss->sc_uuid, 0, sizeof ss->sc_uuid);
+	ss->has_sc = 0; ss->sc_base = 0; memset(ss->sc_uuid, 0, sizeof ss->sc_uuid); ss->last_type = 0; ss->last_off = 0;
 	if (len < WK_KC_ITEM_HDR || wk_u32(buf) != WK_KCDATA_BEGIN_STACKSHOT) { ss->errors++; return -1; }
 	size_t off = WK_KC_ITEM_HDR + WK_ROUNDUP64(wk_u32(buf + 4)) ; /* begin item data (usually 0) */
 	off = (off + 15u) & ~(size_t)15u;
 	int task = -1, thread = -1, depth = 0;
 	int cont_type[16]; memset(cont_type, 0, sizeof cont_type);
+	uint64_t cont_id[16]; memset(cont_id, 0, sizeof cont_id);
+#define WK_IS_TASK_CT(ct) ((ct) == WK_KC_CONT_TASK || (ct) == WK_KC_CONT_TRANSITIONING_TASK)
 	/* waitinfo/turnstile arrays come at task level after the threads: buffer them until task end */
 	while (off + WK_KC_ITEM_HDR <= len) {
 		uint32_t type = wk_u32(buf + off), size = wk_u32(buf + off + 4);
 		uint64_t flags = wk_u64(buf + off + 8);
 		const uint8_t *d = buf + off + WK_KC_ITEM_HDR;
+		ss->last_type = type; ss->last_off = off;
 		if (type == WK_KCDATA_BUFFER_END) {
 			if (depth != 0) ss->errors++;   /* 469: the kernel closes every container before kcdata_write_buffer_end */
 			return ss->errors ? -1 : 0;
@@ -245,11 +249,14 @@ static inline int wk_parse_stackshot(const uint8_t *buf, size_t len, struct wk_s
 			uint32_t ct = size >= 4 ? wk_u32(d) : 0;
 			/* 463.2 (review S3): structure validation. A task container may not open inside a task/thread container;
 			 * a thread container must be directly inside a task container. Violations end parsing with an error. */
-			/* task == -2: inside a task container skipped for capacity (truncated), structure still validated */
-			if (ct == WK_KC_CONT_TASK && (task != -1 || thread >= 0)) { ss->errors++; return -1; }
-			if (ct == WK_KC_CONT_THREAD && (task == -1 || thread >= 0 || cont_type[depth] != (int)WK_KC_CONT_TASK)) { ss->errors++; return -1; }
-			if (depth < 15) cont_type[++depth] = (int)ct; else { ss->errors++; return -1; }
-			if (ct == WK_KC_CONT_TASK) {
+			/* task == -2: inside a task container skipped for capacity (truncated), structure still validated.
+			 * 469: a terminated task with threads is emitted as TRANSITIONING_TASK (kern_stackshot.c kdp_stackshot_record_task)
+			 * and holds thread containers exactly like TASK; it is parsed as a task (its pid stays -1 unless a
+			 * task_snapshot_v2 is present). */
+			if (WK_IS_TASK_CT(ct) && (task != -1 || thread >= 0)) { ss->errors++; return -1; }
+			if (ct == WK_KC_CONT_THREAD && (task == -1 || thread >= 0 || !WK_IS_TASK_CT((uint32_t)cont_type[depth]))) { ss->errors++; return -1; }
+			if (depth < 15) { cont_type[++depth] = (int)ct; cont_id[depth] = flags; } else { ss->errors++; return -1; }
+			if (WK_IS_TASK_CT(ct)) {
 				if (ss->n_tasks >= WK_MAX_TASKS) { ss->truncated = 1; task = -2; break; }
 				task = ss->n_tasks++; memset(&ss->task[task], 0, sizeof ss->task[task]);
 				ss->task[task].pid = -1; ss->task[task].first_thread = ss->n_threads;
@@ -270,10 +277,14 @@ static inline int wk_parse_stackshot(const uint8_t *buf, size_t len, struct wk_s
 		}
 		case WK_KC_CONTAINER_END:
 			if (depth <= 0) { ss->errors++; return -1; }
-			/* 469: kcdata_add_container_marker stores the container type in both BEGIN and END; a mismatch is malformed */
-			if (size < 4 || wk_u32(d) != (uint32_t)cont_type[depth]) { ss->errors++; return -1; }
+			/* 469: kcdata_add_container_marker (kern_cdata.c) writes END with NO payload and the BEGIN identifier in flags;
+			 * task (task_uniqueid) and thread (thread_uniqueid) markers are paired with the same identifier in
+			 * kern_stackshot.c, so a task/thread END whose identifier differs from the open container is malformed. */
+			if ((WK_IS_TASK_CT((uint32_t)cont_type[depth]) || cont_type[depth] == (int)WK_KC_CONT_THREAD) && flags != cont_id[depth]) {
+				ss->errors++; return -1;
+			}
 			if (cont_type[depth] == (int)WK_KC_CONT_THREAD) thread = -1;
-			else if (cont_type[depth] == (int)WK_KC_CONT_TASK) { if (thread >= 0) { ss->errors++; return -1; } task = -1; }
+			else if (WK_IS_TASK_CT((uint32_t)cont_type[depth])) { if (thread >= 0) { ss->errors++; return -1; } task = -1; }
 			depth--;
 			break;
 		case WK_KC_TASK_SNAPSHOT:
