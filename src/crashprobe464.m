@@ -15,6 +15,8 @@
 static unsigned rows,outputBytes,entries,scanErrors,scanCapped,candidatesDropped,readCount,skippedType,skippedSize,skippedAge;
 static double deadline;
 static time_t wall;
+static unsigned currentSerial;
+static time_t currentMtime,currentEpoch;
 static double monotime(void){struct timespec ts;if(clock_gettime(CLOCK_MONOTONIC,&ts))return -1;return ts.tv_sec+ts.tv_nsec/1e9;}
 static int expired(void){double t=monotime();return t<0||t>deadline;}
 static void timeoutHandler(int sig){(void)sig;static const char msg[]="{\"event\":\"end\",\"status\":\"unknown\",\"reason\":\"deadline\"}\n";ssize_t unused=write(1,msg,sizeof(msg)-1);(void)unused;_exit(124);}
@@ -29,6 +31,12 @@ static BOOL number(id x,uint64_t max,uint64_t *out){
 }
 static void emit(NSDictionary *row){
  if(rows>=230||outputBytes>=60000)return;
+ if([row[@"event"] isEqualToString:@"report"]&&[row[@"report"] unsignedIntValue]==currentSerial&&currentSerial){
+  NSMutableDictionary *r=[row mutableCopy];BOOL known=currentEpoch>0&&currentMtime>=0;
+  r[@"file_time_known"]=@(known);r[@"mtime_epoch"]=known?@((long long)currentMtime):@(-1);
+  r[@"current_epoch"]=known?@((long long)currentEpoch):@(-1);r[@"age_seconds"]=known?@((long long)currentEpoch-(long long)currentMtime):@(-1);
+  r[@"file_time_not_crash_time"]=@YES;row=r;
+ }
  NSData *data=[NSJSONSerialization dataWithJSONObject:row options:0 error:NULL];
  if(!data||data.length>2048||outputBytes+data.length+1>60000)return;
  if(fwrite(data.bytes,1,data.length,stdout)!=data.length||fputc('\n',stdout)==EOF)_exit(74);
@@ -112,7 +120,12 @@ int main(int argc,char **argv){@autoreleasepool{
  (void)productionRoot;
  if(argc==3&&!strcmp(argv[1],"--fixture-root"))root=open(argv[2],O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);else {unknown(0,"arguments",0);return 2;}
 #else
- (void)argv;if(argc!=1){unknown(0,"arguments",0);return 2;}root=productionRoot();
+ if(argc==2&&!strcmp(argv[1],"-c")){
+  int console=open("/dev/console",O_WRONLY|O_NOCTTY|O_NONBLOCK|O_CLOEXEC);
+  if(console<0){unknown(0,"console_unavailable",errno);return 1;}
+  if(dup2(console,STDOUT_FILENO)<0){int e=errno;close(console);unknown(0,"console_redirect",e);return 1;}
+  if(console!=STDOUT_FILENO)close(console);
+ }else if(argc!=1){unknown(0,"arguments",0);return 2;}root=productionRoot();
 #endif
  if(root<0){unknown(0,"root_unavailable",errno);emit(@{@"event":@"end",@"status":@"unknown",@"absence_proven":@NO});return 1;}
  int dirs[2]={root,-1};dirs[1]=openat(root,"Retired",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
@@ -120,7 +133,8 @@ int main(int argc,char **argv){@autoreleasepool{
  for(unsigned i=0;i<2;i++)if(dirs[i]>=0)collect(dirs[i],i);
  qsort(candidates,count,sizeof(Candidate),newer);
  for(unsigned i=0;i<count&&readCount<CP_READ_MAX&&!expired();i++){@autoreleasepool{
-  Candidate *c=&candidates[i];unsigned serial=++readCount;int fd=openat(dirs[c->dir],c->name,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
+  Candidate *c=&candidates[i];unsigned serial=++readCount;currentSerial=serial;currentMtime=c->st.st_mtimespec.tv_sec;currentEpoch=time(NULL);
+  int fd=openat(dirs[c->dir],c->name,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
   if(fd<0){unknown(serial,"open",errno);continue;}struct stat before,after,pathAfter;
   if(fstat(fd,&before)||!same(c->st,before)||!S_ISREG(before.st_mode)||before.st_nlink!=1){close(fd);unknown(serial,"changed_before_read",0);continue;}
   size_t size=(size_t)before.st_size;NSMutableData *data=[NSMutableData dataWithLength:size];unsigned char *dst=data.mutableBytes;size_t used=0;int err=0;

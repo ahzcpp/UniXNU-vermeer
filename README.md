@@ -49,3 +49,18 @@ selector availability, permissions, report schema on this phone or successful
 runtime. No source-only result authorizes production admission. Native delivery
 must pass actual downloaded signature/import qualification before main considers
 integration; no existing kernel exporter or production resource is changed here.
+
+Console delivery: production accepts only no arguments (inherited stdout) or -c.
+With -c it opens fixed /dev/console write-only/nonblocking and redirects stdout,
+matching the existing owned proc observer console strategy. Proposed main-owned
+job arguments are ["/usr/libexec/crashprobe464", "-c"], root, KeepAlive=false,
+RunAtLoad=false, LaunchOnlyOnce=true; there is no schedule or installed job here.
+Console-open/redirect errors return unknown; a blocked/non-reading console can
+cause a partial prefix or 15s deadline. Actual phone console access is untested.
+
+Every attempted report has numeric mtime_epoch/current_epoch/age_seconds and a
+file_time_known flag, including failed report reads. Future timestamps within the
+allowed tolerance produce negative age, not an underflow. Main must correlate with
+its boot start and process lifetime. File mtime is NOT report capture time and a
+copied old report can have new mtime; file_time_not_crash_time=true is explicit.
+No filename, human date, device/boot UUID or raw timestamp string is printed.

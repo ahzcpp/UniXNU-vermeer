@@ -3,7 +3,7 @@ import copy,json,os,pathlib,subprocess,sys,tempfile,time
 binary=sys.argv[1];cases=0
 PRIVATE='PRIVATE_USER_SENTINEL';URL='https://private.invalid/secret';ID='12345678-1234-1234-1234-123456789ABC'
 base={'procName':'MobileSafari','pid':123,'termination':{'namespace':'FRONTBOARD','code':0x8badf00d,'description':'scene-update watchdog '+PRIVATE+' '+URL+' '+ID},'exception':{'type':'EXC_CRASH','signal':'SIGKILL'},'threads':[{'queue':'com.apple.main-thread','frames':[{'imageIndex':0,'imageOffset':123,'symbol':'mach_msg2_trap','symbolLocation':4},{'imageIndex':1,'imageOffset':456,'symbol':PRIVATE},{'imageIndex':0,'imageOffset':789,'symbol':'IPC::Connection::waitForSyncReply('+PRIVATE+')'}]},{'triggered':True,'frames':[{'imageIndex':0,'imageOffset':88,'symbol':'_dispatch_sync_f_slow'}]}],'faultingThread':1,'usedImages':[{'name':'libsystem_kernel.dylib','path':'/Users/'+PRIVATE,'uuid':ID},{'name':PRIVATE,'path':URL}],'userID':PRIVATE,'captureTime':ID,'asi':{'Private': [URL]},'crashReporterKey':ID}
-keys={'event','report','status','reason','errno','role','pid_known','pid','termination_known','namespace','code_known','code','watchdog_code','reason_tags','description_verbatim','exception_type','signal','atomic_snapshot','index','main_confirmed','thread0_candidate','triggered','frames_known','frames_total','frames_capped','thread','frame','symbol','symbol_known','symbol_family','image_kind','image_index_known','image_index','image_offset_known','image_offset','symbol_location_known','symbol_location','entries','candidate_count','candidates_dropped','read_count','reports_not_read','scan_errors','scan_capped','time_capped','absence_proven','skipped_type','skipped_size','skipped_age'}
+keys={'event','report','status','reason','errno','role','pid_known','pid','termination_known','namespace','code_known','code','watchdog_code','reason_tags','description_verbatim','exception_type','signal','atomic_snapshot','index','main_confirmed','thread0_candidate','triggered','frames_known','frames_total','frames_capped','thread','frame','symbol','symbol_known','symbol_family','image_kind','image_index_known','image_index','image_offset_known','image_offset','symbol_location_known','symbol_location','entries','candidate_count','candidates_dropped','read_count','reports_not_read','scan_errors','scan_capped','time_capped','absence_proven','skipped_type','skipped_size','skipped_age','file_time_known','mtime_epoch','current_epoch','age_seconds','file_time_not_crash_time'}
 def encoded(body=base,header=None):return (json.dumps(header or {'name':'MobileSafari','bug_type':'309','incident_id':ID})+'\n'+json.dumps(body)).encode()
 def run(files,setup=None):
  global cases
@@ -21,6 +21,12 @@ def run(files,setup=None):
   cases+=1;return rows
 def reports(rows):return [x for x in rows if x['event']=='report']
 r=run({'MobileSafari-test.ips':encoded()});assert reports(r)[0]['watchdog_code'];assert [x['symbol'] for x in r if x['event']=='frame'][:2]==['mach_msg2_trap','unknown'];assert any(x.get('symbol_family')=='ipc_sync_wait' for x in r);assert len([x for x in r if x['event']=='thread'])==2
+mtime=int(time.time())-7200
+r=run({'MobileSafari-test.ips':encoded()},lambda root:os.utime(root/'MobileSafari-test.ips',(mtime,mtime)))
+p=reports(r)[0];assert p['mtime_epoch']==mtime and 7200<=p['age_seconds']<7230 and p['current_epoch']-p['mtime_epoch']==p['age_seconds'] and p['file_time_not_crash_time']
+mtime=int(time.time())+120
+r=run({'MobileSafari-test.ips':encoded()},lambda root:os.utime(root/'MobileSafari-test.ips',(mtime,mtime)))
+p=reports(r)[0];assert -120<=p['age_seconds']<0 and p['file_time_known']
 for bad in [b'',b'{}',b'{}\n{',b'not json\n{}',b'{}\n'+b'['*70+b']'*70,b'{}\n{"x":"\x00"}']:
  r=run({'MobileSafari-test.ips':bad});assert not any(x.get('status')=='parsed' for x in r)
 for key,value in [('bug_type','288'),('bug_type',True),('bug_type',309.0)]:
