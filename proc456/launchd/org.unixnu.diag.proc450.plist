@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>org.unixnu.diag.proc450</string>
+<key>ProgramArguments</key><array><string>/usr/libexec/unixnu-proc450</string><string>-w</string><string>-p</string></array>
+<key>UserName</key><string>root</string>
+<key>RunAtLoad</key><false/>
+<key>LaunchOnlyOnce</key><true/>
+<key>KeepAlive</key><false/>
+<key>ProcessType</key><string>Background</string>
+<key>Umask</key><integer>63</integer>
+</dict></plist>

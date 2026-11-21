@@ -1,0 +1,24 @@
+name: Bounded WebKit and filesystem456
+on:
+  push:
+    branches: [fsprobe456-20261121]
+    paths: ['proc456/**', '.github/workflows/proc456.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proc456:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Genuine SDK, sanitizer fixtures, finite smoke and owned signature
+        run: bash proc456/ci/build456.sh "${{ runner.temp }}/proc456"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-proc456
+          path: ${{ runner.temp }}/proc456/delivery/
+          if-no-files-found: error
+          retention-days: 7

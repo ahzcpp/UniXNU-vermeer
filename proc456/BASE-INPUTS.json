@@ -1,0 +1,14 @@
+{
+  "base": "Owned netsnap357 baseline via qualified proc389; local workspace omitted",
+  "files": {
+    "src/netsnap_memory351.h": "4ba3baf5c628f301e70da3b338050cd8d77eb12ce25b18151a1b9bdbc5c106e9",
+    "src/netsnap_procinfo.h": "94d985876fa81139576dd79d6d8951c86433d7fc8ac754607d2b0a7ba9e778f5",
+    "src/unixnu-netsnap357.c": "6352aee826c270ee80aca2dcf1d4d624d1abf116be24553853bd635ea73dbf1c",
+    "tests/abi_check.c": "eabcbc21c44abdb95d0e64b8e25423eee567e6567dd23b6429e84a974b0bf24a",
+    "tests/memory_abi.c": "68d30213a99fcc84fc697092b555bbd0c626a272ea1bd19e385526e229e79e97",
+    "tests/policy_check.py": "a6082a90f3d6fd0d822d8f4d710e9d8cd3f9afc449f13334e6b46e866a031e6f",
+    "ci/build.sh": "e7058ef6e6583c3a1b5439258c146fe8c61bf7980a8e191108a37883f2014cdb",
+    "launchd/entitlements.plist": "cd1358e7c8c3b01da98b5544e3c2ffcdc9d92cf9a3191e45038e8691ef2021ca",
+    "launchd/org.unixnu.diag.netsnap357.plist": "ff388dc1c8018c86a5b3134e65d8277b2595b8e3d9166ee6380b16903b7e270d"
+  }
+}

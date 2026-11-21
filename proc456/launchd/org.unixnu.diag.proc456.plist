@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>org.unixnu.diag.proc456</string>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/unixnu-proc456</string>
+		<string>-w</string>
+		<string>-p</string>
+		<string>-f</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>UserName</key>
+	<string>root</string>
+</dict>
+</plist>
