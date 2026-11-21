@@ -64,3 +64,9 @@ allowed tolerance produce negative age, not an underflow. Main must correlate wi
 its boot start and process lifetime. File mtime is NOT report capture time and a
 copied old report can have new mtime; file_time_not_crash_time=true is explicit.
 No filename, human date, device/boot UUID or raw timestamp string is printed.
+
+Each record is `CP464 ` + bounded JSON + newline, sent by one write (max2055
+bytes). Short/error writes end the run without fragmented retry. Alarm output
+uses the same prefix and one write. This reduces userspace splitting but does
+not guarantee atomicity against independent kernel console prints; reject broken
+JSON and resynchronize on CP464. Missing end/truncated output remains UNKNOWN.

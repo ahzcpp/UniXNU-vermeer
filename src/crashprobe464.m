@@ -19,7 +19,7 @@ static unsigned currentSerial;
 static time_t currentMtime,currentEpoch;
 static double monotime(void){struct timespec ts;if(clock_gettime(CLOCK_MONOTONIC,&ts))return -1;return ts.tv_sec+ts.tv_nsec/1e9;}
 static int expired(void){double t=monotime();return t<0||t>deadline;}
-static void timeoutHandler(int sig){(void)sig;static const char msg[]="{\"event\":\"end\",\"status\":\"unknown\",\"reason\":\"deadline\"}\n";ssize_t unused=write(1,msg,sizeof(msg)-1);(void)unused;_exit(124);}
+static void timeoutHandler(int sig){(void)sig;static const char msg[]="CP464 {\"event\":\"end\",\"status\":\"unknown\",\"reason\":\"deadline\"}\n";ssize_t unused=write(1,msg,sizeof(msg)-1);(void)unused;_exit(124);}
 static NSDictionary *dict(id x){return [x isKindOfClass:[NSDictionary class]]?x:nil;}
 static NSArray *array(id x){return [x isKindOfClass:[NSArray class]]?x:nil;}
 static NSString *string(id x){return [x isKindOfClass:[NSString class]]?x:nil;}
@@ -38,9 +38,12 @@ static void emit(NSDictionary *row){
   r[@"file_time_not_crash_time"]=@YES;row=r;
  }
  NSData *data=[NSJSONSerialization dataWithJSONObject:row options:0 error:NULL];
- if(!data||data.length>2048||outputBytes+data.length+1>60000)return;
- if(fwrite(data.bytes,1,data.length,stdout)!=data.length||fputc('\n',stdout)==EOF)_exit(74);
- outputBytes+=(unsigned)data.length+1;rows++;
+ if(!data||data.length>2048||outputBytes+data.length+7>60000)return;
+ char line[2055];memcpy(line,"CP464 ",6);memcpy(line+6,data.bytes,data.length);line[6+data.length]='\n';size_t length=data.length+7;
+ /* Exactly one write per complete line. Kernel prints can still interleave;
+    a short/error write ends this run, never retries a private partial fragment. */
+ if(write(STDOUT_FILENO,line,length)!=(ssize_t)length)_exit(74);
+ outputBytes+=(unsigned)length;rows++;
 }
 static void unknown(unsigned n,const char *reason,int err){emit(@{@"event":@"report",@"report":@(n),@"status":@"unknown",@"reason":@(reason),@"errno":@(err)});}
 static NSString *fixed(id x,NSArray *allow){NSString *s=string(x);return s&&[allow containsObject:s]?s:@"unknown";}

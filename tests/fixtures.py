@@ -15,7 +15,8 @@ def run(files,setup=None):
   assert result.returncode==0,(result.returncode,result.stderr.decode(errors='replace'))
   raw=result.stdout.decode();assert len(result.stdout)<=60000 and len(raw.splitlines())<=230
   for secret in [PRIVATE,URL,ID,tmp,'/private/var', 'MobileSafari-test.ips']:assert secret not in raw,secret
-  rows=[json.loads(x) for x in raw.splitlines()];assert rows and rows[-1]['event']=='end'
+  assert all(x.startswith('CP464 ') for x in raw.splitlines())
+  rows=[json.loads(x[6:]) for x in raw.splitlines()];assert rows and rows[-1]['event']=='end'
   for row in rows:assert set(row)<=keys,set(row)-keys
   assert rows[-1]['absence_proven'] is False and rows[-1]['atomic_snapshot'] is False
   cases+=1;return rows
