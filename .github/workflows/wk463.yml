@@ -1,0 +1,24 @@
+name: WebKit navigation observer463
+on:
+  push:
+    branches: [webkit-wk463-20261122]
+    paths: ['wk463/**', '.github/workflows/wk463.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wk463:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Public xnu headers, ABI and sanitizer fixtures, genuine SDK build, owned signature, runner smoke
+        run: bash wk463/ci/build463.sh "${{ runner.temp }}/wk463"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-wk463
+          path: ${{ runner.temp }}/wk463/delivery/
+          if-no-files-found: error
+          retention-days: 7
