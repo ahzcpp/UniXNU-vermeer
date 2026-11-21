@@ -40,9 +40,12 @@ identify the work that originally exhausted the time budget.
 CI uploads source plus synthetic tests only. It builds/tests Foundation with the
 genuine macOS SDK, builds/signs arm64 iOS16 with the genuine iPhoneOS SDK, verifies
 signature code pages/special slots and emits declared-library import metadata.
-Only text qualification artifacts are retained; NO binary is uploaded/downloaded.
+Only the owned diagnostic executable, its entitlements and hash/signature/CI
+proofs are retained. No SDK, Apple framework, fixture report, real crash report
+or key is uploaded. User explicitly authorized this owned-binary delivery.
 Local actual20H392 cache export/reexport resolution must follow CI success.
 Objective-C selectors are not dyld exports: import resolution does not prove
 selector availability, permissions, report schema on this phone or successful
-runtime. No source-only result authorizes production admission. Main must arrange
-a separately qualified delivery process if binary retention is later authorized.
+runtime. No source-only result authorizes production admission. Native delivery
+must pass actual downloaded signature/import qualification before main considers
+integration; no existing kernel exporter or production resource is changed here.

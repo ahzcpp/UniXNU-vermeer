@@ -1,4 +1,4 @@
-"""Runner-only native signature and import metadata. Never uploads the binary."""
+"""Runner native signature and import metadata for the owned diagnostic only."""
 from pathlib import Path
 import hashlib,json,plistlib,struct,sys
 p=Path(sys.argv[1]);out=Path(sys.argv[2]);b=p.read_bytes();magic,cpu,_,_,ncmds,_,_,_=struct.unpack_from('<8I',b);assert magic==0xfeedfacf and cpu==0x100000c
@@ -30,6 +30,6 @@ for i in range(n):
  if typ&0x0e==0 and typ&1 and ix:
   ordinal=desc>>8;assert 1<=ordinal<=len(libs);name=b[strings+ix:b.index(0,strings+ix)].decode();imports.append({'symbol':name,'declared_library':libs[ordinal-1],'weak_reference':bool(desc&0x40)})
 src=Path(__file__).resolve().parents[1];files={str(p.relative_to(src)):hashlib.sha256(p.read_bytes()).hexdigest() for folder in ['src','tests','ci','config'] for p in (src/folder).rglob('*') if p.is_file()}
-report={'status':'PASS_RUNNER_NATIVE_SIGNATURE_AND_IMPORT_EXTRACTION','binary_sha256':hashlib.sha256(b).hexdigest(),'binary_bytes':len(b),'cdhash':hashlib.sha256(cd).hexdigest()[:40],'platform':platform,'minos':minos,'pages_verified':nc,'special_slots_verified':ns,'entitlements':{'com.apple.private.security.no-container':True},'dylibs':libs,'imports':imports,'source':files,'actual20H392_imports':'PENDING_LOCAL_CACHE_CHECK','runtime_permissions':'UNKNOWN','binary_uploaded':False,'admitted_for_deployment':False}
+report={'status':'PASS_RUNNER_NATIVE_SIGNATURE_AND_IMPORT_EXTRACTION','binary_sha256':hashlib.sha256(b).hexdigest(),'binary_bytes':len(b),'cdhash':hashlib.sha256(cd).hexdigest()[:40],'platform':platform,'minos':minos,'pages_verified':nc,'special_slots_verified':ns,'entitlements':{'com.apple.private.security.no-container':True},'dylibs':libs,'imports':imports,'source':files,'actual20H392_imports':'PENDING_LOCAL_CACHE_CHECK','runtime_permissions':'UNKNOWN','owned_binary_delivery':True,'admitted_for_deployment':False}
 out.write_text(json.dumps(report,indent=2)+'\n')
-print(json.dumps({k:report[k] for k in ['status','binary_sha256','cdhash','pages_verified','binary_uploaded','admitted_for_deployment']}))
+print(json.dumps({k:report[k] for k in ['status','binary_sha256','cdhash','pages_verified','owned_binary_delivery','admitted_for_deployment']}))
