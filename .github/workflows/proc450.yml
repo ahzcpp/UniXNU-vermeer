@@ -1,0 +1,24 @@
+name: Bounded WebKit roles and sockets450
+on:
+  push:
+    branches: [network450-20261121]
+    paths: ['proc450/**', '.github/workflows/proc450.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proc450:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Genuine SDK ABI, sanitizers, finite runner smoke and owned 4K signature
+        run: bash proc450/ci/build450.sh "${{ runner.temp }}/proc450"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: diag-proc450
+          path: ${{ runner.temp }}/proc450/delivery/
+          if-no-files-found: error
+          retention-days: 7
