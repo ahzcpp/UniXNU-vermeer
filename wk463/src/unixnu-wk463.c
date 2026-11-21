@@ -28,6 +28,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 
 int proc_listallpids(void *buffer, int buffersize);
 int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
