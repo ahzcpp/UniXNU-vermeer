@@ -1,6 +1,6 @@
 """Execute exact production traversal on owned temporary fixtures under sanitizers."""
 from pathlib import Path
-import os,subprocess,tempfile
+import os,subprocess,tempfile,sys
 R=Path(__file__).resolve().parents[1];O=R/'host-out456';O.mkdir(exist_ok=True)
 fixture=r'''
 #include <assert.h>
@@ -19,7 +19,7 @@ static void ns351_memory_snapshot(int n,void (*f)(int,const char*,...)){(void)n;
 #include "fs456.h"
 static struct fs456_counts run(const char *p) {
  struct stat st;assert(!stat(p,&st));struct fs456_counts c={0};c.device=st.st_dev;c.deadline=fs456_ms()+5000;
- int fd=open(p,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);assert(fd>=0);fs456_walk(fd,0,&c);return c;
+ int fd=open(p,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);assert(fd>=0);fs456_walk(fd,0,&c);errno=0;assert(fcntl(fd,F_GETFD)==-1 && errno==EBADF);return c;
 }
 int main(int argc,char **argv) {
  assert(argc==2);struct fs456_counts c=run(argv[1]);
@@ -42,4 +42,4 @@ cmd=['clang','-std=gnu11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-fu
 subprocess.run(cmd,check=True)
 with tempfile.TemporaryDirectory(prefix='fs456-') as tmp:
  p=Path(tmp);(p/'ordinary').write_bytes(b'abc');(p/'shared').write_bytes(b'xxxxxxxx');os.link(p/'shared',p/'shared2');(p/'link').symlink_to('/');os.mkfifo(p/'fifo')
- subprocess.run([str(O/'fixture'),str(p)],check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
+ subprocess.run([str(O/'fixture'),str(p)],check=True,env=dict(os.environ,ASAN_OPTIONS=('detect_leaks=0' if sys.platform=='darwin' else 'detect_leaks=1')+':halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
