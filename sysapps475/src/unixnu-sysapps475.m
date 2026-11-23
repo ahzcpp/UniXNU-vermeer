@@ -23,7 +23,7 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "483.0"
+#define VERSION "484.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 		// the originals known, end SpringBoard once (SIGTERM, same uid); launchd relaunches it and it reads the current list.
 		if (did_rebuild && !unknown) {
 			int up = was_root && seteuid(0) == 0;   /* v482: listing other processes' paths needs root */
-			int pids[4096]; int n = proc_listallpids(pids, sizeof pids) / (int)sizeof(int); int hit = 0, named = 0;
+			int pids[4096]; int n = proc_listallpids(pids, sizeof pids);   /* v484: returns a pid COUNT, not bytes */ int hit = 0, named = 0;
 			row("springboard_scan as_root=%d pids=%d", up, n);
 			for (int i = 0; i < n && i < 4096; i++) {
 				char path[PROC_PIDPATHINFO_MAXSIZE];
