@@ -23,7 +23,7 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "482.0"
+#define VERSION "483.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -158,7 +158,9 @@ int main(int argc, char **argv)
 				char path[PROC_PIDPATHINFO_MAXSIZE];
 				if (pids[i] <= 1 || proc_pidpath(pids[i], path, sizeof path) <= 0) continue;
 				named++;
-				if (strcmp(path, "/System/Library/CoreServices/SpringBoard.app/SpringBoard")) continue;
+				const char *base = strrchr(path, '/'); base = base ? base + 1 : path;
+				if (strstr(path, "Spring")) row("springboard_candidate pid=%d path=%.200s", pids[i], path);
+				if (strcmp(base, "SpringBoard")) continue;   /* v483: by executable name; the port's path differs */
 				int k = kill(pids[i], SIGTERM); hit = 1;
 				row("springboard_restart pid=%d kill=%d errno=%d", pids[i], k, k ? errno : 0);
 			}
