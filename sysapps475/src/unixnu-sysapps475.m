@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "479.0"
+#define VERSION "480.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -106,6 +106,39 @@ int main(int argc, char **argv)
 				sleep(5);
 				unknown = count_unknown("after_root_rebuild");
 			} else row("root_rebuild skipped errno=%d", errno);
+		}
+		// v480: deletable system apps that LaunchServices records as removed stay hidden from SpringBoard even when registered.
+		SEL getRemoved = NSSelectorFromString(@"_LSPrivateRemovedSystemAppIdentifiers");
+		SEL setRemoved = NSSelectorFromString(@"_LSPrivateSetRemovedSystemAppIdentifiers:");
+		if ([ws respondsToSelector:getRemoved]) {
+			id removed = ((id (*)(id, SEL))objc_msgSend)(ws, getRemoved);
+			NSSet *rs = [removed isKindOfClass:[NSSet class]] ? removed : [removed isKindOfClass:[NSArray class]] ? [NSSet setWithArray:removed] : nil;
+			NSMutableSet *ours = [NSMutableSet setWithArray:ids]; if (rs) [ours intersectSet:rs]; else [ours removeAllObjects];
+			row("removed_system_apps class=%s count=%lu ours=%lu", removed ? object_getClassName(removed) : "(nil)", (unsigned long)rs.count, (unsigned long)ours.count);
+			row("removed_list %.700s", [[[rs allObjects] componentsJoinedByString:@" "] UTF8String] ?: "");
+			if (ours.count && [ws respondsToSelector:setRemoved]) {
+				NSMutableSet *keep = [rs mutableCopy]; [keep minusSet:ours];
+				id arg = [removed isKindOfClass:[NSArray class]] ? (id)[keep allObjects] : (id)keep;
+				((void (*)(id, SEL, id))objc_msgSend)(ws, setRemoved, arg);
+				id after = ((id (*)(id, SEL))objc_msgSend)(ws, getRemoved);
+				row("removed_system_apps_after count=%lu", (unsigned long)[after count]);
+			}
+		}
+		SEL removedApps = NSSelectorFromString(@"removedSystemApplications");
+		if ([ws respondsToSelector:removedApps]) {
+			id r = ((id (*)(id, SEL))objc_msgSend)(ws, removedApps);
+			row("removedSystemApplications count=%lu", (unsigned long)([r respondsToSelector:@selector(count)] ? [r count] : 0));
+		}
+		Class proxyc = NSClassFromString(@"LSApplicationProxy");
+		SEL forId = NSSelectorFromString(@"applicationProxyForIdentifier:");
+		for (NSString *bid in @[@"com.apple.calculator", @"com.apple.weather", @"com.apple.mobilenotes", @"com.apple.Preferences"]) {
+			if (![proxyc respondsToSelector:forId]) break;
+			id px = ((id (*)(id, SEL, id))objc_msgSend)(proxyc, forId, bid);
+			NSString *url = [px respondsToSelector:NSSelectorFromString(@"bundleURL")] ? [[px valueForKey:@"bundleURL"] description] : @"-";
+			NSString *type = [px respondsToSelector:NSSelectorFromString(@"applicationType")] ? [[px valueForKey:@"applicationType"] description] : @"-";
+			id state = [px respondsToSelector:NSSelectorFromString(@"appState")] ? [px valueForKey:@"appState"] : nil;
+			NSString *st = [[state description] stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+			row("proxy id=%s type=%s url=%.200s state=%.300s", bid.UTF8String, type.UTF8String ?: "-", url.UTF8String ?: "-", st.UTF8String ?: "-");
 		}
 		row("result=%s total=%lu unknown=%u view_missing=%u", unknown || missing ? "partial" : "done", (unsigned long)ids.count, unknown, missing);
 	}
