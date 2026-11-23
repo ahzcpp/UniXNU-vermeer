@@ -23,7 +23,7 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "481.0"
+#define VERSION "482.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -151,15 +151,19 @@ int main(int argc, char **argv)
 		// v481: SpringBoard builds its app list once at launch and is not told about a private rebuild. After a rebuild that made
 		// the originals known, end SpringBoard once (SIGTERM, same uid); launchd relaunches it and it reads the current list.
 		if (did_rebuild && !unknown) {
-			int pids[4096]; int n = proc_listallpids(pids, sizeof pids) / (int)sizeof(int); int hit = 0;
+			int up = was_root && seteuid(0) == 0;   /* v482: listing other processes' paths needs root */
+			int pids[4096]; int n = proc_listallpids(pids, sizeof pids) / (int)sizeof(int); int hit = 0, named = 0;
+			row("springboard_scan as_root=%d pids=%d", up, n);
 			for (int i = 0; i < n && i < 4096; i++) {
 				char path[PROC_PIDPATHINFO_MAXSIZE];
 				if (pids[i] <= 1 || proc_pidpath(pids[i], path, sizeof path) <= 0) continue;
+				named++;
 				if (strcmp(path, "/System/Library/CoreServices/SpringBoard.app/SpringBoard")) continue;
 				int k = kill(pids[i], SIGTERM); hit = 1;
 				row("springboard_restart pid=%d kill=%d errno=%d", pids[i], k, k ? errno : 0);
 			}
-			if (!hit) row("springboard_restart not_found");
+			if (!hit) row("springboard_restart not_found named=%d", named);
+			if (up && seteuid(501)) { row("result=error step=redrop2 errno=%d", errno); return 5; }
 		}
 		row("result=%s total=%lu unknown=%u view_missing=%u", unknown || missing ? "partial" : "done", (unsigned long)ids.count, unknown, missing);
 	}
