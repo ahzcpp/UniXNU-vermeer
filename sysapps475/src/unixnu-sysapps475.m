@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "475.0"
+#define VERSION "476.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -57,7 +57,29 @@ int main(int argc, char **argv)
 	if (fd >= 0 && !fstat(fd, &st) && S_ISCHR(st.st_mode)) g_console = fd; else if (fd >= 0) close(fd);
 	row("start version=%s uid=%u euid=%u", VERSION, getuid(), geteuid());
 
+	// v476: the Data copy of /private/var/staged_system_apps can be empty (an earlier first-boot migration consumed it)
+	// while the kernel's "copied" marker still exists, so sheng-staged-apps never copies again. As root: count the staged
+	// entries; if there are none and the marker exists, remove only that port-owned marker (the next boot re-copies the
+	// 33 apps from the OS volume) and stop -- running the migrator with nothing staged sends it to the App Store.
 	if (geteuid() == 0) {
+		static const char *marker_k = "/private/var/db/.sheng-staged-apps";
+		int entries = -1, derr = 0;
+		NSError *lerr = nil;
+		NSArray *list = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/private/var/staged_system_apps" error:&lerr];
+		if (list) entries = (int)list.count; else derr = (int)lerr.code;
+		struct stat ms; int have_marker = lstat(marker_k, &ms) == 0 && S_ISREG(ms.st_mode);
+		struct stat ds; int have_dir = lstat("/private/var/staged_system_apps", &ds) == 0;
+		row("root_check staged_entries=%d list_error=%d dir=%d dir_uid=%d dir_mode=%o kernel_marker=%d", entries, derr, have_dir,
+		    have_dir ? (int)ds.st_uid : -1, have_dir ? (unsigned)(ds.st_mode & 07777) : 0u, have_marker);
+		if (entries <= 0) {
+			if (have_marker) {
+				int u = unlink(marker_k);
+				row("result=restage_requested unlink=%d errno=%d (next boot copies the OS-volume staged apps)", u, u ? errno : 0);
+			} else {
+				row("result=nothing_staged_no_marker");
+			}
+			return 0;
+		}
 		if (setgid(501) || setuid(501)) { row("result=error step=drop_privileges errno=%d", errno); return 2; }
 	}
 	setenv("HOME", "/var/mobile", 1); setenv("USER", "mobile", 1); setenv("LOGNAME", "mobile", 1);
@@ -82,6 +104,7 @@ int main(int argc, char **argv)
 		NSArray *staged = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/staged_system_apps" error:nil];
 		row("staged count=%lu", (unsigned long)staged.count);
 		ns_rows(@"staged_list", staged);
+		if (staged.count == 0) { row("result=skipped reason=nothing_staged"); return 0; }
 
 		if (getStatus) {
 			BOOL done = NO; NSError *err = nil; BOOL ok = getStatus(&done, &err);
