@@ -5,12 +5,17 @@
 // SpringBoard until registered. For each <name>.app in the copy whose /Applications view exists and whose bundle id
 // is not yet known to LaunchServices: -[LSApplicationWorkspace registerApplication:], then, if still unknown,
 // -registerApplicationDictionary: with a system-app record. Runs as mobile (501) after dropping root.
-// No file writes, no deletion, no network, no signals. Rows are prefixed "SYSAPPS475 ".
+// v481 sends one SIGTERM to SpringBoard after a rebuild (respring). No file writes, no deletion, no network. Rows: "SYSAPPS475 ".
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
 #include <dlfcn.h>
 #include <errno.h>
+/* libproc is not in the iPhoneOS SDK headers; the functions are exported by libSystem (libsystem_kernel). */
+int proc_listallpids(void *buffer, int buffersize);
+int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
+#define PROC_PIDPATHINFO_MAXSIZE 4096
+#include <signal.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,7 +23,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "480.0"
+#define VERSION "481.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -90,7 +95,9 @@ int main(int argc, char **argv)
 		unsigned unknown = count_unknown("before");
 		SEL rb = NSSelectorFromString(@"_LSPrivateRebuildApplicationDatabasesForSystemApps:internal:user:");
 		SEL rbu = NSSelectorFromString(@"_LSPrivateRebuildApplicationDatabasesForSystemApps:internal:user:uid:");
+		BOOL did_rebuild = NO;
 		if (unknown && [ws respondsToSelector:rb]) {
+			did_rebuild = YES;
 			NSDate *t0 = [NSDate date];
 			BOOL r = ((BOOL (*)(id, SEL, BOOL, BOOL, BOOL))objc_msgSend)(ws, rb, YES, YES, NO);
 			row("rebuild as=mobile system=1 internal=1 user=0 result=%d seconds=%.1f", r, -[t0 timeIntervalSinceNow]);
@@ -99,6 +106,7 @@ int main(int argc, char **argv)
 		}
 		if (unknown && was_root && [ws respondsToSelector:rbu]) {
 			if (seteuid(0) == 0) {
+				did_rebuild = YES;
 				NSDate *t0 = [NSDate date];
 				BOOL r = ((BOOL (*)(id, SEL, BOOL, BOOL, BOOL, unsigned))objc_msgSend)(ws, rbu, YES, YES, NO, 501u);
 				row("rebuild as=root uid_arg=501 result=%d seconds=%.1f", r, -[t0 timeIntervalSinceNow]);
@@ -139,6 +147,19 @@ int main(int argc, char **argv)
 			id state = [px respondsToSelector:NSSelectorFromString(@"appState")] ? [px valueForKey:@"appState"] : nil;
 			NSString *st = [[state description] stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
 			row("proxy id=%s type=%s url=%.200s state=%.300s", bid.UTF8String, type.UTF8String ?: "-", url.UTF8String ?: "-", st.UTF8String ?: "-");
+		}
+		// v481: SpringBoard builds its app list once at launch and is not told about a private rebuild. After a rebuild that made
+		// the originals known, end SpringBoard once (SIGTERM, same uid); launchd relaunches it and it reads the current list.
+		if (did_rebuild && !unknown) {
+			int pids[4096]; int n = proc_listallpids(pids, sizeof pids) / (int)sizeof(int); int hit = 0;
+			for (int i = 0; i < n && i < 4096; i++) {
+				char path[PROC_PIDPATHINFO_MAXSIZE];
+				if (pids[i] <= 1 || proc_pidpath(pids[i], path, sizeof path) <= 0) continue;
+				if (strcmp(path, "/System/Library/CoreServices/SpringBoard.app/SpringBoard")) continue;
+				int k = kill(pids[i], SIGTERM); hit = 1;
+				row("springboard_restart pid=%d kill=%d errno=%d", pids[i], k, k ? errno : 0);
+			}
+			if (!hit) row("springboard_restart not_found");
 		}
 		row("result=%s total=%lu unknown=%u view_missing=%u", unknown || missing ? "partial" : "done", (unsigned long)ids.count, unknown, missing);
 	}

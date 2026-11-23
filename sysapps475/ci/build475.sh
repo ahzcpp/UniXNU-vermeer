@@ -31,7 +31,7 @@ ent = plistlib.loads((src / 'launchd/entitlements.plist').read_bytes())
 assert plistlib.loads((d / 'entitlements.xml').read_bytes()) == ent
 libs = [x.split()[0] for x in (d / 'dylibs.txt').read_text().splitlines()[1:] if x.strip()]
 imp = sorted({x.strip() for x in (d / 'imports.txt').read_text().splitlines() if x.strip()})
-for bad in ('_task_for_pid', '_kill', '_ptrace', '_socket', '_connect', '_sendto'):
+for bad in ('_task_for_pid', '_ptrace', '_socket', '_connect', '_sendto'):
     assert bad not in imp, bad
 cd = re.search(r'CDHash=([0-9a-f]{40})', (d / 'codesign.txt').read_text()).group(1)
 files = {p.name: {'sha256': H(p), 'bytes': p.stat().st_size} for p in sorted(d.iterdir()) if p.is_file() and p.name != 'build475-report.json'}
