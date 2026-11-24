@@ -23,7 +23,7 @@ int proc_pidpath(int pid, void *buffer, uint32_t buffersize);
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define VERSION "484.0"
+#define VERSION "491.0"
 static int g_console = -1;
 
 static void row(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -62,7 +62,6 @@ int main(int argc, char **argv)
 	}
 	setenv("HOME", "/var/mobile", 1); setenv("USER", "mobile", 1); setenv("LOGNAME", "mobile", 1);
 	row("identity uid=%u euid=%u gid=%u", getuid(), geteuid(), getgid());
-	sleep(60);
 	@autoreleasepool {
 		void *cs = dlopen("/System/Library/Frameworks/CoreServices.framework/CoreServices", RTLD_NOW);
 		void *mcs = dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_NOW);
@@ -70,6 +69,11 @@ int main(int argc, char **argv)
 		id ws = wsc ? ((id (*)(id, SEL))objc_msgSend)(wsc, NSSelectorFromString(@"defaultWorkspace")) : nil;
 		row("frameworks coreservices=%d mobilecoreservices=%d workspace=%d", cs != NULL, mcs != NULL, ws != nil);
 		if (!ws) { row("result=error step=workspace"); return 3; }
+		// v491: no fixed 60 s wait. Start as soon as LaunchServices answers for a stock app that is always registered
+		// (Settings), so the rebuild and the one SpringBoard restart happen while the phone is still on the lock screen.
+		int waited = 0;
+		while (waited < 120 && !installed(ws, @"com.apple.Preferences")) { sleep(1); waited++; }
+		row("ls_ready waited=%d ready=%d", waited, installed(ws, @"com.apple.Preferences"));
 		NSFileManager *fm = [NSFileManager defaultManager];
 		NSError *lerr = nil;
 		NSArray *copied = [fm contentsOfDirectoryAtPath:@"/private/var/k70-system-apps" error:&lerr];
@@ -101,7 +105,7 @@ int main(int argc, char **argv)
 			NSDate *t0 = [NSDate date];
 			BOOL r = ((BOOL (*)(id, SEL, BOOL, BOOL, BOOL))objc_msgSend)(ws, rb, YES, YES, NO);
 			row("rebuild as=mobile system=1 internal=1 user=0 result=%d seconds=%.1f", r, -[t0 timeIntervalSinceNow]);
-			sleep(5);
+			sleep(1);
 			unknown = count_unknown("after_mobile_rebuild");
 		}
 		if (unknown && was_root && [ws respondsToSelector:rbu]) {
